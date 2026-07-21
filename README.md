@@ -140,8 +140,16 @@ with `EVB_TEST_NETWORK=1` to exercise live Edge TTS as well.
 
 ## Documentation
 
-Further docs live in `docs/` and are written as the corresponding features land.
+Further docs live in `docs/`:
 
+- [`docs/install.md`](docs/install.md) — install, run, data directory and
+  configuration precedence
+- [`docs/user-guide.md`](docs/user-guide.md) — the full tab-by-tab workflow for
+  building one video
+- [`docs/architecture.md`](docs/architecture.md) — how the backend, frontend and
+  14-stage render pipeline fit together
+- [`docs/troubleshooting.md`](docs/troubleshooting.md) — FFmpeg builds, render
+  failures and the error codes behind common problems
 - [`docs/content-schema.md`](docs/content-schema.md) — the importable content
   package format (narration, titles, image prompts, framing hints)
 
@@ -189,9 +197,9 @@ hardening pass before this is a finished product.
   (all surfaces read from the `theme.css` palette variables); light mode came
   through cleanly, and the Music tab's source toggle was tidied up so its
   active state no longer looks disabled
-- [ ] **End-user documentation** — install guide, user guide, architecture
-  doc, FFmpeg/render troubleshooting (currently only the content schema is
-  written up)
+- [x] **End-user documentation** — install guide, tab-by-tab user guide,
+  architecture doc and an FFmpeg/render troubleshooting guide, all under
+  `docs/` and linked above
 - [ ] **Packaging** — a production build/launch path beyond `./dev.sh`
   (the plan keeps this Tauri/Electron-ready but nothing is wired up yet)
 - [x] **Frontend test coverage** — component tests now cover Content, Scenes,
