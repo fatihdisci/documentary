@@ -200,42 +200,22 @@ def _tts_check() -> Check:
     'imported' (upload your own audio) is always available, so a failure here
     never means the app cannot produce a video — only that online TTS is down.
     """
-    available = ["imported"]
-    details: list[str] = ["imported: always available (upload audio per scene)"]
+    from app.tts.registry import provider_status_summary
 
-    try:
-        import httpx
+    summary = provider_status_summary()
+    available = [name for name, status in summary.items() if status.available]
+    online = [name for name in available if not summary[name].offline]
 
-        response = httpx.get(
-            "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list",
-            params={"trustedclienttoken": "6A5AA1D4EAFF4E9FB37E23D68491D6F4"},
-            timeout=6.0,
-        )
-        if response.status_code == 200:
-            available.append("edge")
-            details.append(f"edge: reachable ({len(response.json())} voices)")
-        else:
-            details.append(f"edge: endpoint returned HTTP {response.status_code}")
-    except Exception as exc:  # noqa: BLE001 - any network failure is just "unavailable"
-        details.append(f"edge: unreachable ({type(exc).__name__}: {exc})")
-
-    if get_settings().get_secret("elevenlabs_api_key"):
-        available.append("elevenlabs")
-        details.append("elevenlabs: API key configured")
-    else:
-        details.append("elevenlabs: no API key configured (optional)")
-
-    online = [n for n in available if n != "imported"]
     return Check(
         id="tts",
         label="Narration sources",
         status="ok" if online else "warn",
-        value=", ".join(available),
-        detail=" · ".join(details),
+        value=", ".join(available) if available else "none",
+        detail=" · ".join(f"{name}: {status.message}" for name, status in sorted(summary.items())),
         suggestion=(
             "" if online
-            else "No online TTS provider is reachable. You can still upload narration audio "
-                 "per scene and render the project completely offline."
+            else "No online TTS provider is configured or reachable. You can still upload "
+                 "narration audio per scene and render the project completely offline."
         ),
     )
 

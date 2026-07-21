@@ -8,6 +8,12 @@
 
 import type { ApiErrorPayload, DiagnosticsReport, SettingsResponse, AppSettings } from './types'
 import type {
+  GenerateResponse,
+  TimingResponse,
+  TTSProviderStatus,
+  Voice,
+} from './audio-types'
+import type {
   ImageInfo,
   ImportContentResponse,
   Project,
@@ -221,6 +227,25 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ sceneIds }),
     }),
+
+  // --- audio / tts ---
+  listProviders: () => request<{ providers: TTSProviderStatus[] }>('/api/tts/providers'),
+  listVoices: (provider: string) =>
+    request<Voice[]>(`/api/tts/voices?provider=${encodeURIComponent(provider)}`),
+  generateNarration: (slug: string, unitIds: string[] = [], force = false) =>
+    request<GenerateResponse>(`/api/projects/${slug}/audio/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ unitIds, force }),
+    }),
+  importAudio: (slug: string, unitId: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<GenerateResponse>(`/api/projects/${slug}/audio/import/${unitId}`, {
+      method: 'POST',
+      body: form,
+    })
+  },
+  getTiming: (slug: string) => request<TimingResponse>(`/api/projects/${slug}/audio/timing`),
 
   // --- maintenance ---
   listBackups: (slug: string) => request<string[]>(`/api/projects/${slug}/backups`),

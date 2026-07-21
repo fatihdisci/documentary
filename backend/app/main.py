@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import diagnostics, projects, settings_api
+from app.api import audio, diagnostics, projects, settings_api
 from app.config import configure_logging, get_settings
 from app.errors import AppError, ErrorCode, ErrorPayload
 
@@ -107,6 +107,8 @@ def health() -> dict[str, str]:
 app.include_router(diagnostics.router)
 app.include_router(settings_api.router)
 app.include_router(projects.router)
+app.include_router(audio.router)
+app.include_router(audio.providers_router)
 
 
 def mount_frontend() -> None:

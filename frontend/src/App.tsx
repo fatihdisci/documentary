@@ -10,6 +10,7 @@ import { Diagnostics } from '@/components/Diagnostics'
 import { ProjectsPage } from '@/routes/ProjectsPage'
 import { ContentPage } from '@/routes/ContentPage'
 import { ScenesPage } from '@/routes/ScenesPage'
+import { AudioPage } from '@/routes/AudioPage'
 import { SettingsPage } from '@/routes/SettingsPage'
 import { useProjectStore, flushPendingSave } from '@/store/project'
 import { useThemeStore } from '@/store/theme'
@@ -29,7 +30,7 @@ const NAV: { id: Route; label: string; icon: string; needsProject: boolean; mile
   { id: 'projects', label: 'Projects', icon: '▤', needsProject: false, milestone: '' },
   { id: 'content', label: 'Content', icon: '✎', needsProject: true, milestone: '' },
   { id: 'scenes', label: 'Scenes', icon: '▦', needsProject: true, milestone: '' },
-  { id: 'audio', label: 'Audio', icon: '♪', needsProject: true, milestone: 'Milestone 3' },
+  { id: 'audio', label: 'Audio', icon: '♪', needsProject: true, milestone: '' },
   { id: 'style', label: 'Style', icon: '◐', needsProject: true, milestone: 'Milestone 4' },
   { id: 'export', label: 'Export', icon: '↑', needsProject: true, milestone: 'Milestone 6' },
   { id: 'settings', label: 'Settings', icon: '⚙', needsProject: false, milestone: '' },
@@ -102,6 +103,8 @@ export default function App() {
         return <ContentPage />
       case 'scenes':
         return <ScenesPage />
+      case 'audio':
+        return <AudioPage />
       case 'settings':
         return <SettingsPage />
       case 'diagnostics':
