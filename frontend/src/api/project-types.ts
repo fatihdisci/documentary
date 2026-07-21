@@ -234,6 +234,11 @@ export interface ProjectSummary {
   thumbnailUrl: string | null
 }
 
+export interface MusicTrack {
+  filename: string
+  sizeBytes: number
+}
+
 export interface ImageInfo {
   filename: string
   width: number

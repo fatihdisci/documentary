@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.errors import ConflictError, ErrorCode, NotFoundError, ValidationError
 from app.models.base import CamelModel
 from app.models.content import ContentPackage
+from app.models.enums import MusicSource
 from app.models.project import Project, Scene
 from app.storage import media
 from app.storage.content_import import (
@@ -539,6 +540,11 @@ def serve_music(slug: str, filename: str) -> FileResponse:
     return _serve(_paths(slug).music, filename)
 
 
+@router.get("/{slug}/music", response_model=list[media.MusicTrack])
+def list_music(slug: str) -> list[media.MusicTrack]:
+    return media.list_music(_paths(slug))
+
+
 @router.post("/{slug}/music", response_model=dict, status_code=201)
 async def upload_music(slug: str, file: UploadFile = File(...)) -> dict:
     paths = _paths(slug)
@@ -546,6 +552,22 @@ async def upload_music(slug: str, file: UploadFile = File(...)) -> dict:
     data = await _read_upload(file, max_mb=settings.mutable.max_upload_mb * 4)
     stored = media.store_music(paths, data, file.filename or "music.mp3")
     return {"filename": stored.name}
+
+
+@router.delete("/{slug}/music/{filename}", status_code=204)
+def delete_music(slug: str, filename: str) -> None:
+    repository = repo()
+    project = repository.load(slug)
+    paths = repository.paths_for(slug)
+    media.delete_music(paths, filename)
+    # If the project was pointing at the deleted track, fall back to no music
+    # so a stale reference can never break a render. Clear the source before the
+    # file: the model rejects source='uploaded' with no file.
+    if project.music.file == filename:
+        if project.music.source == MusicSource.UPLOADED:
+            project.music.source = MusicSource.NONE
+        project.music.file = None
+        repository.save(project)
 
 
 # --- helpers ----------------------------------------------------------------

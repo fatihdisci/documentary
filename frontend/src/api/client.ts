@@ -21,6 +21,7 @@ import type {
 import type {
   ImageInfo,
   ImportContentResponse,
+  MusicTrack,
   Project,
   ProjectResponse,
   ProjectSummary,
@@ -251,6 +252,21 @@ export const api = {
     })
   },
   getTiming: (slug: string) => request<TimingResponse>(`/api/projects/${slug}/audio/timing`),
+
+  // --- music library ---
+  listMusic: (slug: string) => request<MusicTrack[]>(`/api/projects/${slug}/music`),
+  uploadMusic: (slug: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<{ filename: string }>(`/api/projects/${slug}/music`, {
+      method: 'POST',
+      body: form,
+    })
+  },
+  deleteMusic: (slug: string, filename: string) =>
+    request<void>(`/api/projects/${slug}/music/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+    }),
 
   // --- render ---
   preflight: (slug: string) =>

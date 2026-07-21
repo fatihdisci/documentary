@@ -46,6 +46,11 @@ class ImageInfo(CamelModel):
     warnings: list[str] = []
 
 
+class MusicTrack(CamelModel):
+    filename: str
+    size_bytes: int
+
+
 @dataclass(frozen=True)
 class StoredImage:
     path: Path
@@ -243,7 +248,31 @@ def store_music(paths: ProjectPaths, data: bytes, original_name: str) -> Path:
     paths.music.mkdir(parents=True, exist_ok=True)
     target = safe_join(paths.music, filename)
     target.write_bytes(data)
+    logger.info("stored music %s in %s", filename, paths.root.name)
     return target
+
+
+def list_music(paths: ProjectPaths) -> list[MusicTrack]:
+    """Every uploaded track in the project's ``music/`` folder."""
+    if not paths.music.is_dir():
+        return []
+    tracks: list[MusicTrack] = []
+    for path in sorted(paths.music.iterdir()):
+        if path.suffix.lower() not in SUPPORTED_AUDIO_SUFFIXES or not path.is_file():
+            continue
+        tracks.append(MusicTrack(filename=path.name, size_bytes=path.stat().st_size))
+    return tracks
+
+
+def delete_music(paths: ProjectPaths, filename: str) -> None:
+    target = safe_join(paths.music, filename)
+    if not target.is_file():
+        raise ValidationError(
+            ErrorCode.MISSING_IMAGE,
+            f"Track '{filename}' is not in this project.",
+        )
+    target.unlink()
+    logger.info("deleted music %s from %s", filename, paths.root.name)
 
 
 def _unique_filename(directory: Path, filename: str) -> str:

@@ -416,7 +416,9 @@ export function AudioPage() {
                 ? 'A simple synthesized drone. Useful for testing; replace it with a real track for publishing.'
                 : project.music.source === 'none'
                   ? 'No background music will be mixed in.'
-                  : 'Upload a track below.'}
+                  : project.music.file
+                    ? `Using “${project.music.file}”. Manage tracks on the Music tab.`
+                    : 'No track selected yet — upload and pick one on the Music tab.'}
             </span>
           </label>
           <label>

@@ -1,0 +1,58 @@
+.music-source-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.music-source-row .hint {
+  font-size: 12.5px;
+}
+
+.music-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.music-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.music-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.music-table tr.selected {
+  background: var(--accent-dim);
+}
+
+.music-table .track-name {
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.music-table audio {
+  height: 32px;
+  max-width: 240px;
+}
+
+.track-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* `.tag` base styling is global (ProjectsPage.css); only the ok variant is new. */
+.tag-ok {
+  color: var(--ok);
+  background: var(--ok-dim);
+  border-color: var(--ok);
+}

@@ -7,7 +7,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from tests.factories import load_dodo_package, make_image_bytes
+from tests.factories import load_dodo_package, make_image_bytes, make_wav_bytes
 
 
 def create_project(client: TestClient, name: str = "The Dodo") -> str:
@@ -317,6 +317,60 @@ class TestScenes:
         response = client.post(
             f"/api/projects/{slug}/scenes/{scene_id}/image", json={"imageFile": "ghost.png"}
         )
+        assert response.status_code == 422
+        assert response.json()["code"] == "missing_image"
+
+
+class TestMusicLibrary:
+    def _upload(self, client: TestClient, slug: str, name: str = "bed.wav") -> str:
+        response = client.post(
+            f"/api/projects/{slug}/music",
+            files=[("file", (name, io.BytesIO(make_wav_bytes(1.0)), "audio/wav"))],
+        )
+        assert response.status_code == 201, response.text
+        return response.json()["filename"]
+
+    def test_list_is_empty_for_a_new_project(self, client: TestClient) -> None:
+        slug = create_project(client)
+        assert client.get(f"/api/projects/{slug}/music").json() == []
+
+    def test_upload_then_list_reports_the_track(self, client: TestClient) -> None:
+        slug = create_project(client)
+        name = self._upload(client, slug)
+        tracks = client.get(f"/api/projects/{slug}/music").json()
+        assert [t["filename"] for t in tracks] == [name]
+        assert tracks[0]["sizeBytes"] > 0
+
+    def test_duplicate_names_are_kept_distinct(self, client: TestClient) -> None:
+        slug = create_project(client)
+        first = self._upload(client, slug, "bed.wav")
+        second = self._upload(client, slug, "bed.wav")
+        assert first != second
+        assert len(client.get(f"/api/projects/{slug}/music").json()) == 2
+
+    def test_delete_removes_the_track(self, client: TestClient) -> None:
+        slug = create_project(client)
+        name = self._upload(client, slug)
+        assert client.delete(f"/api/projects/{slug}/music/{name}").status_code == 204
+        assert client.get(f"/api/projects/{slug}/music").json() == []
+
+    def test_deleting_the_selected_track_clears_the_reference(self, client: TestClient) -> None:
+        slug = create_project(client)
+        name = self._upload(client, slug)
+        project = client.get(f"/api/projects/{slug}").json()["project"]
+        project["music"]["source"] = "uploaded"
+        project["music"]["file"] = name
+        client.put(f"/api/projects/{slug}", json=project)
+
+        client.delete(f"/api/projects/{slug}/music/{name}")
+
+        music = client.get(f"/api/projects/{slug}").json()["project"]["music"]
+        assert music["file"] is None
+        assert music["source"] == "none"
+
+    def test_deleting_a_missing_track_is_a_clear_error(self, client: TestClient) -> None:
+        slug = create_project(client)
+        response = client.delete(f"/api/projects/{slug}/music/ghost.wav")
         assert response.status_code == 422
         assert response.json()["code"] == "missing_image"
 

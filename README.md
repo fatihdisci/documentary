@@ -88,15 +88,17 @@ found. If it says *Ready to render*, you are good.
    API key), then **Generate missing** to synthesize narration for every
    scene. No internet? Upload your own audio file per scene instead — the app
    works fully offline that way. This tab also shows the computed video
-   runtime and lets you choose background music (none / your own upload / a
-   basic generated ambient bed).
-6. **Style** *(optional)* — tune the look of every overlay: font, size,
+   runtime and the mixing controls (voice/music levels, ducking, loudness).
+6. **Music** *(optional)* — upload one or more background tracks, audition
+   them in the browser, and pick the one the render uses. Or leave it on
+   *No music* / the basic generated ambient bed.
+7. **Style** *(optional)* — tune the look of every overlay: font, size,
    colour, position, drop shadow, outline and background box for titles,
    subtitles and captions (each editable on its own tab, with a live preview
    and a per-class reset), plus the default scene transition, subtitle
    cue-timing bounds, the readability scrim and an optional watermark. Sensible
    defaults ship out of the box, so you can skip this entirely.
-7. **Export** — check the preflight panel (it lists anything blocking a
+8. **Export** — check the preflight panel (it lists anything blocking a
    render), pick a quality preset, and press **Render video**. Progress
    streams live; you can cancel or retry at any point. Finished renders and
    every side-car file (SRT, narration-only audio, description, thumbnail
@@ -129,8 +131,8 @@ returned by any endpoint, written to a log, or included in a project bundle.
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest      # backend (494 passing)
-cd frontend && npm test                       # frontend (21 passing)
+cd backend && .venv/bin/python -m pytest      # backend (500 passing)
+cd frontend && npm test                       # frontend (27 passing)
 ```
 
 Backend tests that need a real TTS network call are skipped by default; run
@@ -192,5 +194,6 @@ hardening pass before this is a finished product.
 - [ ] **Frontend test coverage** — most new pages (Audio, Export, Content,
   Scenes) don't have component tests yet; Diagnostics, the Style page and the
   project store do
-- [ ] **Music library UI** — uploading/managing tracks in `music/` has a
-  backend endpoint but no dedicated screen yet
+- [x] **Music library UI** — a dedicated Music tab to upload, audition, delete
+  and pick the background track; deleting the selected track clears the
+  project reference server-side so a stale path can't break a render
