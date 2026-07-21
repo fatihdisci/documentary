@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import audio, diagnostics, projects, settings_api
+from app.api import audio, diagnostics, projects, render, settings_api
 from app.config import configure_logging, get_settings
 from app.errors import AppError, ErrorCode, ErrorPayload
 
@@ -54,7 +54,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except AppError as exc:
         logger.error("FFmpeg unavailable at startup: %s", exc)
 
+    # Loads render history and marks any render that was killed mid-run.
+    from app.render.jobs import get_job_manager
+
+    manager = get_job_manager()
+    await manager.start()
+
     yield
+
+    await manager.stop()
     logger.info("backend shutting down")
 
 
@@ -109,6 +117,8 @@ app.include_router(settings_api.router)
 app.include_router(projects.router)
 app.include_router(audio.router)
 app.include_router(audio.providers_router)
+app.include_router(render.router)
+app.include_router(render.jobs_router)
 
 
 def mount_frontend() -> None:

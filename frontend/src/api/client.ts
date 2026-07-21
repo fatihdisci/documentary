@@ -8,6 +8,11 @@
 
 import type { ApiErrorPayload, DiagnosticsReport, SettingsResponse, AppSettings } from './types'
 import type {
+  ExportEntry,
+  PreflightResponse,
+  RenderJob,
+} from './render-types'
+import type {
   GenerateResponse,
   TimingResponse,
   TTSProviderStatus,
@@ -246,6 +251,23 @@ export const api = {
     })
   },
   getTiming: (slug: string) => request<TimingResponse>(`/api/projects/${slug}/audio/timing`),
+
+  // --- render ---
+  preflight: (slug: string) =>
+    request<PreflightResponse>(`/api/projects/${slug}/render/preflight`),
+  startRender: (slug: string, quality?: string) =>
+    request<RenderJob>(`/api/projects/${slug}/render`, {
+      method: 'POST',
+      body: JSON.stringify({ quality: quality ?? null }),
+    }),
+  getJob: (jobId: string) => request<RenderJob>(`/api/jobs/${jobId}`),
+  activeJob: () => request<RenderJob | null>('/api/jobs/active'),
+  cancelJob: (jobId: string) =>
+    request<RenderJob>(`/api/jobs/${jobId}/cancel`, { method: 'POST' }),
+  retryJob: (jobId: string) =>
+    request<RenderJob>(`/api/jobs/${jobId}/retry`, { method: 'POST' }),
+  projectRenders: (slug: string) => request<RenderJob[]>(`/api/projects/${slug}/renders`),
+  listExports: (slug: string) => request<ExportEntry[]>(`/api/projects/${slug}/exports`),
 
   // --- maintenance ---
   listBackups: (slug: string) => request<string[]>(`/api/projects/${slug}/backups`),

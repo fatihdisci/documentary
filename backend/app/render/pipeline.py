@@ -30,7 +30,12 @@ from app.models.project import Project, Scene, Section
 from app.render import transitions
 from app.render.audio_mix import build_audio_plan, render_narration_only, resolve_music_file
 from app.render.codecs import AUDIO_ARGS, estimate_disk_mb, quality_spec
-from app.render.ffmpeg import CancelledRender, FFmpegRunner, base_output_args
+from app.render.ffmpeg import (
+    CancelledRender,
+    FFmpegRunner,
+    base_output_args,
+    progress_args,
+)
 from app.render.scene_clip import SceneClip, render_scene_clip, resolve_image
 from app.render.validate import ValidationReport, validate_output
 from app.storage.layout import ProjectPaths
@@ -404,7 +409,7 @@ class RenderPipeline:
         fps = self.project.video.fps
         total = timeline.total_duration_seconds
 
-        args: list[str] = [ffmpeg, "-hide_banner", "-nostdin", "-y"]
+        args: list[str] = [ffmpeg, "-hide_banner", "-nostdin", "-y", *progress_args()]
         for clip in clips:
             args += ["-i", str(clip.path)]
 

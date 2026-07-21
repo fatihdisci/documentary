@@ -61,8 +61,12 @@ OPTIONAL_FILTERS: tuple[str, ...] = (
 REQUIRED_ENCODERS: tuple[str, ...] = ("libx264", "aac")
 OPTIONAL_ENCODERS: tuple[str, ...] = ("h264_videotoolbox", "prores_ks", "prores", "aac_at")
 
-_PROGRESS_TIME = re.compile(r"out_time_ms=(\d+)")
-_PROGRESS_FRAME = re.compile(r"^frame=(\d+)$", re.MULTILINE)
+#: FFmpeg reports progress two different ways. ``out_time_ms`` only appears when
+#: ``-progress`` is passed; ordinary stderr carries ``time=HH:MM:SS.mm``. Both
+#: are parsed, because relying on the first alone leaves the progress bar frozen
+#: for the whole encode.
+_PROGRESS_OUT_TIME_MS = re.compile(r"out_time_ms=(\d+)")
+_PROGRESS_TIME = re.compile(r"\btime=(\d+):(\d{2}):(\d{2})\.(\d+)")
 
 
 @dataclass(frozen=True)
@@ -300,23 +304,44 @@ class FFmpegRunner:
         stderr_chunks: list[str] = []
 
         async def pump_stderr() -> None:
+            """Read stderr in chunks, splitting on both newline and carriage return.
+
+            FFmpeg rewrites its progress line in place using ``\\r`` rather than
+            emitting a new ``\\n``-terminated line. ``readline()`` therefore
+            blocks until the command finishes and delivers every update at once,
+            which shows up as a progress bar frozen for the whole encode.
+            """
             assert process.stderr is not None
+            buffer = ""
             while True:
-                raw = await process.stderr.readline()
+                raw = await process.stderr.read(4096)
                 if not raw:
                     break
-                line = raw.decode("utf-8", "replace").rstrip()
-                stderr_chunks.append(line)
-                # Keep memory bounded on very chatty runs.
-                if len(stderr_chunks) > 4000:
-                    del stderr_chunks[:1000]
+                buffer += raw.decode("utf-8", "replace")
+
+                # Split on either terminator; keep any trailing partial line.
+                parts = re.split(r"[\r\n]", buffer)
+                buffer = parts.pop()
+
+                for line in parts:
+                    line = line.rstrip()
+                    if not line:
+                        continue
+                    stderr_chunks.append(line)
+                    # Keep memory bounded on very chatty runs.
+                    if len(stderr_chunks) > 4000:
+                        del stderr_chunks[:1000]
+                    if log_sink:
+                        log_sink(line)
+                    if on_progress and expected_duration:
+                        seconds = _parse_progress_seconds(line)
+                        if seconds is not None:
+                            on_progress(min(1.0, seconds / expected_duration))
+
+            if buffer.strip():
+                stderr_chunks.append(buffer.strip())
                 if log_sink:
-                    log_sink(line)
-                if on_progress and expected_duration:
-                    match = _PROGRESS_TIME.search(line)
-                    if match:
-                        seconds = int(match.group(1)) / 1_000_000
-                        on_progress(min(1.0, seconds / expected_duration))
+                    log_sink(buffer.strip())
 
         async def pump_stdout() -> str:
             assert process.stdout is not None
@@ -362,6 +387,28 @@ class FFmpegRunner:
 # --- module-level helpers -------------------------------------------------
 
 
+def _parse_progress_seconds(line: str) -> float | None:
+    """Extract the output timestamp FFmpeg has reached, in seconds.
+
+    Handles both the machine-readable ``out_time_ms`` form and the human
+    readable ``time=HH:MM:SS.mm`` that ordinary stderr carries.
+    """
+    machine = _PROGRESS_OUT_TIME_MS.search(line)
+    if machine:
+        return int(machine.group(1)) / 1_000_000
+
+    human = _PROGRESS_TIME.search(line)
+    if human:
+        hours, minutes, seconds, fraction = human.groups()
+        return (
+            int(hours) * 3600
+            + int(minutes) * 60
+            + int(seconds)
+            + float(f"0.{fraction}")
+        )
+    return None
+
+
 def _first_version_line(text: str) -> str:
     for line in text.splitlines():
         if line.startswith(("ffmpeg version", "ffprobe version")):
@@ -391,6 +438,15 @@ def _parse_listing(text: str, *, name_column: int) -> Iterable[str]:
         parts = line.split()
         if len(parts) > name_column:
             yield parts[name_column]
+
+
+def progress_args() -> list[str]:
+    """Input-side flags that make FFmpeg report progress often enough to be useful.
+
+    The default stats period is 0.5s, which is fine, but being explicit keeps
+    the progress bar smooth on long encodes regardless of build defaults.
+    """
+    return ["-stats_period", "0.5"]
 
 
 def base_output_args(*, fps: int) -> list[str]:

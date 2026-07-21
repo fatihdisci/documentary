@@ -11,6 +11,7 @@ import { ProjectsPage } from '@/routes/ProjectsPage'
 import { ContentPage } from '@/routes/ContentPage'
 import { ScenesPage } from '@/routes/ScenesPage'
 import { AudioPage } from '@/routes/AudioPage'
+import { ExportPage } from '@/routes/ExportPage'
 import { SettingsPage } from '@/routes/SettingsPage'
 import { useProjectStore, flushPendingSave } from '@/store/project'
 import { useThemeStore } from '@/store/theme'
@@ -32,7 +33,7 @@ const NAV: { id: Route; label: string; icon: string; needsProject: boolean; mile
   { id: 'scenes', label: 'Scenes', icon: '▦', needsProject: true, milestone: '' },
   { id: 'audio', label: 'Audio', icon: '♪', needsProject: true, milestone: '' },
   { id: 'style', label: 'Style', icon: '◐', needsProject: true, milestone: 'Milestone 4' },
-  { id: 'export', label: 'Export', icon: '↑', needsProject: true, milestone: 'Milestone 6' },
+  { id: 'export', label: 'Export', icon: '↑', needsProject: true, milestone: '' },
   { id: 'settings', label: 'Settings', icon: '⚙', needsProject: false, milestone: '' },
   { id: 'diagnostics', label: 'Diagnostics', icon: '✚', needsProject: false, milestone: '' },
 ]
@@ -105,6 +106,8 @@ export default function App() {
         return <ScenesPage />
       case 'audio':
         return <AudioPage />
+      case 'export':
+        return <ExportPage />
       case 'settings':
         return <SettingsPage />
       case 'diagnostics':

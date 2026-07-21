@@ -28,7 +28,7 @@ from app.errors import ErrorCode, ValidationError
 from app.models.enums import AnimationPreset, TextPosition
 from app.models.project import Project, Scene, Section
 from app.render.codecs import intermediate_spec
-from app.render.ffmpeg import FFmpegRunner, base_output_args
+from app.render.ffmpeg import FFmpegRunner, base_output_args, progress_args
 from app.render.kenburns import build_zoompan_filter, resolve_motion
 from app.render.text import TextCard, render_card, render_scrim
 from app.storage.layout import ProjectPaths
@@ -387,6 +387,7 @@ async def render_scene_clip(
 
     args = [
         ffmpeg, "-hide_banner", "-nostdin", "-y",
+        *progress_args(),
         *inputs,
         "-filter_complex", ";".join(steps),
         "-map", "[v]",
@@ -576,6 +577,7 @@ async def _precompose_subtitle_track(
     steps.append(f"[{current}]format=rgba[out]")
     args = [
         ffmpeg, "-hide_banner", "-nostdin", "-y",
+        *progress_args(),
         *inputs,
         "-filter_complex", ";".join(steps),
         "-map", "[out]",
