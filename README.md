@@ -90,7 +90,13 @@ found. If it says *Ready to render*, you are good.
    works fully offline that way. This tab also shows the computed video
    runtime and lets you choose background music (none / your own upload / a
    basic generated ambient bed).
-6. **Export** — check the preflight panel (it lists anything blocking a
+6. **Style** *(optional)* — tune the look of every overlay: font, size,
+   colour, position, drop shadow, outline and background box for titles,
+   subtitles and captions (each editable on its own tab, with a live preview
+   and a per-class reset), plus the default scene transition, subtitle
+   cue-timing bounds, the readability scrim and an optional watermark. Sensible
+   defaults ship out of the box, so you can skip this entirely.
+7. **Export** — check the preflight panel (it lists anything blocking a
    render), pick a quality preset, and press **Render video**. Progress
    streams live; you can cancel or retry at any point. Finished renders and
    every side-car file (SRT, narration-only audio, description, thumbnail
