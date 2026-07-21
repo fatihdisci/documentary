@@ -154,21 +154,27 @@ def _duration_from(data: dict, stream: dict) -> float:
 
 
 def frame_timestamps(
-    path: Path, *, count: int = 120, settings: Settings | None = None
+    path: Path, *, seconds: float = 4.0, settings: Settings | None = None
 ) -> list[float]:
-    """Read the first ``count`` frame presentation timestamps.
+    """Read presentation timestamps for the first ``seconds`` of video.
 
-    Used to corroborate constant frame rate by measuring real intervals, rather
-    than trusting the container's advertised rate alone.
+    Used to corroborate constant frame rate by measuring real intervals rather
+    than trusting the container's advertised rate.
+
+    The window is expressed in **time**, not frame count. ``-read_intervals``
+    with a frame count (``%+#N``) stops on a packet boundary and its final
+    samples skip frames, which makes a perfectly constant file look irregular.
+    A time-based window cuts cleanly.
     """
-    runner = FFmpegRunner(settings or get_settings())
-    ffprobe = (settings or get_settings()).require_tool("ffprobe")
+    active = settings or get_settings()
+    runner = FFmpegRunner(active)
+    ffprobe = active.require_tool("ffprobe")
     result = runner._run_sync(  # noqa: SLF001 - internal helper, same module family
         [
             ffprobe, "-hide_banner", "-loglevel", "error",
             "-select_streams", "v:0",
             "-show_entries", "frame=pts_time",
-            "-read_intervals", f"%+#{count}",
+            "-read_intervals", f"%+{seconds:g}",
             "-print_format", "csv=p=0",
             str(path),
         ],
@@ -187,6 +193,12 @@ def frame_timestamps(
             timestamps.append(float(value))
         except ValueError:
             continue
+
+    # ffprobe emits frames in *decode* order. H.264 with B-frames stores them
+    # out of presentation order, so consecutive differences are only meaningful
+    # once sorted — without this, a perfectly constant 60 fps file looks like it
+    # has irregular intervals.
+    timestamps.sort()
     return timestamps
 
 
