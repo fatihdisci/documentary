@@ -34,18 +34,70 @@ cd documentary
 ./dev.sh --setup      # creates backend/.venv, installs Python + npm deps
 ```
 
+You need FFmpeg on your machine before this step — see [Requirements](#requirements)
+above. `./dev.sh --setup` installs the Python and Node dependencies only.
+
 ## Run
+
+### Option A — double-click (macOS, easiest)
+
+Double-click **`Launch EVB.command`** in Finder (or in the repo folder from
+Terminal: `open "Launch EVB.command"`).
+
+- First run installs everything automatically (a few minutes, one-time —
+  equivalent to `./dev.sh --setup`).
+- Every run after that starts in a few seconds.
+- A Terminal window opens showing backend/frontend logs, and your browser
+  opens automatically to the app once the backend is ready.
+- **Keep that Terminal window open** while you use the app — closing it (or
+  pressing <kbd>Ctrl</kbd>+<kbd>C</kbd> inside it) stops both servers.
+
+If macOS refuses to run it the first time ("cannot be opened because it is
+from an unidentified developer"), right-click the file → **Open** → **Open**
+in the dialog. You only need to do this once.
+
+### Option B — from the terminal
 
 ```bash
 ./dev.sh
 ```
 
+Both commands start the same two servers:
+
 - Frontend: <http://localhost:5173>
-- Backend API: <http://127.0.0.1:8756> (docs at `/docs`)
+- Backend API: <http://127.0.0.1:8756> (interactive docs at `/docs`)
 
 Open the app and go to **Diagnostics** first. It probes your FFmpeg binary, disk
 space, storage permissions and narration sources, and reports exactly what it
 found. If it says *Ready to render*, you are good.
+
+## Using the app
+
+1. **Diagnostics** — confirm the environment is ready (see above). Fix
+   anything marked failed before continuing.
+2. **Projects** — click **Create project**, give it a name.
+3. **Content** — import a content package JSON (narration, titles, image
+   prompts for every scene). Use **Download example template** for the
+   documented format and a working sample (the Dodo), or see
+   [`docs/content-schema.md`](docs/content-schema.md).
+4. **Scenes** — upload your ~10 images (drag-and-drop works). Name them with a
+   numeric prefix, e.g. `01-opening.png`, `02-habitat.png`, so they map onto
+   scenes in the right order automatically. Reorder scenes by dragging their
+   cards; click **Auto-map images** if you add or reorder images afterwards.
+5. **Audio** — pick a TTS provider and voice (Edge TTS is free and needs no
+   API key), then **Generate missing** to synthesize narration for every
+   scene. No internet? Upload your own audio file per scene instead — the app
+   works fully offline that way. This tab also shows the computed video
+   runtime and lets you choose background music (none / your own upload / a
+   basic generated ambient bed).
+6. **Export** — check the preflight panel (it lists anything blocking a
+   render), pick a quality preset, and press **Render video**. Progress
+   streams live; you can cancel or retry at any point. Finished renders and
+   every side-car file (SRT, narration-only audio, description, thumbnail
+   prompt, render log) are listed below with one-click downloads.
+
+Projects, images, generated audio and every export live under
+`~/ExtinctVideoBuilder` (see below) — nothing leaves your machine.
 
 ## Where your data lives
 
