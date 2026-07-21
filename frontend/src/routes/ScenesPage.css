@@ -57,3 +57,5 @@
 .scene-tags { display: flex; gap: 4px; flex-wrap: wrap; }
 .scene-tags .tag { font-size: 10px; padding: 1px 5px; }
 .tag-warn { color: var(--warn); border-color: var(--warn); }
+
+.preview-panel { max-width: 620px; }

@@ -106,7 +106,7 @@ def build_timeline(
     validate: bool = True,
 ) -> Timeline:
     """Compute the complete absolute timeline for ``project``."""
-    units = _ordered_units(project)
+    units = ordered_units(project)
     if not units:
         raise ValidationError(
             ErrorCode.INVALID_DURATION,
@@ -178,7 +178,7 @@ def build_timeline(
     return timeline
 
 
-def _ordered_units(project: Project) -> list[tuple[str, str, Scene | Section]]:
+def ordered_units(project: Project) -> list[tuple[str, str, Scene | Section]]:
     units: list[tuple[str, str, Scene | Section]] = []
     if project.intro.enabled and (project.intro.narration.strip() or project.intro.image_file
                                   or project.intro.use_first_scene_image):

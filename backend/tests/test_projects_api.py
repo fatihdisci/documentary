@@ -375,6 +375,39 @@ class TestMusicLibrary:
         assert response.json()["code"] == "missing_image"
 
 
+class TestSceneMotion:
+    def test_motion_has_one_entry_per_scene_in_order(self, client: TestClient) -> None:
+        slug = create_project(client)
+        client.post(f"/api/projects/{slug}/content", json={"content": load_dodo_package()})
+
+        scenes = client.get(f"/api/projects/{slug}").json()["project"]["scenes"]
+        motion = client.get(f"/api/projects/{slug}/motion").json()
+
+        scene_moves = [m for m in motion if m["kind"] == "scene"]
+        assert [m["unitId"] for m in scene_moves] == [s["id"] for s in scenes]
+
+    def test_auto_resolves_to_a_concrete_preset_and_geometry(self, client: TestClient) -> None:
+        slug = create_project(client)
+        client.post(f"/api/projects/{slug}/content", json={"content": load_dodo_package()})
+
+        motion = client.get(f"/api/projects/{slug}/motion").json()
+        assert motion, "expected at least one unit"
+        first = motion[0]
+        # 'auto' is resolved server-side; the preview never sees the literal 'auto'.
+        assert first["preset"] != "auto"
+        # Geometry is clamped into a valid crop range.
+        for key in ("startScale", "endScale"):
+            assert 1.0 <= first[key] <= 3.0
+        assert isinstance(first["description"], str)
+
+    def test_motion_is_deterministic(self, client: TestClient) -> None:
+        slug = create_project(client)
+        client.post(f"/api/projects/{slug}/content", json={"content": load_dodo_package()})
+        a = client.get(f"/api/projects/{slug}/motion").json()
+        b = client.get(f"/api/projects/{slug}/motion").json()
+        assert a == b
+
+
 class TestBundles:
     def test_export_and_reimport_through_the_api(self, client: TestClient) -> None:
         slug = create_project(client)

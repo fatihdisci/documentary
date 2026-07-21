@@ -457,6 +457,58 @@ def remap_images(slug: str, force: bool = Query(default=False)) -> ProjectRespon
 # --- media ------------------------------------------------------------------
 
 
+class SceneMotion(CamelModel):
+    """The resolved Ken Burns move for one unit, for the canvas preview.
+
+    These are the exact numbers the render uses (same ``resolve_motion`` call,
+    same timeline ordering), so the in-browser preview matches the output.
+    """
+
+    unit_id: str
+    kind: str
+    preset: str
+    is_static: bool
+    start_scale: float
+    end_scale: float
+    start_x: float
+    start_y: float
+    end_x: float
+    end_y: float
+    description: str
+
+
+@router.get("/{slug}/motion", response_model=list[SceneMotion])
+def scene_motion(slug: str) -> list[SceneMotion]:
+    from app.render.kenburns import describe, resolve_motion
+    from app.timing.schedule import ordered_units
+
+    project = repo().load(slug)
+    result: list[SceneMotion] = []
+    previous = None
+    # Mirror the render's clip loop exactly: same order, index and previous.
+    for index, (unit_id, kind, unit) in enumerate(ordered_units(project)):
+        motion = resolve_motion(
+            unit, project_id=project.project_id, index=index, previous=previous
+        )
+        result.append(
+            SceneMotion(
+                unit_id=unit_id,
+                kind=kind,
+                preset=motion.preset.value,
+                is_static=motion.is_static,
+                start_scale=motion.start_scale,
+                end_scale=motion.end_scale,
+                start_x=motion.start_x,
+                start_y=motion.start_y,
+                end_x=motion.end_x,
+                end_y=motion.end_y,
+                description=describe(motion),
+            )
+        )
+        previous = unit.animation_preset
+    return result
+
+
 @router.get("/{slug}/images", response_model=list[media.ImageInfo])
 def list_images(slug: str) -> list[media.ImageInfo]:
     return media.list_images(_paths(slug), slug=slug)

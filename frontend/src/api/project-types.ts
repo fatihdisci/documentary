@@ -239,6 +239,21 @@ export interface MusicTrack {
   sizeBytes: number
 }
 
+/** The render's resolved Ken Burns move for one unit (backend `SceneMotion`). */
+export interface SceneMotion {
+  unitId: string
+  kind: 'intro' | 'scene' | 'outro'
+  preset: string
+  isStatic: boolean
+  startScale: number
+  endScale: number
+  startX: number
+  startY: number
+  endX: number
+  endY: number
+  description: string
+}
+
 export interface ImageInfo {
   filename: string
   width: number

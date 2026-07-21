@@ -23,6 +23,7 @@ import type {
   ImportContentResponse,
   MusicTrack,
   Project,
+  SceneMotion,
   ProjectResponse,
   ProjectSummary,
   Scene,
@@ -176,6 +177,7 @@ export const api = {
 
   // --- images ---
   listImages: (slug: string) => request<ImageInfo[]>(`/api/projects/${slug}/images`),
+  getMotion: (slug: string) => request<SceneMotion[]>(`/api/projects/${slug}/motion`),
   uploadImages: (slug: string, files: File[]) => {
     const form = new FormData()
     for (const file of files) form.append('files', file)

@@ -44,6 +44,11 @@ automatically. Reorder scenes by dragging their cards; **Auto-map images**
 re-runs the filename-order mapping if you add or reorder images later. Each card
 flags what it's still missing (no image / no narration / no audio yet).
 
+Selecting a scene that has an image opens a **preview** — a scrubbable,
+in-browser Ken Burns + text mock-up that uses the exact motion the render will
+use (same easing and geometry), so you can check the pan/zoom and where the
+title sits without rendering a proxy clip.
+
 ## 5. Audio
 
 Pick a TTS provider and voice, then **Generate missing** to synthesize

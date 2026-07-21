@@ -20,6 +20,7 @@ import { api } from '@/api/client'
 import type { Scene } from '@/api/project-types'
 import { useProjectStore } from '@/store/project'
 import { ErrorBox } from '@/components/ErrorBox'
+import { ScenePreview } from '@/components/ScenePreview'
 import './ScenesPage.css'
 
 function SortableSceneCard({
@@ -142,6 +143,7 @@ export function ScenesPage() {
     }
   }
 
+  const selectedScene = project.scenes.find((s) => s.id === selectedSceneId) ?? null
   const unmapped = project.scenes.filter((s) => !s.imageFile).length
   const unusedImages = images.filter(
     (image) => !project.scenes.some((s) => s.imageFile === image.filename),
@@ -199,6 +201,13 @@ export function ScenesPage() {
       />
 
       {error && <ErrorBox error={error} onDismiss={clearError} />}
+
+      {selectedScene?.imageFile && (
+        <section className="card preview-panel">
+          <h2>Preview — {selectedScene.title || 'selected scene'}</h2>
+          <ScenePreview project={project} scene={selectedScene} />
+        </section>
+      )}
 
       <div
         className={`dropzone ${dropActive ? 'active' : ''}`}

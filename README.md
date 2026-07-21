@@ -136,8 +136,8 @@ returned by any endpoint, written to a log, or included in a project bundle.
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest      # backend (500 passing)
-cd frontend && npm test                       # frontend (51 passing)
+cd backend && .venv/bin/python -m pytest      # backend (503 passing)
+cd frontend && npm test                       # frontend (62 passing)
 ```
 
 Backend tests that need a real TTS network call are skipped by default; run
@@ -191,9 +191,11 @@ hardening pass before this is a finished product.
   options), the default transition picker, subtitle cue-timing bounds,
   watermark and scrim — all backed by the existing render pipeline, with a
   live text preview and a per-class reset
-- [ ] **Frontend canvas preview** — an in-browser Ken Burns/text preview that
-  mirrors the backend's motion math, so scenes can be scrubbed without
-  rendering a proxy clip
+- [x] **Frontend canvas preview** — a scrubbable in-browser Ken Burns + text
+  preview on the Scenes page. The geometry comes from a `/motion` endpoint (the
+  exact numbers the render uses, same ordering and `auto` resolution), so the
+  frontend only mirrors the smoothstep easing — guarded by a backend-parity
+  unit test
 - [x] **Error taxonomy polish in the UI** — every screen now routes failures
   through the single `ErrorBox` (code / message / suggested fix / log path /
   collapsible details), including the Content and Scenes pages; component
