@@ -73,6 +73,11 @@ found. If it says *Ready to render*, you are good.
 
 ## Using the app
 
+New here? Opening a project drops you on the **Guided setup** tab — a six-step
+stepper (content → images → voice → music → narration → render) that walks the
+whole workflow with minimal decisions. Click **Switch to the full editor** any
+time for the tabs below, which give you the fine controls.
+
 1. **Diagnostics** — confirm the environment is ready (see above). Fix
    anything marked failed before continuing.
 2. **Projects** — click **Create project**, give it a name.
@@ -132,7 +137,7 @@ returned by any endpoint, written to a log, or included in a project bundle.
 
 ```bash
 cd backend && .venv/bin/python -m pytest      # backend (500 passing)
-cd frontend && npm test                       # frontend (46 passing)
+cd frontend && npm test                       # frontend (51 passing)
 ```
 
 Backend tests that need a real TTS network call are skipped by default; run
@@ -177,10 +182,10 @@ hardening pass before this is a finished product.
 
 ### What's left (M7)
 
-- [ ] **Simple mode** — a guided, minimal-decision path through the six-step
-  workflow (import content → upload images → pick voice → pick music →
-  generate audio → render) for a first-time user, distinct from the full
-  editor
+- [x] **Simple mode** — a **Guided setup** tab: a six-step stepper (content →
+  images → voice → music → narration → render) that drives the same API and
+  stores as the full editor, shows per-step completion, and links out to each
+  full tab. Opening a project lands here; "Switch to the full editor" leaves it
 - [x] **Style page** — font/size/colour/position controls for titles,
   subtitles and captions (each with shadow, outline and background-box
   options), the default transition picker, subtitle cue-timing bounds,

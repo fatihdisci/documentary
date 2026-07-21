@@ -1,0 +1,161 @@
+.simple-mode .stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+}
+
+.step-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  padding: 6px 12px 6px 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.step-chip.active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.step-chip.done {
+  color: var(--text);
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.step-chip.done .step-num {
+  background: var(--ok);
+  color: #fff;
+}
+
+.step-chip.active .step-num {
+  background: var(--accent);
+  color: #fff;
+}
+
+.simple-step {
+  min-height: 200px;
+}
+
+.simple-step h2 {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.simple-step .optional {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.simple-step .muted {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+  max-width: 60ch;
+}
+
+.simple-step .row {
+  margin-top: 4px;
+}
+
+.choice-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.step-status {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.step-status.ok {
+  color: var(--ok);
+}
+
+.linkish {
+  border: none;
+  background: none;
+  color: var(--accent);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.linkish:hover {
+  text-decoration: underline;
+  background: none;
+  border: none;
+}
+
+.simple-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.simple-progress {
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.simple-step .blocking {
+  background: var(--fail-dim);
+  border: 1px solid var(--fail);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+
+.simple-step .blocking p {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+}
+
+.render-progress {
+  margin: 12px 0;
+}
+
+.render-progress .progress-track {
+  height: 8px;
+  background: var(--bg-hover);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.render-progress .progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s;
+}

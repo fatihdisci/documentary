@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react'
 import { Diagnostics } from '@/components/Diagnostics'
 import { ProjectsPage } from '@/routes/ProjectsPage'
+import { SimpleModePage } from '@/routes/SimpleModePage'
 import { ContentPage } from '@/routes/ContentPage'
 import { ScenesPage } from '@/routes/ScenesPage'
 import { AudioPage } from '@/routes/AudioPage'
@@ -21,6 +22,7 @@ import './App.css'
 
 type Route =
   | 'projects'
+  | 'guided'
   | 'content'
   | 'scenes'
   | 'audio'
@@ -32,6 +34,7 @@ type Route =
 
 const NAV: { id: Route; label: string; icon: string; needsProject: boolean; milestone: string }[] = [
   { id: 'projects', label: 'Projects', icon: '▤', needsProject: false, milestone: '' },
+  { id: 'guided', label: 'Guided setup', icon: '✦', needsProject: true, milestone: '' },
   { id: 'content', label: 'Content', icon: '✎', needsProject: true, milestone: '' },
   { id: 'scenes', label: 'Scenes', icon: '▦', needsProject: true, milestone: '' },
   { id: 'audio', label: 'Audio', icon: '♪', needsProject: true, milestone: '' },
@@ -87,7 +90,7 @@ export default function App() {
 
   async function handleOpen(slug: string) {
     await openProject(slug)
-    setRoute('content')
+    setRoute('guided')
   }
 
   const current = NAV.find((item) => item.id === route)
@@ -104,6 +107,8 @@ export default function App() {
     switch (route) {
       case 'projects':
         return <ProjectsPage onOpen={(slug) => void handleOpen(slug)} />
+      case 'guided':
+        return <SimpleModePage goTo={(tab) => void navigate(tab as Route)} />
       case 'content':
         return <ContentPage />
       case 'scenes':
