@@ -1,0 +1,28 @@
+# Python
+backend/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Secrets — never commit API keys
+.env
+.env.local
+secrets.json
+
+# Application data (projects, exports, temp, logs) lives outside the repo by
+# default, but ignore it here too in case someone points EVB_DATA_DIR inside.
+data/
+*.log
+
+# Render scratch
+backend/tests/_output/
+scratch/
+
+# macOS
+.DS_Store

@@ -1,0 +1,33 @@
+.shell { display: flex; height: 100%; }
+
+.sidebar {
+  width: var(--sidebar-w); flex-shrink: 0; background: var(--bg-raised);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 12px 10px;
+}
+.brand { display: flex; align-items: center; gap: 9px; padding: 6px 8px 18px; }
+.brand-mark {
+  background: var(--accent); color: #fff; font-weight: 700; font-size: 11px;
+  letter-spacing: 0.04em; padding: 3px 6px; border-radius: 4px;
+}
+.brand-name { font-size: 12.5px; font-weight: 600; line-height: 1.2; }
+
+.sidebar nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: transparent; border: 1px solid transparent; padding: 7px 10px;
+  border-radius: var(--radius-sm); color: var(--text-muted); font-size: 13px;
+}
+.nav-item:hover { background: var(--bg-hover); border-color: transparent; color: var(--text); }
+.nav-item.active { background: var(--accent-dim); color: var(--accent); font-weight: 500; }
+.nav-icon { width: 16px; text-align: center; opacity: 0.8; }
+
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.topbar {
+  height: var(--topbar-h); flex-shrink: 0; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+  background: var(--bg-raised);
+}
+.topbar-title { font-weight: 500; color: var(--text-muted); font-size: 13px; }
+.topbar-actions { display: flex; gap: 8px; align-items: center; }
+
+.content { flex: 1; overflow: auto; }

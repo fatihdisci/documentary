@@ -1,0 +1,176 @@
+/* Design tokens. Dark by default (this is a video tool), light supported. */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #0e1116;
+  --bg-raised: #151a21;
+  --bg-panel: #1a212a;
+  --bg-input: #0b0e13;
+  --bg-hover: #212a35;
+
+  --border: #2a333f;
+  --border-strong: #3a4653;
+
+  --text: #e6edf3;
+  --text-muted: #8b97a6;
+  --text-faint: #5d6875;
+
+  --accent: #4a9eff;
+  --accent-hover: #6cb0ff;
+  --accent-dim: rgba(74, 158, 255, 0.14);
+
+  --ok: #3fb950;
+  --warn: #d29922;
+  --fail: #f85149;
+  --ok-dim: rgba(63, 185, 80, 0.13);
+  --warn-dim: rgba(210, 153, 34, 0.13);
+  --fail-dim: rgba(248, 81, 73, 0.13);
+
+  --radius: 8px;
+  --radius-sm: 5px;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --sidebar-w: 216px;
+  --topbar-h: 52px;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f6f8fa;
+  --bg-raised: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-input: #ffffff;
+  --bg-hover: #eef1f4;
+
+  --border: #d5dae0;
+  --border-strong: #b8c0c9;
+
+  --text: #1a1f26;
+  --text-muted: #5a6572;
+  --text-faint: #8b95a1;
+
+  --accent: #0969da;
+  --accent-hover: #0a5fc2;
+  --accent-dim: rgba(9, 105, 218, 0.1);
+
+  --ok: #1a7f37;
+  --warn: #9a6700;
+  --fail: #cf222e;
+  --ok-dim: rgba(26, 127, 55, 0.1);
+  --warn-dim: rgba(154, 103, 0, 0.1);
+  --fail-dim: rgba(207, 34, 46, 0.1);
+
+  --shadow: 0 8px 24px rgba(20, 30, 45, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+  padding: 7px 13px;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 500;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+button.danger {
+  border-color: var(--fail);
+  color: var(--fail);
+}
+
+button.danger:hover:not(:disabled) {
+  background: var(--fail-dim);
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  width: 100%;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+textarea {
+  resize: vertical;
+  font-family: var(--font);
+  line-height: 1.55;
+}
+
+code,
+pre {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+a {
+  color: var(--accent);
+}
