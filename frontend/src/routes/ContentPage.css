@@ -1,0 +1,29 @@
+.card {
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px; margin-bottom: 16px;
+}
+.card h2 { font-size: 14px; margin-bottom: 8px; }
+.card > .muted { font-size: 13px; margin: 0 0 14px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.field-grid label, .card > label:not(.checkbox) {
+  display: flex; flex-direction: column; gap: 5px; font-size: 12.5px;
+  font-weight: 500; color: var(--text-muted);
+}
+.field-grid .span-2 { grid-column: span 2; }
+.hint { font-weight: 400; font-size: 11.5px; color: var(--text-faint); }
+.checkbox {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 10px 0;
+  flex-wrap: wrap;
+}
+.checkbox input { width: auto; }
+.checkbox .hint { flex-basis: 100%; margin-left: 24px; }
+.import-report {
+  margin-top: 16px; padding: 12px 14px; background: var(--ok-dim);
+  border: 1px solid var(--ok); border-radius: var(--radius-sm);
+}
+.import-report h3 { font-size: 13px; margin-bottom: 6px; }
+.import-report ul { margin: 0; padding-left: 18px; font-size: 13px; }
+.warnings { margin-top: 10px; }
+.warnings p { margin: 0 0 4px; font-size: 12.5px; color: var(--warn); }
+.card textarea { margin-bottom: 14px; }

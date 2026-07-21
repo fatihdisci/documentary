@@ -1,0 +1,135 @@
+{
+  "contentSchemaVersion": 1,
+  "commonName": "Dodo",
+  "scientificName": "Raphus cucullatus",
+  "videoTitle": "The Dodo: How We Erased a Bird in a Single Lifetime",
+  "description": "The dodo vanished from Mauritius less than a century after humans first set foot on the island. This is the story of what it actually was, how it lived, and how quickly it disappeared.\n\nChapters:\n00:00 A bird that never learned to fear\n00:35 An island without predators\n01:10 What the dodo really looked like\n01:45 A diet of fallen fruit\n02:20 The ships arrive\n02:55 Rats, pigs and monkeys\n03:30 The last confirmed sighting\n04:05 Bones in the swamp\n04:40 What the dodo taught us\n05:15 The ones we can still save\n\n#dodo #extinction #naturalhistory",
+  "tags": ["dodo", "extinct animals", "Mauritius", "natural history", "extinction", "documentary"],
+  "thumbnailText": "GONE IN 100 YEARS",
+  "thumbnailPrompt": "Photorealistic dodo standing in dappled forest light on Mauritius, shallow depth of field, golden hour, dramatic rim lighting, 16:9 cinematic composition with empty space on the right for text",
+
+  "pronunciation": {
+    "Raphus cucullatus": "RAH-fus koo-koo-LAH-tus",
+    "Mauritius": "muh-RISH-us",
+    "Mascarene": "MASS-kuh-reen"
+  },
+
+  "intro": {
+    "title": "The Dodo",
+    "subtitle": "Raphus cucullatus",
+    "hookText": "Extinct within 100 years of meeting us",
+    "narration": "In 1598, Dutch sailors stepped onto an island no human had ever settled. Waiting for them was a bird that had never seen a predator, and had no reason to run. Within a single human lifetime, it was gone forever.",
+    "imagePrompt": "Wide cinematic establishing shot of a misty Mauritius forest at dawn, a lone dodo silhouette in the distance, volumetric light through the canopy, muted colours, 16:9"
+  },
+
+  "scenes": [
+    {
+      "title": "A Bird Without Fear",
+      "subtitle": "Mauritius, before 1598",
+      "narration": "The dodo evolved in a world with no threats. For millions of years, nothing on Mauritius hunted it. So it never developed the instinct to flee. When sailors approached, the dodo simply watched them come.",
+      "imagePrompt": "A curious dodo standing calmly in a clearing, looking directly toward the viewer, soft morning light, photorealistic, 16:9",
+      "factNote": "Mauritius had no native land mammals before humans arrived.",
+      "suggestedAnimation": "slow-zoom-in",
+      "focusX": 0.45,
+      "focusY": 0.5
+    },
+    {
+      "title": "An Island Apart",
+      "subtitle": "800 kilometres from anywhere",
+      "narration": "Mauritius sits alone in the Indian Ocean, formed by volcanoes eight million years ago. Its isolation is what made the dodo possible. Cut off from the mainland, the bird's ancestors traded flight for size, and thrived.",
+      "imagePrompt": "Aerial view of a volcanic tropical island surrounded by deep blue ocean, dense green forest, dramatic clouds, cinematic, 16:9",
+      "factNote": "The dodo's closest living relative is the Nicobar pigeon.",
+      "suggestedAnimation": "pan-left-to-right",
+      "focusX": 0.5,
+      "focusY": 0.45
+    },
+    {
+      "title": "What It Really Looked Like",
+      "subtitle": "Not the cartoon you know",
+      "narration": "The familiar image of a fat, clumsy dodo comes from paintings of overfed captive birds. Modern analysis of the skeleton tells a different story: the dodo was leaner, faster, and well adapted to running through dense forest.",
+      "imagePrompt": "Anatomically accurate dodo in profile, lean and upright, detailed grey-brown plumage, neutral studio-like forest backdrop, scientific illustration quality, 16:9",
+      "factNote": "Adults stood about one metre tall and weighed 10-17 kg.",
+      "suggestedAnimation": "slow-zoom-out",
+      "focusX": 0.5,
+      "focusY": 0.5
+    },
+    {
+      "title": "A Diet of Fallen Fruit",
+      "subtitle": "Forest floor forager",
+      "narration": "The dodo fed on fallen fruit, seeds and roots. Its heavy, hooked beak could crack open the hardest husks on the forest floor. Some of the island's trees may have depended on the dodo to spread their seeds.",
+      "imagePrompt": "Close-up of a dodo foraging among fallen tropical fruit and leaf litter, detailed beak, dappled forest light, macro depth of field, 16:9",
+      "factNote": "The dodo swallowed stones to help grind food in its gizzard.",
+      "suggestedAnimation": "zoom-to-focus",
+      "focusX": 0.38,
+      "focusY": 0.55
+    },
+    {
+      "title": "The Ships Arrive",
+      "subtitle": "1598",
+      "narration": "Dutch vessels made Mauritius a resupply stop on the long route to the East Indies. Sailors killed dodos for fresh meat, though most accounts agree the flesh was tough and unpleasant. Hunting alone was never the real threat.",
+      "imagePrompt": "17th century Dutch sailing ship anchored off a tropical coastline at dusk, longboats heading to shore, moody atmospheric lighting, 16:9",
+      "factNote": "Sailors reportedly called it 'walghvogel' - disgusting bird.",
+      "suggestedAnimation": "pan-right-to-left",
+      "focusX": 0.55,
+      "focusY": 0.5
+    },
+    {
+      "title": "What Came Off the Ships",
+      "subtitle": "The real killers",
+      "narration": "With the sailors came rats, pigs, cats and crab-eating macaques. The dodo nested on the ground, laying a single egg at a time. Against animals that ate eggs and chicks, a bird with no defences and almost no reproductive rate had no chance.",
+      "imagePrompt": "A ground nest with a single large egg among ferns, a rat silhouette approaching in shadow, tense low-key lighting, cinematic, 16:9",
+      "factNote": "A single egg per breeding season left no margin for loss.",
+      "suggestedAnimation": "gentle-diagonal",
+      "focusX": 0.45,
+      "focusY": 0.6
+    },
+    {
+      "title": "The Forest Falls",
+      "subtitle": "Habitat collapse",
+      "narration": "Settlers cleared the lowland forests the dodo depended on, replacing them with plantations. The bird lost its food, its nesting ground and its cover, all at once, in the space of a few decades.",
+      "imagePrompt": "Cleared forest edge on a tropical island, felled trees and stumps in the foreground, intact green canopy behind, overcast light, 16:9",
+      "factNote": "Less than two percent of Mauritius's original lowland forest remains.",
+      "suggestedAnimation": "pan-top-to-bottom",
+      "focusX": 0.5,
+      "focusY": 0.4
+    },
+    {
+      "title": "The Last Sighting",
+      "subtitle": "1662",
+      "narration": "The last widely accepted account of a living dodo dates to 1662, when a shipwrecked sailor described birds on an islet off the coast. Sixty-four years after the first Dutch landing, the species was effectively finished.",
+      "imagePrompt": "A single dodo standing on a rocky islet at sunset, vast empty ocean behind, long shadows, melancholy atmosphere, 16:9",
+      "factNote": "Statistical models place true extinction around 1690.",
+      "suggestedAnimation": "slow-zoom-in",
+      "focusX": 0.42,
+      "focusY": 0.52
+    },
+    {
+      "title": "Bones in the Swamp",
+      "subtitle": "Mare aux Songes",
+      "narration": "For two centuries the dodo was almost mythical, dismissed by some as a sailors' invention. Then, in 1865, thousands of bones were recovered from a swamp called Mare aux Songes. The bird was real, and we had proof of what we had done.",
+      "imagePrompt": "Dodo skeleton partially excavated in dark swamp sediment, scientific excavation lighting, detailed bones, 16:9",
+      "factNote": "No complete stuffed dodo specimen survives anywhere in the world.",
+      "suggestedAnimation": "zoom-to-center",
+      "focusX": 0.5,
+      "focusY": 0.5
+    },
+    {
+      "title": "The Ones We Can Still Save",
+      "subtitle": "Mauritius today",
+      "narration": "Mauritius nearly lost a second bird. In 1974, just four Mauritius kestrels remained in the wild. Intensive intervention brought them back to hundreds. The dodo is the warning. The kestrel is the proof that the warning can be heeded.",
+      "imagePrompt": "A Mauritius kestrel perched on a branch in restored native forest, sharp detail, warm hopeful light, 16:9",
+      "factNote": "The Mauritius kestrel recovered from four known wild birds.",
+      "suggestedAnimation": "slow-zoom-out",
+      "focusX": 0.48,
+      "focusY": 0.45
+    }
+  ],
+
+  "outro": {
+    "title": "Raphus cucullatus",
+    "subtitle": "c. 8 million years ago — c. 1662",
+    "hookText": "Next: The Thylacine",
+    "narration": "The dodo did not disappear because it was stupid, or weak, or destined to fail. It disappeared because it met something it had never had any reason to fear. If this story mattered to you, subscribe. Next time: the Thylacine, and the film footage that still haunts us.",
+    "imagePrompt": "Empty misty Mauritius forest clearing at dusk, no animal present, soft fading light, quiet and elegiac, 16:9"
+  }
+}

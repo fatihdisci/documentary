@@ -1,0 +1,13 @@
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex;
+  align-items: center; justify-content: center; z-index: 100; padding: 20px;
+}
+.modal {
+  background: var(--bg-panel); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 22px 24px; max-width: 520px; width: 100%;
+}
+.modal h2 { font-size: 16px; margin-bottom: 12px; }
+.modal-body p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.6; }
+.modal-body p:last-child { margin-bottom: 0; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
