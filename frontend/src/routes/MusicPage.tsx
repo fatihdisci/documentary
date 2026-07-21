@@ -148,15 +148,13 @@ export function MusicPage() {
 
       <section className="card">
         <div className="music-source-row">
-          <span className={`music-mode ${source === 'none' ? 'active' : ''}`}>
-            <button
-              className={source === 'none' ? 'primary' : ''}
-              onClick={useNoMusic}
-              disabled={source === 'none'}
-            >
-              No music
-            </button>
-          </span>
+          <button
+            className={source === 'none' ? 'primary' : ''}
+            onClick={useNoMusic}
+            aria-pressed={source === 'none'}
+          >
+            No music
+          </button>
           <span className="hint">
             {source === 'none'
               ? 'No background music will be mixed in.'

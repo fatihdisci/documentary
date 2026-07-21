@@ -185,8 +185,10 @@ hardening pass before this is a finished product.
   through the single `ErrorBox` (code / message / suggested fix / log path /
   collapsible details), including the Content and Scenes pages; component
   tests lock the structured-error behaviour in place
-- [ ] **Dark/light theme polish** — the toggle exists and both palettes are
-  defined in `theme.css`, but light mode hasn't had a full visual pass
+- [x] **Dark/light theme polish** — every screen was reviewed in both themes
+  (all surfaces read from the `theme.css` palette variables); light mode came
+  through cleanly, and the Music tab's source toggle was tidied up so its
+  active state no longer looks disabled
 - [ ] **End-user documentation** — install guide, user guide, architecture
   doc, FFmpeg/render troubleshooting (currently only the content schema is
   written up)
