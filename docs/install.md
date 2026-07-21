@@ -55,6 +55,21 @@ Both options start the same two servers:
 - Frontend: <http://localhost:5173>
 - Backend API: <http://127.0.0.1:8756> (interactive docs at `/docs`)
 
+### Production (single server)
+
+`./dev.sh` runs two servers for hot-reload development. To just *use* the app,
+run the production build instead — the backend serves the built frontend and the
+API from one origin, so there's no Vite dev server:
+
+```bash
+./prod.sh            # builds frontend/dist if needed, serves http://127.0.0.1:8756
+./prod.sh --build    # force a fresh build first
+./prod.sh --no-open  # don't open a browser
+```
+
+macOS users can double-click **`Launch EVB (Production).command`**. Everything is
+then on `http://127.0.0.1:8756`.
+
 Open the app and visit **Diagnostics** first. If it says *Ready to render*,
 you're set. See [troubleshooting.md](troubleshooting.md) if a check fails.
 

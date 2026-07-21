@@ -67,6 +67,21 @@ Both commands start the same two servers:
 - Frontend: <http://localhost:5173>
 - Backend API: <http://127.0.0.1:8756> (interactive docs at `/docs`)
 
+### Production (single server)
+
+To just *use* the app rather than develop it, run the production build — one
+process serves the built frontend and the API from the same origin, so there's
+no Vite dev server and nothing to proxy:
+
+```bash
+./prod.sh            # builds frontend/dist if needed, serves http://127.0.0.1:8756
+./prod.sh --build    # force a fresh frontend build first
+```
+
+macOS users can double-click **`Launch EVB (Production).command`** instead. This
+single-origin server is also the natural thing to wrap in a Tauri/Electron shell
+later — the app already runs from one port with no external dependencies.
+
 Open the app and go to **Diagnostics** first. It probes your FFmpeg binary, disk
 space, storage permissions and narration sources, and reports exactly what it
 found. If it says *Ready to render*, you are good.
@@ -161,8 +176,7 @@ Further docs live in `docs/`:
 ## Project status
 
 Built in milestones; see the sections of the app that are live in Diagnostics
-and the navigation sidebar. M1–M6 are complete and pushed; M7 is the remaining
-hardening pass before this is a finished product.
+and the navigation sidebar. M1–M7 are complete and pushed.
 
 - **M1 — Foundation** ✅ repo, schema, backend + frontend skeletons, diagnostics
 - **M2 — Projects & content** ✅ project CRUD, scenes, image pipeline, content
@@ -178,9 +192,10 @@ hardening pass before this is a finished product.
   output validation against the real file
 - **M6 — Jobs & export** ✅ background render queue, live SSE progress,
   cancellation, crash recovery, render history, the Export page
-- **M7 — Hardening** ⬜ *in progress* — see below
+- **M7 — Hardening** ✅ simple/guided mode, Style editor, music library, canvas
+  preview, error-taxonomy audit, theme pass, docs, test coverage, packaging
 
-### What's left (M7)
+### M7 detail
 
 - [x] **Simple mode** — a **Guided setup** tab: a six-step stepper (content →
   images → voice → music → narration → render) that drives the same API and
@@ -207,8 +222,10 @@ hardening pass before this is a finished product.
 - [x] **End-user documentation** — install guide, tab-by-tab user guide,
   architecture doc and an FFmpeg/render troubleshooting guide, all under
   `docs/` and linked above
-- [ ] **Packaging** — a production build/launch path beyond `./dev.sh`
-  (the plan keeps this Tauri/Electron-ready but nothing is wired up yet)
+- [x] **Packaging** — `./prod.sh` (and a `Launch EVB (Production).command`)
+  build the frontend and serve it plus the API from one process on a single
+  origin — no Vite dev server. That single-port, no-external-deps server is the
+  natural thing to wrap in Tauri/Electron next
 - [x] **Frontend test coverage** — component tests now cover Content, Scenes,
   Audio, Export, Music and Style alongside Diagnostics and the project store,
   with a shared typed project fixture (`src/test/factories.ts`)

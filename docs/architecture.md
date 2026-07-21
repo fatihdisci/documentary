@@ -10,6 +10,12 @@ frontend (React/Vite, :5173)  ──HTTP/SSE──▶  backend (FastAPI, :8756) 
         └── autosaving project store                 └── project.json + media files on disk
 ```
 
+In development (`./dev.sh`) the Vite dev server on :5173 proxies `/api` and
+`/media` to the backend. In production (`./prod.sh`) there is no dev server: the
+frontend is built to `frontend/dist` and `main.mount_frontend()` serves it from
+the backend, so the app and the API share one origin on :8756. That single-port,
+dependency-free server is what a future Tauri/Electron shell would wrap.
+
 ## Backend (`backend/app`)
 
 | Area | What it does |
