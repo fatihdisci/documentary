@@ -124,7 +124,7 @@ returned by any endpoint, written to a log, or included in a project bundle.
 
 ```bash
 cd backend && .venv/bin/python -m pytest      # backend (494 passing)
-cd frontend && npm test                       # frontend (15 passing)
+cd frontend && npm test                       # frontend (21 passing)
 ```
 
 Backend tests that need a real TTS network call are skipped by default; run
@@ -165,10 +165,11 @@ hardening pass before this is a finished product.
   workflow (import content → upload images → pick voice → pick music →
   generate audio → render) for a first-time user, distinct from the full
   editor
-- [ ] **Style page** — font/size/color/position controls for titles,
-  subtitles and captions, plus transition and Ken Burns preset pickers in the
-  UI (the render pipeline already supports all of this; only the editor
-  screen is missing)
+- [x] **Style page** — font/size/colour/position controls for titles,
+  subtitles and captions (each with shadow, outline and background-box
+  options), the default transition picker, subtitle cue-timing bounds,
+  watermark and scrim — all backed by the existing render pipeline, with a
+  live text preview and a per-class reset
 - [ ] **Frontend canvas preview** — an in-browser Ken Burns/text preview that
   mirrors the backend's motion math, so scenes can be scrubbed without
   rendering a proxy clip
@@ -183,7 +184,7 @@ hardening pass before this is a finished product.
 - [ ] **Packaging** — a production build/launch path beyond `./dev.sh`
   (the plan keeps this Tauri/Electron-ready but nothing is wired up yet)
 - [ ] **Frontend test coverage** — most new pages (Audio, Export, Content,
-  Scenes) don't have component tests yet; only Diagnostics and the project
-  store do
+  Scenes) don't have component tests yet; Diagnostics, the Style page and the
+  project store do
 - [ ] **Music library UI** — uploading/managing tracks in `music/` has a
   backend endpoint but no dedicated screen yet
