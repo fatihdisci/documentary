@@ -132,7 +132,7 @@ returned by any endpoint, written to a log, or included in a project bundle.
 
 ```bash
 cd backend && .venv/bin/python -m pytest      # backend (500 passing)
-cd frontend && npm test                       # frontend (27 passing)
+cd frontend && npm test                       # frontend (46 passing)
 ```
 
 Backend tests that need a real TTS network call are skipped by default; run
@@ -181,9 +181,10 @@ hardening pass before this is a finished product.
 - [ ] **Frontend canvas preview** — an in-browser Ken Burns/text preview that
   mirrors the backend's motion math, so scenes can be scrubbed without
   rendering a proxy clip
-- [ ] **Error taxonomy polish in the UI** — audit every screen for the
-  message/details/suggestion/log-path pattern used on Diagnostics and Export;
-  a few older pages (Content, Scenes) still show plain fetch errors in places
+- [x] **Error taxonomy polish in the UI** — every screen now routes failures
+  through the single `ErrorBox` (code / message / suggested fix / log path /
+  collapsible details), including the Content and Scenes pages; component
+  tests lock the structured-error behaviour in place
 - [ ] **Dark/light theme polish** — the toggle exists and both palettes are
   defined in `theme.css`, but light mode hasn't had a full visual pass
 - [ ] **End-user documentation** — install guide, user guide, architecture
@@ -191,9 +192,9 @@ hardening pass before this is a finished product.
   written up)
 - [ ] **Packaging** — a production build/launch path beyond `./dev.sh`
   (the plan keeps this Tauri/Electron-ready but nothing is wired up yet)
-- [ ] **Frontend test coverage** — most new pages (Audio, Export, Content,
-  Scenes) don't have component tests yet; Diagnostics, the Style page and the
-  project store do
+- [x] **Frontend test coverage** — component tests now cover Content, Scenes,
+  Audio, Export, Music and Style alongside Diagnostics and the project store,
+  with a shared typed project fixture (`src/test/factories.ts`)
 - [x] **Music library UI** — a dedicated Music tab to upload, audition, delete
   and pick the background track; deleting the selected track clears the
   project reference server-side so a stale path can't break a render
