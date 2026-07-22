@@ -24,5 +24,13 @@ data/
 backend/tests/_output/
 scratch/
 
+# Deliverables: the text/JSON content packages are tracked, but not the
+# generated images — those live in a per-animal pics/ folder and stay local.
+deliverables/**/pics/
+deliverables/**/*.png
+deliverables/**/*.jpg
+deliverables/**/*.jpeg
+deliverables/**/*.webp
+
 # macOS
 .DS_Store

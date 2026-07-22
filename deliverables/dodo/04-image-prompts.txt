@@ -1,0 +1,4 @@
+00-intro.png
+Cinematic wildlife documentary reconstruction of a scientifically plausible dodo, a large flightless pigeon with a sturdy grey-brown body, pale throat, small wings, strong yellowish hooked bill with a dark tip, and robust yellow legs, standing alone on a black volcanic ridge above misty Mauritian forest at first light; low heroic camera angle, the bird on the right looking toward a distant Indian Ocean horizon, storm-soft clouds and a single shaft of sunrise, emotionally urgent cold-open image, photorealistic, historically appropriate natural environment, natural lighting, subtle film grain, restrained natural colour grading, high detail, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition
+
+Note: Only the missing intro image has a new generation prompt. The existing ten scene images are retained unchanged and intentionally have no replacement prompts in this file.

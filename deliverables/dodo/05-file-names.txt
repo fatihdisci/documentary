@@ -1,0 +1,15 @@
+Expected image mapping
+
+00-intro.png       Present
+01-opening.png     Converted from existing JPEG
+02-habitat.png     Converted from existing JPEG
+03-anatomy.png     Converted from existing JPEG
+04-behavior.png    Converted from existing JPEG
+05-ecosystem.png   Converted from existing JPEG
+06-human-arrival.png Converted from existing JPEG
+07-decline.png     Converted from existing JPEG
+08-last-years.png  Converted from existing JPEG
+09-evidence.png    Converted from existing JPEG
+10-legacy.png      Converted from existing JPEG
+
+The JSON explicitly pins these exact .png scene filenames. The intro is explicitly set to 00-intro.png with useFirstSceneImage=false.
