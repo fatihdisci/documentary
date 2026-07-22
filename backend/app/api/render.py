@@ -97,7 +97,11 @@ def preflight(slug: str) -> PreflightResponse:
             disk["sufficient"] = True
 
         # Roughly 5x realtime cold on a laptop; cached clips make it far faster.
-        estimated_seconds = round(timeline.total_duration_seconds * 5.0, 0)
+        # Preview renders at half the frame rate and a light supersample, so the
+        # dominant scene-clip stage is far cheaper — reflect that here rather than
+        # quoting a full-export time for a quick check.
+        realtime_factor = 0.7 if project.export.quality is QualityPreset.PREVIEW else 5.0
+        estimated_seconds = round(timeline.total_duration_seconds * realtime_factor, 0)
 
     except Exception as exc:  # noqa: BLE001 - preflight must never itself fail
         blocking.append(str(exc))

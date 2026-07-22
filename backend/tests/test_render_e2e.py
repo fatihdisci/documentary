@@ -232,16 +232,48 @@ class TestCaching:
         assert first.stat().st_size == original_bytes
         assert again.artifacts.video.name > first.name
 
-    def test_changing_export_quality_does_not_rebuild_clips(self, rendered) -> None:  # noqa: ANN001
-        """Cache matrix: export quality touches the final encode only."""
+    def test_changing_between_full_qualities_does_not_rebuild_clips(self, rendered) -> None:  # noqa: ANN001
+        """Cache matrix: a full-quality preset touches the final encode only.
+
+        The fixture rendered at the default (youtube-hq). Switching to another
+        full-quality preset shares the same scene-clip geometry, so nothing
+        re-renders. Preview is deliberately excluded — it has its own lighter
+        cache (see below).
+        """
         from app.models.enums import QualityPreset
 
         _, project, paths, _, repository = rendered
-        project.export.quality = QualityPreset.PREVIEW
+        project.export.quality = QualityPreset.STANDARD
         repository.save(project)
 
         result = asyncio.run(RenderPipeline(project, paths).run())
         assert result.rendered_clips == 0
+
+    def test_preview_builds_its_own_cache_then_reuses_it(self, rendered) -> None:  # noqa: ANN001
+        """Preview renders its own lighter clips, apart from the full cache.
+
+        The first preview render builds every clip fresh (different frame rate and
+        supersample), and crucially does *not* evict the full-quality clips the
+        fixture already built. A second preview reuses them.
+        """
+        from app.models.enums import QualityPreset
+
+        _, project, paths, _, repository = rendered
+        full_clips = sorted(p.name for p in paths.clips.glob("*.mp4"))
+
+        project.export.quality = QualityPreset.PREVIEW
+        repository.save(project)
+
+        first = asyncio.run(RenderPipeline(project, paths).run())
+        assert first.rendered_clips == len(first.scene_clips)
+        assert first.reused_clips == 0
+        # The expensive full-quality cache survives the preview untouched.
+        assert sorted(p.name for p in paths.clips.glob("*.mp4")) == full_clips
+        assert all("preview" in str(c.path.parent) for c in first.scene_clips)
+
+        second = asyncio.run(RenderPipeline(project, paths).run())
+        assert second.reused_clips == len(second.scene_clips)
+        assert second.rendered_clips == 0
 
     def test_changing_a_title_rebuilds_only_that_clip(self, rendered) -> None:  # noqa: ANN001
         _, project, paths, _, repository = rendered

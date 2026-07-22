@@ -11,6 +11,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.models.enums import IntermediateCodec, QualityPreset
+from app.models.project import VideoSettings
+
+#: Preview trades smoothness and frame rate for speed. The scene-clip stage
+#: (supersampled ``zoompan`` at 60 fps) dominates render time and is otherwise
+#: identical for every quality, so a "preview" that only cheapened the final
+#: encode was barely faster than a full export. These caps make it genuinely
+#: quick — full 1080p framing so subtitles and layout are still checkable, but
+#: half the frames and a light supersample.
+PREVIEW_FPS = 30
+PREVIEW_SUPERSAMPLE = 1.5
 
 
 @dataclass(frozen=True)
@@ -23,6 +33,51 @@ class EncoderSpec:
     description: str = ""
     #: Rough disk cost, MB per minute of 1080p60, from the benchmark.
     mb_per_minute: float = 0.0
+
+
+@dataclass(frozen=True)
+class RenderProfile:
+    """The effective geometry one render uses, derived from the quality preset.
+
+    Only ``PREVIEW`` departs from the project's own video settings: it renders at
+    a lower frame rate and supersample factor so a rough check does not cost a
+    full export. Every other quality mirrors the project exactly, so a real
+    export is byte-for-byte what it was before this existed.
+
+    ``cache_slug`` namespaces the per-scene clip cache. Preview clips are lighter
+    and a different resolution/rate, so they live apart from the full-quality
+    cache and neither one ever evicts the other — a quick preview never throws
+    away the expensive clips a real export already built.
+    """
+
+    width: int
+    height: int
+    fps: int
+    supersample: float
+    cache_slug: str = ""
+
+
+def render_profile(video: VideoSettings, quality: QualityPreset) -> RenderProfile:
+    """Resolve the geometry for a render of ``quality``.
+
+    Preview is capped *below* the project's settings (never above), so a project
+    already configured for 30 fps or a light supersample keeps its own values.
+    """
+    if quality is QualityPreset.PREVIEW:
+        return RenderProfile(
+            width=video.width,
+            height=video.height,
+            fps=min(video.fps, PREVIEW_FPS),
+            supersample=min(video.supersample_factor, PREVIEW_SUPERSAMPLE),
+            cache_slug="preview",
+        )
+    return RenderProfile(
+        width=video.width,
+        height=video.height,
+        fps=video.fps,
+        supersample=video.supersample_factor,
+        cache_slug="",
+    )
 
 
 #: Per-scene cached clips. These are decoded again during assembly, so they

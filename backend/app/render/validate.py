@@ -22,6 +22,7 @@ from pathlib import Path
 
 from app.config import Settings, get_settings
 from app.models.project import Project
+from app.render.codecs import RenderProfile
 from app.timing.probe import frame_timestamps, measure_mean_volume, probe_video
 from app.timing.schedule import Timeline
 
@@ -97,9 +98,18 @@ def validate_output(
     timeline: Timeline,
     settings: Settings | None = None,
     check_audio: bool = True,
+    profile: RenderProfile | None = None,
 ) -> ValidationReport:
-    """Verify a rendered file against what the project asked for."""
+    """Verify a rendered file against what the project asked for.
+
+    ``profile`` is the geometry this render actually targeted; it defaults to the
+    project's own video settings. A preview renders at a lower frame rate, so the
+    file is checked against the *preview's* rate, not the project's 60 fps.
+    """
     active = settings or get_settings()
+    exp_width = profile.width if profile else project.video.width
+    exp_height = profile.height if profile else project.video.height
+    exp_fps = profile.fps if profile else project.video.fps
     report = ValidationReport(path=path)
 
     if not path.is_file():
@@ -121,12 +131,12 @@ def validate_output(
     info = probe_video(path, settings=active)
 
     report.assertions.append(
-        Assertion("width", info.width == project.video.width,
-                  str(project.video.width), str(info.width))
+        Assertion("width", info.width == exp_width,
+                  str(exp_width), str(info.width))
     )
     report.assertions.append(
-        Assertion("height", info.height == project.video.height,
-                  str(project.video.height), str(info.height))
+        Assertion("height", info.height == exp_height,
+                  str(exp_height), str(info.height))
     )
     report.assertions.append(
         Assertion("video codec", info.codec == "h264", "h264", info.codec)
@@ -135,7 +145,7 @@ def validate_output(
         Assertion("pixel format", info.pix_fmt == "yuv420p", "yuv420p", info.pix_fmt)
     )
 
-    expected_rate = f"{project.video.fps}/1"
+    expected_rate = f"{exp_fps}/1"
     report.assertions.append(
         Assertion("average frame rate", info.avg_frame_rate == expected_rate,
                   expected_rate, info.avg_frame_rate)
@@ -148,7 +158,7 @@ def validate_output(
     # Corroborate CFR by measurement rather than trusting the header.
     timestamps = frame_timestamps(path, seconds=4.0, settings=active)
     if len(timestamps) > 10:
-        expected_interval = 1.0 / project.video.fps
+        expected_interval = 1.0 / exp_fps
         intervals = [timestamps[i] - timestamps[i - 1] for i in range(1, len(timestamps))]
         irregular = [i for i in intervals if abs(i - expected_interval) > 0.002]
         report.assertions.append(
@@ -168,7 +178,7 @@ def validate_output(
 
     # nb_frames is optional metadata: only checked when present.
     if info.nb_frames is not None:
-        expected_frames = round(info.duration_seconds * project.video.fps)
+        expected_frames = round(info.duration_seconds * exp_fps)
         difference = abs(info.nb_frames - expected_frames)
         report.assertions.append(
             Assertion(

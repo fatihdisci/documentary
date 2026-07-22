@@ -27,7 +27,7 @@ from app.config import Settings, get_settings
 from app.errors import ErrorCode, ValidationError
 from app.models.enums import AnimationPreset, TextPosition
 from app.models.project import Project, Scene, Section
-from app.render.codecs import intermediate_spec
+from app.render.codecs import RenderProfile, intermediate_spec
 from app.render.ffmpeg import FFmpegRunner, base_output_args, progress_args
 from app.render.kenburns import build_zoompan_filter, resolve_motion
 from app.render.text import TextCard, render_card, render_scrim
@@ -113,6 +113,16 @@ def normalize_image(
     return target
 
 
+def _full_profile(project: Project) -> RenderProfile:
+    """The geometry a full-quality render uses: the project's own video settings."""
+    return RenderProfile(
+        width=project.video.width,
+        height=project.video.height,
+        fps=project.video.fps,
+        supersample=project.video.supersample_factor,
+    )
+
+
 def cache_key(
     project: Project,
     unit: Scene | Section,
@@ -121,17 +131,21 @@ def cache_key(
     *,
     image_path: Path | None,
     suppress_fade_out: bool = False,
+    profile: RenderProfile | None = None,
 ) -> str:
     """Hash of every input that changes this clip's pixels.
 
-    Deliberately excludes anything that does not: the music, the export quality,
-    other scenes' content, and the narration audio itself (only its measured
-    duration matters here).
+    Deliberately excludes anything that does not: the music, the *final-encode*
+    quality, other scenes' content, and the narration audio itself (only its
+    measured duration matters here). The render ``profile`` is included because
+    preview renders at a lower frame rate and supersample, which does change the
+    pixels — those clips are cached separately from a full export's.
     """
+    prof = profile or _full_profile(project)
     parts = [
-        str(project.video.width), str(project.video.height), str(project.video.fps),
+        str(prof.width), str(prof.height), str(prof.fps),
         f"{entry.duration_seconds:.4f}",
-        f"{project.video.supersample_factor:.2f}",
+        f"{prof.supersample:.2f}",
         unit.animation_preset.value,
         f"{unit.start_scale:.4f}{unit.end_scale:.4f}",
         f"{unit.start_x:.4f}{unit.start_y:.4f}{unit.end_x:.4f}{unit.end_y:.4f}",
@@ -215,25 +229,36 @@ async def render_scene_clip(
     cancel_event: object | None = None,
     on_progress: object | None = None,
     suppress_fade_out: bool = False,
+    profile: RenderProfile | None = None,
 ) -> SceneClip:
     """Render (or reuse) one scene's clip.
 
     ``suppress_fade_out`` is set for the final section: its fade to black is
     applied during assembly instead, so it lands at the true end of the video
     rather than before the closing hold.
+
+    ``profile`` carries the render geometry (resolution, frame rate, supersample)
+    and defaults to the project's own full-quality settings. Preview renders pass
+    a lighter profile whose clips are cached in their own namespace, so a quick
+    preview never evicts the clips a full export built.
     """
     active = settings or get_settings()
     ffmpeg_runner = runner or FFmpegRunner(active)
     ffmpeg = active.require_tool("ffmpeg")
     cue_list = cues or []
+    prof = profile or _full_profile(project)
 
     source_image = resolve_image(project, unit, paths)
     key = cache_key(
         project, unit, entry, cue_list,
-        image_path=source_image, suppress_fade_out=suppress_fade_out,
+        image_path=source_image, suppress_fade_out=suppress_fade_out, profile=prof,
     )
     spec = intermediate_spec(project.export.intermediate_codec)
-    target = paths.clips / f"{entry.unit_id}-{key}{spec.suffix}"
+    # Preview clips live in their own subdirectory so the two caches never
+    # collide and neither one's stale-clear can reach the other's files.
+    clip_dir = paths.clips / prof.cache_slug if prof.cache_slug else paths.clips
+    clip_dir.mkdir(parents=True, exist_ok=True)
+    target = clip_dir / f"{entry.unit_id}-{key}{spec.suffix}"
 
     if target.is_file():
         logger.debug("reusing cached clip for %s", entry.unit_id)
@@ -242,11 +267,13 @@ async def render_scene_clip(
             duration_seconds=entry.duration_seconds, reused=True, cache_key=key,
         )
 
-    # Clear superseded clips for this unit so the cache does not grow forever.
-    for stale in paths.clips.glob(f"{entry.unit_id}-*"):
+    # Clear this unit's superseded clips (within this profile only) so the cache
+    # does not grow forever. glob is non-recursive, so the full cache's sweep
+    # never descends into the preview subdirectory, nor vice versa.
+    for stale in clip_dir.glob(f"{entry.unit_id}-*"):
         stale.unlink(missing_ok=True)
 
-    width, height, fps = project.video.width, project.video.height, project.video.fps
+    width, height, fps = prof.width, prof.height, prof.fps
     duration = entry.duration_seconds
     frames = max(1, int(round(duration * fps)))
 
@@ -260,7 +287,7 @@ async def render_scene_clip(
                             previous=previous_preset)
     zoompan = build_zoompan_filter(
         motion, frames=frames, output_width=width, output_height=height,
-        fps=fps, supersample=project.video.supersample_factor,
+        fps=fps, supersample=prof.supersample,
     )
 
     inputs: list[str] = ["-loop", "1", "-t", f"{duration:.4f}", "-i", str(normalized)]

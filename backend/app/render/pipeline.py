@@ -29,7 +29,7 @@ from app.models.enums import JobPhase, MusicSource, QualityPreset, TransitionPre
 from app.models.project import Project, Scene, Section
 from app.render import transitions
 from app.render.audio_mix import build_audio_plan, render_narration_only, resolve_music_file
-from app.render.codecs import AUDIO_ARGS, estimate_disk_mb, quality_spec
+from app.render.codecs import AUDIO_ARGS, estimate_disk_mb, quality_spec, render_profile
 from app.render.ffmpeg import (
     CancelledRender,
     FFmpegRunner,
@@ -163,6 +163,10 @@ class RenderPipeline:
         self.on_progress = on_progress
         self.cancel_event = cancel_event
         self.quality = quality or project.export.quality
+        # Resolution/frame-rate/supersample this render actually uses. Only a
+        # preview departs from the project's own video settings; everything else
+        # mirrors them exactly.
+        self.profile = render_profile(project.video, self.quality)
         self.log: list[str] = []
         self.warnings: list[str] = []
         self._completed_weight = 0.0
@@ -268,7 +272,8 @@ class RenderPipeline:
         # 12. Validate what was actually produced.
         self._emit(JobPhase.VALIDATE_OUTPUT, 0.0, "Validating the exported file")
         validation = validate_output(
-            output, project=self.project, timeline=timeline, settings=self.settings
+            output, project=self.project, timeline=timeline, settings=self.settings,
+            profile=self.profile,
         )
         if not validation.passed:
             raise RenderError(
@@ -382,6 +387,7 @@ class RenderPipeline:
                 cancel_event=self.cancel_event,
                 on_progress=progress,
                 suppress_fade_out=(position == total - 1),
+                profile=self.profile,
             )
             clips.append(clip)
             previous_preset = unit.animation_preset
@@ -406,7 +412,7 @@ class RenderPipeline:
         """Join the clips with transitions and mux the mixed audio."""
         self._check_cancelled()
         ffmpeg = self.settings.require_tool("ffmpeg")
-        fps = self.project.video.fps
+        fps = self.profile.fps
         total = timeline.total_duration_seconds
 
         args: list[str] = [ffmpeg, "-hide_banner", "-nostdin", "-y", *progress_args()]
