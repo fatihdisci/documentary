@@ -23,10 +23,13 @@ DERIVED_DIRS = (
     "derived/subtitles",
     "derived/clips",
     "derived/proxy",
+    # Shorts keep their own scratch tree. It never shares a byte with
+    # derived/clips, so clearing one can never invalidate the other.
+    "derived/shorts-cache",
     "audio/generated",
 )
 
-OTHER_DIRS = ("exports", "backups", "logs")
+OTHER_DIRS = ("exports", "exports/shorts", "backups", "logs")
 
 
 @dataclass(frozen=True)
@@ -86,6 +89,11 @@ class ProjectPaths:
         return self.root / "derived" / "proxy"
 
     @property
+    def shorts_cache(self) -> Path:
+        """Rebuildable Shorts intermediates: cut segments, proxies, poster frames."""
+        return self.root / "derived" / "shorts-cache"
+
+    @property
     def derived_root(self) -> Path:
         return self.root / "derived"
 
@@ -93,6 +101,11 @@ class ProjectPaths:
     @property
     def exports(self) -> Path:
         return self.root / "exports"
+
+    @property
+    def shorts_exports(self) -> Path:
+        """Finished Short MP4s and their side-car manifest/log files."""
+        return self.root / "exports" / "shorts"
 
     @property
     def backups(self) -> Path:

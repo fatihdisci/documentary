@@ -13,6 +13,14 @@ import type {
   RenderJob,
 } from './render-types'
 import type {
+  ShortJob,
+  ShortRecord,
+  ShortRequest,
+  ShortSourceRender,
+  ShortSourceTimeline,
+  ShortsPreflightResponse,
+} from './shorts-types'
+import type {
   GenerateResponse,
   TimingResponse,
   TTSProviderStatus,
@@ -289,6 +297,41 @@ export const api = {
     request<RenderJob>(`/api/jobs/${jobId}/retry`, { method: 'POST' }),
   projectRenders: (slug: string) => request<RenderJob[]>(`/api/projects/${slug}/renders`),
   listExports: (slug: string) => request<ExportEntry[]>(`/api/projects/${slug}/exports`),
+
+  // --- shorts ---
+  // Entirely separate from the render endpoints above: a Short is only ever cut
+  // from a long render that already finished.
+  shortsSources: (slug: string) =>
+    request<ShortSourceRender[]>(`/api/projects/${slug}/shorts/sources`),
+  shortsTimeline: (slug: string, renderId: string) =>
+    request<ShortSourceTimeline>(
+      `/api/projects/${slug}/shorts/sources/${encodeURIComponent(renderId)}/timeline`,
+    ),
+  shortsPreflight: (slug: string, body: ShortRequest) =>
+    request<ShortsPreflightResponse>(`/api/projects/${slug}/shorts/preflight`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  createShort: (slug: string, body: ShortRequest) =>
+    request<ShortJob>(`/api/projects/${slug}/shorts`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  listShorts: (slug: string) => request<ShortRecord[]>(`/api/projects/${slug}/shorts`),
+  deleteShort: (slug: string, shortId: string) =>
+    request<{ shortId: string; removed: string[] }>(
+      `/api/projects/${slug}/shorts/${encodeURIComponent(shortId)}`,
+      { method: 'DELETE' },
+    ),
+  getShortJob: (jobId: string) => request<ShortJob>(`/api/short-jobs/${jobId}`),
+  activeShortJob: (slug?: string) =>
+    request<ShortJob | null>(
+      slug ? `/api/short-jobs/active?slug=${encodeURIComponent(slug)}` : '/api/short-jobs/active',
+    ),
+  cancelShortJob: (jobId: string) =>
+    request<ShortJob>(`/api/short-jobs/${jobId}/cancel`, { method: 'POST' }),
+  retryShortJob: (jobId: string) =>
+    request<ShortJob>(`/api/short-jobs/${jobId}/retry`, { method: 'POST' }),
 
   // --- maintenance ---
   listBackups: (slug: string) => request<string[]>(`/api/projects/${slug}/backups`),

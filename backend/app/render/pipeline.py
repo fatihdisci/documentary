@@ -38,6 +38,7 @@ from app.render.ffmpeg import (
 )
 from app.render.scene_clip import SceneClip, render_scene_clip, resolve_image
 from app.render.validate import ValidationReport, validate_output
+from app.shorts.manifest import write_render_manifest
 from app.storage.layout import ProjectPaths
 from app.storage.paths import unique_path
 from app.synth.music import render_ambient_bed
@@ -82,6 +83,9 @@ class RenderArtifacts:
     project_snapshot: Path | None = None
     render_log: Path | None = None
     report: Path | None = None
+    #: Versioned section timeline written beside the MP4, so a Short can be cut
+    #: from this render later without guessing where a scene started.
+    manifest: Path | None = None
 
 
 @dataclass
@@ -155,9 +159,11 @@ class RenderPipeline:
         on_progress: ProgressCallback | None = None,
         cancel_event: asyncio.Event | None = None,
         quality: QualityPreset | None = None,
+        job_id: str = "",
     ) -> None:
         self.project = project
         self.paths = paths
+        self.job_id = job_id
         self.settings = settings or get_settings()
         self.runner = FFmpegRunner(self.settings)
         self.on_progress = on_progress
@@ -608,6 +614,29 @@ class RenderPipeline:
             ),
             "utf-8",
         )
+
+        # Record the section timeline beside the export. This is what lets the
+        # Shorts feature cut an exact section out of this file later instead of
+        # inferring boundaries from the container duration. Failing to write it
+        # must never fail an otherwise-good render.
+        try:
+            artifacts.manifest = write_render_manifest(
+                output,
+                project=self.project,
+                timeline=timeline,
+                profile=self.profile,
+                quality=self.quality,
+                checksum=validation.checksum,
+                job_id=self.job_id,
+                settings=self.settings,
+            )
+        except Exception as exc:  # noqa: BLE001 - side-car, never fatal
+            logger.warning("could not write the render manifest: %s", exc)
+            self.warnings.append(
+                "The render manifest could not be written, so this export cannot be used "
+                "as a source for Shorts. The video itself is unaffected."
+            )
+
         return artifacts
 
     def _cleanup(self) -> None:

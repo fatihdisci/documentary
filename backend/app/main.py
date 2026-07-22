@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import audio, diagnostics, projects, render, settings_api
+from app.api import audio, diagnostics, projects, render, settings_api, shorts
 from app.config import configure_logging, get_settings
 from app.errors import AppError, ErrorCode, ErrorPayload
 
@@ -56,12 +56,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Loads render history and marks any render that was killed mid-run.
     from app.render.jobs import get_job_manager
+    from app.shorts.jobs import get_short_job_manager
 
     manager = get_job_manager()
     await manager.start()
+    # Same treatment for Shorts: its own queue and history, marking any Short
+    # that was being built when the app stopped.
+    short_manager = get_short_job_manager()
+    await short_manager.start()
 
     yield
 
+    await short_manager.stop()
     await manager.stop()
     logger.info("backend shutting down")
 
@@ -119,6 +125,8 @@ app.include_router(audio.router)
 app.include_router(audio.providers_router)
 app.include_router(render.router)
 app.include_router(render.jobs_router)
+app.include_router(shorts.router)
+app.include_router(shorts.jobs_router)
 
 
 def mount_frontend() -> None:

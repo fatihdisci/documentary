@@ -64,6 +64,17 @@ class ErrorCode(str, Enum):
     OUTPUT_VALIDATION_FAILED = "output_validation_failed"
     JOB_NOT_FOUND = "job_not_found"
 
+    # Shorts. A Short is only ever cut from a finished long render, so most of
+    # these describe the source no longer being what the manifest recorded.
+    SHORT_SOURCE_NOT_READY = "short_source_not_ready"
+    SHORT_MANIFEST_MISSING = "short_manifest_missing"
+    STALE_RENDER = "stale_render"
+    SHORT_INVALID_SELECTION = "short_invalid_selection"
+    SHORT_INVALID_TRIM = "short_invalid_trim"
+    SHORT_TOO_LONG = "short_too_long"
+    SHORT_JOB_NOT_FOUND = "short_job_not_found"
+    SHORT_NOT_FOUND = "short_not_found"
+
     # Generic fallback (still requires a real message + fix)
     INTERNAL = "internal"
 
@@ -149,6 +160,33 @@ _DEFAULT_FIXES: dict[ErrorCode, str] = {
         "assertion and its actual value. Retry, and report this if it repeats."
     ),
     ErrorCode.JOB_NOT_FOUND: "The job list may be stale. Refresh the render history.",
+    ErrorCode.SHORT_SOURCE_NOT_READY: (
+        "Shorts are cut from a finished video. Pick a render whose status is 'completed', "
+        "or render the long video first."
+    ),
+    ErrorCode.SHORT_MANIFEST_MISSING: (
+        "This export predates the Shorts feature, so it has no section timeline. Re-render "
+        "the long video once; the new export carries a manifest and can be used for Shorts."
+    ),
+    ErrorCode.STALE_RENDER: (
+        "The exported video no longer matches the render it was recorded from. Re-render the "
+        "long video, then build the Short from the new export."
+    ),
+    ErrorCode.SHORT_INVALID_SELECTION: (
+        "Select at least one section from the source render's timeline, and only sections that "
+        "the selected render actually contains."
+    ),
+    ErrorCode.SHORT_INVALID_TRIM: (
+        "Keep each trim inside the section's safe range, with the start before the end."
+    ),
+    ErrorCode.SHORT_TOO_LONG: (
+        "YouTube only treats videos up to three minutes as Shorts. Deselect a section or "
+        "trim the selection down."
+    ),
+    ErrorCode.SHORT_JOB_NOT_FOUND: "The Shorts history may be stale. Reload the Shorts tab.",
+    ErrorCode.SHORT_NOT_FOUND: (
+        "That Short is no longer on disk. Reload the Shorts tab to refresh the list."
+    ),
     ErrorCode.INTERNAL: "Check the backend log for the traceback.",
 }
 

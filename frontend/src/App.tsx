@@ -15,6 +15,7 @@ import { AudioPage } from '@/routes/AudioPage'
 import { MusicPage } from '@/routes/MusicPage'
 import { StylePage } from '@/routes/StylePage'
 import { ExportPage } from '@/routes/ExportPage'
+import { ShortsPage } from '@/routes/ShortsPage'
 import { SettingsPage } from '@/routes/SettingsPage'
 import { useProjectStore, flushPendingSave } from '@/store/project'
 import { useThemeStore } from '@/store/theme'
@@ -29,6 +30,7 @@ type Route =
   | 'music'
   | 'style'
   | 'export'
+  | 'shorts'
   | 'settings'
   | 'diagnostics'
 
@@ -41,6 +43,7 @@ const NAV: { id: Route; label: string; icon: string; needsProject: boolean; mile
   { id: 'music', label: 'Music', icon: '♬', needsProject: true, milestone: '' },
   { id: 'style', label: 'Style', icon: '◐', needsProject: true, milestone: '' },
   { id: 'export', label: 'Export', icon: '↑', needsProject: true, milestone: '' },
+  { id: 'shorts', label: 'Shorts', icon: '▯', needsProject: true, milestone: '' },
   { id: 'settings', label: 'Settings', icon: '⚙', needsProject: false, milestone: '' },
   { id: 'diagnostics', label: 'Diagnostics', icon: '✚', needsProject: false, milestone: '' },
 ]
@@ -121,6 +124,8 @@ export default function App() {
         return <StylePage />
       case 'export':
         return <ExportPage />
+      case 'shorts':
+        return <ShortsPage />
       case 'settings':
         return <SettingsPage />
       case 'diagnostics':

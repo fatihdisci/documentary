@@ -1,0 +1,164 @@
+/* Shorts. Reuses the render/status/artifact primitives from ExportPage.css and
+   adds only what is specific to picking sections and previewing a 9:16 frame. */
+
+.shorts-page .section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 12px;
+}
+.shorts-page .section-head h2 { margin: 0; }
+.shorts-page .empty-note { margin: 0; font-size: 13px; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* --- source picker ------------------------------------------------------ */
+
+.source-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px;
+}
+.source-card {
+  display: flex; gap: 11px; align-items: stretch; text-align: left;
+  padding: 9px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-input); cursor: pointer; color: var(--text);
+}
+.source-card:hover:not(:disabled) { border-color: var(--border-strong); background: var(--bg-hover); }
+.source-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+.source-card.unusable { opacity: 0.6; cursor: not-allowed; }
+
+.source-thumb {
+  flex: 0 0 auto; width: 84px; height: 48px; border-radius: 3px; overflow: hidden;
+  background: #000; display: flex; align-items: center; justify-content: center;
+}
+.source-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.source-thumb-placeholder { color: var(--text-faint); font-size: 18px; }
+
+.source-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.source-name {
+  font-family: var(--mono); font-size: 12px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.source-meta { font-size: 11.5px; color: var(--text-muted); }
+.source-issue { font-size: 11.5px; color: var(--warn); }
+
+/* --- section cards ------------------------------------------------------ */
+
+.section-list { display: flex; flex-direction: column; gap: 6px; }
+.section-card {
+  display: flex; gap: 12px; padding: 9px 11px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input);
+}
+.section-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+
+.section-pick { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.section-pick input { width: auto; margin: 0; }
+.section-number {
+  min-width: 22px; text-align: center; font-variant-numeric: tabular-nums;
+  font-weight: 600; font-size: 13px; color: var(--text-muted);
+}
+.order-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px;
+  background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.section-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.section-title-row { display: flex; align-items: baseline; gap: 8px; }
+.section-title { font-size: 13.5px; font-weight: 500; }
+.section-kind {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint);
+}
+.section-times { font-size: 11.5px; color: var(--text-muted); }
+.section-times em { font-style: normal; color: var(--text-faint); }
+
+.section-track {
+  position: relative; height: 5px; border-radius: 3px;
+  background: var(--bg); border: 1px solid var(--border); overflow: hidden;
+}
+.section-span { position: absolute; top: 0; bottom: 0; background: var(--border-strong); }
+.section-chosen { position: absolute; top: 0; bottom: 0; background: var(--accent); }
+
+.section-trim {
+  display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 4px;
+}
+.trim-field { display: flex; flex-direction: column; gap: 2px; }
+.trim-label { font-size: 10.5px; text-transform: uppercase; color: var(--text-faint); }
+.trim-field input { width: 96px; font-variant-numeric: tabular-nums; }
+.trim-hint { font-size: 10.5px; color: var(--text-faint); }
+.trim-length { font-size: 11.5px; color: var(--text-muted); }
+.trim-length.bad { color: var(--fail); }
+.section-controls { display: flex; gap: 5px; margin-left: auto; }
+.section-controls button { padding: 4px 9px; font-size: 12px; }
+
+/* --- duration meter ----------------------------------------------------- */
+
+.duration-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+.duration-readout { display: flex; flex-direction: column; }
+.duration-value {
+  font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ok);
+}
+.duration-value.warn { color: var(--warn); }
+.duration-value.bad { color: var(--fail); }
+.duration-readout .label { font-size: 11.5px; color: var(--text-muted); }
+
+.duration-meter {
+  position: relative; flex: 1; min-width: 220px; height: 10px;
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: 5px;
+  overflow: hidden;
+}
+.duration-meter .band { position: absolute; top: 0; bottom: 0; background: var(--ok-dim); }
+.duration-meter .tick { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--warn); }
+.duration-meter .fill {
+  position: absolute; top: 0; bottom: 0; left: 0; background: var(--border-strong);
+  transition: width 0.2s ease;
+}
+.duration-meter .fill.good { background: var(--ok); }
+.duration-meter .fill.warn { background: var(--warn); }
+.duration-meter .fill.bad { background: var(--fail); }
+.duration-scale { font-size: 11.5px; }
+
+/* --- 9:16 preview ------------------------------------------------------- */
+
+.preview-row { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+
+.canvas-preview { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.canvas-frame {
+  width: 150px; height: 267px; /* 1080x1920 at 1:7.2 */
+  background: #000; border: 1px solid var(--border-strong); border-radius: 4px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.canvas-fit {
+  width: 100%; aspect-ratio: 16 / 9; background: var(--bg-panel);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.canvas-fit img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.canvas-placeholder { font-size: 12px; color: var(--text-faint); }
+.canvas-caption { font-size: 11px; color: var(--text-muted); }
+
+.preview-strip { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 8px; }
+.preview-note { margin: 0; font-size: 12.5px; }
+.strip { display: flex; gap: 5px; align-items: stretch; }
+.strip-cut {
+  flex: 1 1 0; min-width: 60px; display: flex; flex-direction: column; gap: 3px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-input); padding: 4px; overflow: hidden;
+}
+.strip-cut img, .strip-blank {
+  width: 100%; height: 44px; object-fit: cover; border-radius: 3px;
+  background: #000; display: block;
+}
+.strip-caption { font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.strip-caption em { font-style: normal; color: var(--text-faint); }
+.cached-note { margin: 0; font-size: 12.5px; color: var(--ok); }
+.preview-blocking { margin: 0; font-size: 12.5px; color: var(--fail); }
+.refresh-preview { align-self: flex-start; padding: 4px 10px; font-size: 12px; }
+
+/* --- history ------------------------------------------------------------ */
+
+.shorts-history th {
+  text-align: left; font-size: 10.5px; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-faint); font-weight: 600; padding-bottom: 4px;
+}
+.history-sections { font-variant-numeric: tabular-nums; font-weight: 600; }

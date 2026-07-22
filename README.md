@@ -8,6 +8,10 @@ Burns motion, transitions, text overlays, subtitles and ducked background music.
 Everything runs on your machine. No cloud service is required for any part of
 the core workflow, and the basic path uses no paid APIs.
 
+A **Shorts** tab turns any completed render into a 1080×1920 vertical clip by
+cutting the sections you pick out of the finished video — no re-render, so the
+narration, music and burned-in subtitles come through untouched.
+
 ---
 
 ## Requirements
@@ -133,6 +137,14 @@ time for the tabs below, which give you the fine controls.
    throws away the clips a full render built. Finished renders and every side-car
    file (SRT, narration-only audio, description, thumbnail prompt, render log)
    are listed below with one-click downloads.
+9. **Shorts** *(optional)* — pick a completed render, tick the sections you want
+   in the order you want them (intro is `0`, scenes are `1…N`, outro is `N+1`),
+   trim each one inside its safe range, and press **Render Short**. The result is
+   a 1080×1920 MP4 with the 16:9 picture centred on black at its original aspect
+   ratio. Section boundaries come from the render's own manifest, so adjacent
+   picks keep the transition between them exactly as rendered. 25–50 seconds is
+   the recommended length; over 60 seconds you get a Content ID warning, and over
+   three minutes YouTube no longer treats it as a Short so the render is blocked.
 
 Projects, images, generated audio and every export live under
 `~/ExtinctVideoBuilder` (see below) — nothing leaves your machine.
@@ -161,8 +173,8 @@ returned by any endpoint, written to a log, or included in a project bundle.
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest      # backend (503 passing)
-cd frontend && npm test                       # frontend (62 passing)
+cd backend && .venv/bin/python -m pytest      # backend (611 passing)
+cd frontend && npm test                       # frontend (100 passing)
 ```
 
 Backend tests that need a real TTS network call are skipped by default; run
@@ -204,6 +216,9 @@ and the navigation sidebar. M1–M7 are complete and pushed.
   cancellation, crash recovery, render history, the Export page
 - **M7 — Hardening** ✅ simple/guided mode, Style editor, music library, canvas
   preview, error-taxonomy audit, theme pass, docs, test coverage, packaging
+- **M8 — Shorts** ✅ a vertical 9:16 cut-down built from a completed render and
+  its versioned manifest, with its own planner, pipeline, job queue and page —
+  the long render pipeline is untouched apart from writing that manifest
 
 ### M7 detail
 

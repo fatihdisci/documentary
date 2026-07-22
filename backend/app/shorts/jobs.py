@@ -1,13 +1,18 @@
-"""The render job queue.
+"""The Shorts job queue.
 
-One render runs at a time. FFmpeg already saturates the CPU, so running two
-concurrently makes both slower and can exhaust memory on a laptop; queued jobs
-wait their turn.
+Same contract as the long-render queue — jobs are persisted on every state
+change, a killed job is reported as *interrupted* rather than sitting in
+"running", and progress is delivered over SSE with a polling fallback — but a
+separate queue, a separate history and a separate on-disk shape, because a Short
+is not a render and the long ``RenderJob`` schema must keep parsing.
 
-Every state change is written to disk immediately. That is what makes the two
-guarantees here possible: the render history survives a restart, and a job that
-was killed mid-render is reported as *interrupted* rather than sitting forever
-in "running".
+The two queues share the process-wide render slot (``render/slot.py``), so one
+CPU-heavy FFmpeg job runs at a time whichever kind it is.
+
+Idempotency lives here. A Short is content-addressed by its cache key, so
+submitting the same request twice never starts a second job: if the Short is
+already on disk the job completes immediately as a reuse, and if one is already
+running the caller gets that job back.
 """
 
 from __future__ import annotations
@@ -17,7 +22,6 @@ import contextlib
 import json
 import logging
 import os
-import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -25,53 +29,51 @@ from pathlib import Path
 
 from app.config import Settings, get_settings
 from app.errors import AppError, ConflictError, ErrorCode, NotFoundError
-from app.models.enums import JobPhase, JobStatus, QualityPreset
-from app.models.jobs import JobArtifact, JobEvent, RenderJob
+from app.models.enums import JobStatus
 from app.render.ffmpeg import CancelledRender
-from app.render.pipeline import RenderPipeline
+from app.render.jobs import _process_alive
 from app.render.slot import render_slot
-from app.storage.repository import ProjectRepository
+from app.shorts.models import ShortJob, ShortJobEvent, ShortPhase, ShortRequest
+from app.shorts.pipeline import ShortsPipeline, artifacts_for
+from app.shorts.plan import build_plan
+from app.shorts.service import ShortsService
 
-logger = logging.getLogger("evb.jobs")
+logger = logging.getLogger("evb.shorts.jobs")
 
-#: Jobs older than this are pruned from the history on startup.
 HISTORY_RETENTION_DAYS = 60
 MAX_HISTORY_ENTRIES = 200
 
 
 @dataclass
-class _RunningJob:
-    job: RenderJob
+class _RunningShort:
+    job: ShortJob
     cancel_event: asyncio.Event
-    task: asyncio.Task | None = None
-    subscribers: list[asyncio.Queue[JobEvent]] = field(default_factory=list)
+    subscribers: list[asyncio.Queue[ShortJobEvent]] = field(default_factory=list)
 
 
-class JobManager:
-    """Owns the queue, the worker loop and the on-disk history."""
+class ShortJobManager:
+    """Owns the Shorts queue, worker loop and on-disk history."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
-        self._jobs: dict[str, RenderJob] = {}
-        self._running: dict[str, _RunningJob] = {}
+        self.service = ShortsService(self.settings)
+        self._jobs: dict[str, ShortJob] = {}
+        self._running: dict[str, _RunningShort] = {}
         self._worker: asyncio.Task | None = None
-        # The queue and lock are created lazily, inside whichever event loop is
-        # actually running. Building them in __init__ binds them to the loop
-        # that happened to exist at import time, which breaks as soon as the
-        # loop is replaced — on a uvicorn reload, or between tests.
+        self._history_loaded = False
+        # Bound lazily to whichever loop is actually running, for the same
+        # reason the render queue does it: a reload or the next test replaces it.
         self._queue: asyncio.Queue[str] | None = None
         self._lock: asyncio.Lock | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
 
     def _bind_loop(self) -> None:
-        """Attach the queue and lock to the running loop, rebuilding on change."""
         loop = asyncio.get_running_loop()
         if self._loop is loop and self._queue is not None and self._lock is not None:
             return
 
-        pending = []
+        pending: list[str] = []
         if self._queue is not None:
-            # Carry any still-queued work across to the new loop's queue.
             while not self._queue.empty():
                 pending.append(self._queue.get_nowait())
 
@@ -85,12 +87,12 @@ class JobManager:
 
     @property
     def _history_dir(self) -> Path:
-        return self.settings.data_dir / "jobs"
+        return self.settings.data_dir / "short-jobs"
 
     def _job_file(self, job_id: str) -> Path:
         return self._history_dir / f"{job_id}.json"
 
-    def _persist(self, job: RenderJob) -> None:
+    def _persist(self, job: ShortJob) -> None:
         self._history_dir.mkdir(parents=True, exist_ok=True)
         tmp = self._job_file(job.id).with_suffix(".json.tmp")
         tmp.write_text(job.model_dump_json(indent=2), "utf-8")
@@ -103,24 +105,22 @@ class JobManager:
 
         for path in sorted(self._history_dir.glob("*.json")):
             try:
-                job = RenderJob.model_validate(json.loads(path.read_text("utf-8")))
+                job = ShortJob.model_validate(json.loads(path.read_text("utf-8")))
             except (json.JSONDecodeError, ValueError) as exc:
-                logger.warning("skipping unreadable job file %s: %s", path.name, exc)
+                logger.warning("skipping unreadable short job %s: %s", path.name, exc)
                 continue
 
-            # A job recorded as active but with no live process was killed —
-            # the app crashed, or the machine restarted mid-render.
             if job.is_active and not _process_alive(job.pid):
                 job.status = JobStatus.INTERRUPTED
                 job.message = (
-                    "Interrupted — the application stopped while this render was running."
+                    "Interrupted — the application stopped while this Short was being built."
                 )
                 job.finished_at = job.finished_at or datetime.now(timezone.utc)
                 job.error_code = ErrorCode.RENDER_FAILED.value
-                job.error_message = "The render was interrupted before it finished."
+                job.error_message = "The Short was interrupted before it finished."
                 job.error_suggestion = (
-                    "Start the render again. Cached scene clips are reused, so it will be "
-                    "much faster this time."
+                    "Retry it. Retry reuses the same sections, trims and layout, and any "
+                    "cut that was already made is reused."
                 )
                 self._persist(job)
                 interrupted += 1
@@ -128,7 +128,7 @@ class JobManager:
             self._jobs[job.id] = job
 
         if interrupted:
-            logger.warning("marked %d interrupted render(s) from a previous session", interrupted)
+            logger.warning("marked %d interrupted Short(s) from a previous session", interrupted)
         self._prune_history()
 
     def _prune_history(self) -> None:
@@ -139,47 +139,22 @@ class JobManager:
             reverse=True,
         )
         for position, job in enumerate(finished):
-            too_old = job.created_at < cutoff
-            too_many = position >= MAX_HISTORY_ENTRIES
-            if too_old or too_many:
+            if job.created_at < cutoff or position >= MAX_HISTORY_ENTRIES:
                 self._jobs.pop(job.id, None)
                 self._job_file(job.id).unlink(missing_ok=True)
 
-    def cleanup_abandoned_temp(self) -> int:
-        """Remove scratch directories left behind by interrupted renders.
-
-        Only touches the app's own temp directory, and only entries older than
-        the configured retention.
-        """
-        temp_dir = self.settings.temp_dir
-        if not temp_dir.is_dir():
-            return 0
-
-        cutoff = time.time() - self.settings.mutable.temp_retention_days * 86_400
-        removed = 0
-        for entry in temp_dir.iterdir():
-            try:
-                if entry.stat().st_mtime > cutoff:
-                    continue
-                if entry.is_dir():
-                    import shutil
-
-                    shutil.rmtree(entry, ignore_errors=True)
-                else:
-                    entry.unlink(missing_ok=True)
-                removed += 1
-            except OSError as exc:  # pragma: no cover - permissions edge case
-                logger.warning("could not remove temp entry %s: %s", entry, exc)
-        if removed:
-            logger.info("cleaned %d abandoned temp entries", removed)
-        return removed
-
     # --- lifecycle --------------------------------------------------------
+
+    def ensure_history(self) -> None:
+        """Read the on-disk history exactly once per process."""
+        if self._history_loaded:
+            return
+        self._history_loaded = True
+        self.load_history()
 
     async def start(self) -> None:
         self._bind_loop()
-        self.load_history()
-        self.cleanup_abandoned_temp()
+        self.ensure_history()
         if self._worker is None or self._worker.done():
             self._worker = asyncio.create_task(self._worker_loop())
 
@@ -191,12 +166,12 @@ class JobManager:
             with contextlib.suppress(asyncio.CancelledError, RuntimeError):
                 await self._worker
             self._worker = None
-        # Release the loop binding so a later start() rebuilds cleanly.
         self._loop = None
 
     # --- public API -------------------------------------------------------
 
-    def list_jobs(self, *, project_slug: str | None = None, limit: int = 50) -> list[RenderJob]:
+    def list_jobs(self, *, project_slug: str | None = None, limit: int = 50) -> list[ShortJob]:
+        self.ensure_history()
         jobs = [
             job for job in self._jobs.values()
             if project_slug is None or job.project_slug == project_slug
@@ -204,100 +179,152 @@ class JobManager:
         jobs.sort(key=lambda j: j.created_at, reverse=True)
         return jobs[:limit]
 
-    def get(self, job_id: str) -> RenderJob:
+    def get(self, job_id: str) -> ShortJob:
+        self.ensure_history()
         job = self._jobs.get(job_id)
         if job is None:
             raise NotFoundError(
-                ErrorCode.JOB_NOT_FOUND,
-                f"No render job with id '{job_id}'.",
-                suggestion="Refresh the render history; old jobs are eventually pruned.",
+                ErrorCode.SHORT_JOB_NOT_FOUND,
+                f"No Shorts job with id '{job_id}'.",
             )
         return job
 
-    def active_job(self) -> RenderJob | None:
-        return next((j for j in self._jobs.values() if j.is_active), None)
+    def active_job(self, *, project_slug: str | None = None) -> ShortJob | None:
+        self.ensure_history()
+        return next(
+            (
+                j for j in self._jobs.values()
+                if j.is_active and (project_slug is None or j.project_slug == project_slug)
+            ),
+            None,
+        )
 
-    async def submit(
-        self, project_slug: str, *, quality: QualityPreset | None = None
-    ) -> RenderJob:
-        """Queue a render. Rejects a second render of the same project."""
+    def active_for_cache_key(self, slug: str, cache_key: str) -> ShortJob | None:
+        return next(
+            (
+                j for j in self._jobs.values()
+                if j.is_active and j.project_slug == slug and j.cache_key == cache_key
+            ),
+            None,
+        )
+
+    async def submit(self, project_slug: str, request: ShortRequest) -> ShortJob:
+        """Queue a Short, or hand back the identical one that already exists.
+
+        Validation happens *before* a job exists, so an impossible request fails
+        as a 4xx the caller can act on rather than as a job that fails a second
+        later with the same message.
+        """
         self._bind_loop()
+        self.ensure_history()
         assert self._lock is not None and self._queue is not None
 
+        manifest, source = self.service.load_source(project_slug, request.source_render_id)
+        plan = build_plan(manifest, request)
+
         async with self._lock:
-            existing = next(
-                (j for j in self._jobs.values()
-                 if j.project_slug == project_slug and j.is_active),
-                None,
-            )
+            existing = self.active_for_cache_key(project_slug, plan.cache_key)
             if existing is not None:
-                raise ConflictError(
-                    ErrorCode.RENDER_FAILED,
-                    f"A render of '{project_slug}' is already {existing.status.value}.",
-                    details=f"job id {existing.id}",
-                    suggestion="Wait for it to finish, or cancel it before starting another.",
+                logger.info(
+                    "reusing in-flight Short job %s for cache key %s",
+                    existing.id, plan.cache_key,
                 )
+                return existing
 
-            repository = ProjectRepository(self.settings)
-            project = repository.load(project_slug)  # 404s early if it is gone
+            record = self.service.find_by_cache_key(project_slug, plan.cache_key)
+            if record is not None:
+                return self._completed_from_cache(project_slug, request, plan, record)
 
-            job = RenderJob(
+            job = ShortJob(
                 project_slug=project_slug,
-                quality=quality or project.export.quality,
-                pid=os.getpid(),
+                request=request,
+                cache_key=plan.cache_key,
+                short_id=plan.cache_key,
+                source_render_id=request.source_render_id,
+                source_video=source.filename,
+                section_numbers=[s.number for s in plan.segments],
+                total_duration_seconds=plan.total_duration_seconds,
+                segment_count=len(plan.segments),
+                group_count=len(plan.groups),
+                warnings=list(plan.warnings),
             )
+            job.pid = os.getpid()
             self._jobs[job.id] = job
             self._persist(job)
             await self._queue.put(job.id)
 
-        logger.info("queued render job %s for %s", job.id, project_slug)
+        logger.info("queued Short job %s for %s (%d cut(s))",
+                    job.id, project_slug, len(plan.groups))
         await self.start()
         return job
 
-    async def cancel(self, job_id: str) -> RenderJob:
+    def _completed_from_cache(
+        self, slug: str, request: ShortRequest, plan, record  # noqa: ANN001
+    ) -> ShortJob:
+        """Record a completed job for a Short that already existed on disk."""
+        job = ShortJob(
+            project_slug=slug,
+            request=request,
+            cache_key=plan.cache_key,
+            short_id=record.short_id,
+            source_render_id=request.source_render_id,
+            source_video=record.source_video,
+            section_numbers=list(record.section_numbers),
+            status=JobStatus.COMPLETED,
+            phase=ShortPhase.PUBLISH,
+            progress=1.0,
+            message="Reused the identical Short already in this project.",
+            started_at=datetime.now(timezone.utc),
+            finished_at=datetime.now(timezone.utc),
+            output_file=record.filename,
+            artifacts=list(record.artifacts),
+            cache_reused=True,
+            total_duration_seconds=record.duration_seconds,
+            segment_count=len(plan.segments),
+            group_count=len(plan.groups),
+        )
+        self._jobs[job.id] = job
+        self._persist(job)
+        logger.info("cache hit: Short %s reused for %s", record.short_id, slug)
+        return job
+
+    async def cancel(self, job_id: str) -> ShortJob:
         job = self.get(job_id)
         if job.is_terminal:
             raise ConflictError(
-                ErrorCode.RENDER_FAILED,
-                f"This render already finished with status '{job.status.value}'.",
-                suggestion="Start a new render instead.",
+                ErrorCode.SHORT_JOB_NOT_FOUND,
+                f"This Short already finished with status '{job.status.value}'.",
+                suggestion="Start a new one instead.",
             )
-
         running = self._running.get(job_id)
         if running is not None:
             running.cancel_event.set()
-            logger.info("cancellation requested for running job %s", job_id)
+            logger.info("cancellation requested for running Short %s", job_id)
         else:
-            # Still queued: mark it now so the worker skips it.
             self._finalize(job, JobStatus.CANCELLED, "Cancelled before it started.")
         return job
 
-    async def retry(self, job_id: str) -> RenderJob:
-        """Queue a fresh render of the same project as a failed job."""
+    async def retry(self, job_id: str) -> ShortJob:
+        """Queue the same request again, verbatim."""
         job = self.get(job_id)
         if job.is_active:
             raise ConflictError(
-                ErrorCode.RENDER_FAILED,
-                "That render is still running.",
+                ErrorCode.SHORT_JOB_NOT_FOUND,
+                "That Short is still being built.",
                 suggestion="Cancel it first, or wait for it to finish.",
             )
-        return await self.submit(job.project_slug, quality=job.quality)
+        return await self.submit(job.project_slug, job.request)
 
-    async def subscribe(self, job_id: str) -> AsyncIterator[JobEvent]:
-        """Yield progress events for a job until it reaches a terminal state."""
+    async def subscribe(self, job_id: str) -> AsyncIterator[ShortJobEvent]:
         job = self.get(job_id)
 
-        # A finished job still gets one event, so a late subscriber is not left
-        # waiting forever for something that already happened.
         if job.is_terminal:
             yield _event_for(job)
             return
 
-        queue: asyncio.Queue[JobEvent] = asyncio.Queue()
+        queue: asyncio.Queue[ShortJobEvent] = asyncio.Queue()
         running = self._running.get(job_id)
-        if running is not None:
-            running.subscribers.append(queue)
-        else:
+        if running is None:
             # Queued but not started: poll until the worker picks it up.
             while job.is_active and job_id not in self._running:
                 yield _event_for(job)
@@ -307,7 +334,7 @@ class JobManager:
             if running is None:
                 yield _event_for(job)
                 return
-            running.subscribers.append(queue)
+        running.subscribers.append(queue)
 
         try:
             yield _event_for(job)
@@ -315,8 +342,7 @@ class JobManager:
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=15.0)
                 except asyncio.TimeoutError:
-                    # Heartbeat keeps proxies from closing an idle connection.
-                    event = _event_for(self.get(job_id))
+                    event = _event_for(self.get(job_id))  # heartbeat
                 yield event
                 if event.status in {
                     JobStatus.COMPLETED, JobStatus.FAILED,
@@ -337,18 +363,16 @@ class JobManager:
             if job is None or job.is_terminal:
                 continue
             try:
-                # Shared with the Shorts queue: only one CPU-heavy FFmpeg job
-                # runs at a time, whichever kind it is.
-                async with render_slot(label=f"render job {job_id}"):
+                async with render_slot(label=f"short job {job_id}"):
                     if job.is_terminal:  # cancelled while it waited for the slot
                         continue
                     await self._run_job(job)
             except Exception:  # noqa: BLE001 - the worker must survive any job
-                logger.exception("job %s crashed the worker loop", job_id)
+                logger.exception("Short job %s crashed the worker loop", job_id)
 
-    async def _run_job(self, job: RenderJob) -> None:
+    async def _run_job(self, job: ShortJob) -> None:
         cancel_event = asyncio.Event()
-        running = _RunningJob(job=job, cancel_event=cancel_event)
+        running = _RunningShort(job=job, cancel_event=cancel_event)
         self._running[job.id] = running
 
         job.status = JobStatus.RUNNING
@@ -358,45 +382,47 @@ class JobManager:
         self._persist(job)
         self._broadcast(running)
 
-        repository = ProjectRepository(self.settings)
-
         try:
-            project = repository.load(job.project_slug)
-            paths = repository.paths_for(job.project_slug)
+            manifest, _ = self.service.load_source(job.project_slug, job.request.source_render_id)
+            plan = build_plan(manifest, job.request)
+            paths = self.service.paths_for(job.project_slug)
 
-            def on_progress(phase: JobPhase, overall: float, message: str) -> None:
+            def on_progress(phase: ShortPhase, overall: float, message: str) -> None:
                 job.phase = phase
                 job.progress = overall
                 job.message = message
                 self._broadcast(running)
 
-            pipeline = RenderPipeline(
-                project, paths,
+            pipeline = ShortsPipeline(
+                paths=paths,
+                manifest=manifest,
+                request=job.request,
+                plan=plan,
                 settings=self.settings,
                 on_progress=on_progress,
                 cancel_event=cancel_event,
-                quality=job.quality,
                 job_id=job.id,
             )
             result = await pipeline.run()
 
+            job.short_id = result.short_manifest.short_id
+            job.cache_key = result.plan.cache_key
             job.output_file = result.artifacts.video.name
-            job.total_duration_seconds = result.timeline.total_duration_seconds
-            job.scenes_rendered = result.rendered_clips
-            job.scenes_reused = result.reused_clips
+            job.artifacts = artifacts_for(job.project_slug, result.artifacts)
+            job.log_file = result.artifacts.log.name if result.artifacts.log else None
             job.warnings = list(result.warnings)
-            job.artifacts = _collect_artifacts(job.project_slug, result)
-            job.log_file = (
-                result.artifacts.render_log.name if result.artifacts.render_log else None
-            )
-            self._finalize(job, JobStatus.COMPLETED, "Render complete.", running)
+            job.total_duration_seconds = result.plan.total_duration_seconds
+            job.segment_count = len(result.plan.segments)
+            job.group_count = len(result.plan.groups)
+            job.section_numbers = [s.number for s in result.plan.segments]
+            self._finalize(job, JobStatus.COMPLETED, "Short complete.", running)
 
         except CancelledRender:
-            logger.info("job %s cancelled", job.id)
-            self._finalize(job, JobStatus.CANCELLED, "Render cancelled.", running)
+            logger.info("Short job %s cancelled", job.id)
+            self._finalize(job, JobStatus.CANCELLED, "Short cancelled.", running)
 
         except AppError as exc:
-            logger.warning("job %s failed: %s", job.id, exc)
+            logger.warning("Short job %s failed: %s", job.id, exc)
             job.error_code = exc.code.value
             job.error_message = exc.message
             job.error_details = exc.details
@@ -406,9 +432,9 @@ class JobManager:
         except Exception as exc:  # noqa: BLE001
             import traceback
 
-            logger.exception("job %s failed unexpectedly", job.id)
+            logger.exception("Short job %s failed unexpectedly", job.id)
             job.error_code = ErrorCode.INTERNAL.value
-            job.error_message = f"An unexpected {type(exc).__name__} stopped the render."
+            job.error_message = f"An unexpected {type(exc).__name__} stopped the Short."
             job.error_details = traceback.format_exc()[-4000:]
             job.error_suggestion = (
                 "This is a bug. The technical details above and the backend log have "
@@ -421,10 +447,10 @@ class JobManager:
 
     def _finalize(
         self,
-        job: RenderJob,
+        job: ShortJob,
         status: JobStatus,
         message: str,
-        running: _RunningJob | None = None,
+        running: _RunningShort | None = None,
     ) -> None:
         job.status = status
         job.message = message
@@ -435,18 +461,17 @@ class JobManager:
         if running is not None:
             self._broadcast(running)
 
-    def _broadcast(self, running: _RunningJob) -> None:
+    def _broadcast(self, running: _RunningShort) -> None:
         event = _event_for(running.job)
         for queue in list(running.subscribers):
             with contextlib.suppress(asyncio.QueueFull):
                 queue.put_nowait(event)
-        # Persist periodically so a crash loses at most the last update.
         if running.job.is_terminal or int(running.job.progress * 100) % 5 == 0:
             self._persist(running.job)
 
 
-def _event_for(job: RenderJob) -> JobEvent:
-    return JobEvent(
+def _event_for(job: ShortJob) -> ShortJobEvent:
+    return ShortJobEvent(
         job_id=job.id,
         status=job.status,
         phase=job.phase,
@@ -464,59 +489,18 @@ def _event_for(job: RenderJob) -> JobEvent:
     )
 
 
-def _collect_artifacts(slug: str, result) -> list[JobArtifact]:  # noqa: ANN001
-    artifacts: list[JobArtifact] = []
-
-    def add(kind: str, path: Path | None) -> None:
-        if path is None or not path.is_file():
-            return
-        artifacts.append(
-            JobArtifact(
-                kind=kind,
-                filename=path.name,
-                size_bytes=path.stat().st_size,
-                url=f"/api/projects/{slug}/exports/{path.name}",
-            )
-        )
-
-    add("video", result.artifacts.video)
-    add("subtitles", result.artifacts.subtitles)
-    add("narration", result.artifacts.narration_audio)
-    add("description", result.artifacts.description)
-    add("thumbnail", result.artifacts.thumbnail_prompt)
-    add("project", result.artifacts.project_snapshot)
-    add("log", result.artifacts.render_log)
-    add("report", result.artifacts.report)
-    add("manifest", result.artifacts.manifest)
-    return artifacts
-
-
-def _process_alive(pid: int | None) -> bool:
-    """Whether a pid is still running. Used to detect interrupted renders."""
-    if pid is None:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        # It exists but belongs to another user; treat it as alive.
-        return True
-    return True
-
-
 #: One manager per process.
-_manager: JobManager | None = None
+_manager: ShortJobManager | None = None
 
 
-def get_job_manager() -> JobManager:
+def get_short_job_manager() -> ShortJobManager:
     global _manager
     if _manager is None:
-        _manager = JobManager(get_settings())
+        _manager = ShortJobManager(get_settings())
     return _manager
 
 
-def reset_job_manager() -> None:
+def reset_short_job_manager() -> None:
     """Drop the singleton. Used by tests to isolate state."""
     global _manager
     _manager = None
