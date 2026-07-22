@@ -38,6 +38,7 @@ describe('ContentPage', () => {
         scenesUpdated: 0,
         scenesRemoved: 0,
         imagesMapped: 6,
+        introImage: null,
         unmappedScenes: [],
         unusedImages: [],
         warnings: ['Scene 3 has no image.'],
@@ -51,7 +52,7 @@ describe('ContentPage', () => {
 
     expect(await screen.findByText('Import complete')).toBeInTheDocument()
     expect(screen.getByText('8 scenes created')).toBeInTheDocument()
-    expect(screen.getByText('6 images mapped to scenes')).toBeInTheDocument()
+    expect(screen.getByText('6 images mapped')).toBeInTheDocument()
     expect(screen.getByText(/Scene 3 has no image\./)).toBeInTheDocument()
   })
 

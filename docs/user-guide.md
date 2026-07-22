@@ -38,11 +38,15 @@ description, thumbnail text/prompt, and the intro/outro narration.
 
 ## 4. Scenes
 
-Upload your images (drag-and-drop works). Name them with a numeric prefix —
-`01-opening.png`, `02-habitat.png` — so they map onto scenes in the right order
-automatically. Reorder scenes by dragging their cards; **Auto-map images**
-re-runs the filename-order mapping if you add or reorder images later. Each card
-flags what it's still missing (no image / no narration / no audio yet).
+Upload your images (drag-and-drop works). Give **one more image than you have
+scenes** — 11 for a 10-scene video — and the first is used as the intro's own
+picture, so the opening no longer repeats the first scene's frame. Name them with
+a numeric prefix — `00-intro.png`, `01-opening.png`, `02-habitat.png` — so they
+map in the right order automatically. (With exactly one image per scene, the
+intro reuses the first scene's image as before.) Reorder scenes by dragging their cards;
+**Auto-map images** re-runs the filename-order mapping if you add or reorder
+images later. Each card flags what it's still missing (no image / no narration /
+no audio yet).
 
 Selecting a scene that has an image opens a **preview** — a scrubbable,
 in-browser Ken Burns + text mock-up that uses the exact motion the render will

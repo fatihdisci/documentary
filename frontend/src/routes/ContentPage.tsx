@@ -132,7 +132,8 @@ export function ContentPage() {
             <ul>
               {report.scenesCreated > 0 && <li>{report.scenesCreated} scenes created</li>}
               {report.scenesUpdated > 0 && <li>{report.scenesUpdated} scenes updated</li>}
-              <li>{report.imagesMapped} images mapped to scenes</li>
+              <li>{report.imagesMapped} images mapped</li>
+              {report.introImage && <li>Intro image: {report.introImage}</li>}
             </ul>
             {report.warnings.length > 0 && (
               <div className="warnings">

@@ -108,23 +108,31 @@ scenes share an effect. Use an explicit value only where the shot needs it —
 }
 ```
 
-Set `useFirstSceneImage: true` to reuse scene 1's image instead of supplying a
-dedicated one.
+The intro gets **its own image** by default (see below). Set
+`useFirstSceneImage: true` to reuse scene 1's image instead — the old behaviour,
+where the opening shares the first scene's picture.
 
-## How images are matched to scenes
+## How images are matched
 
-If a scene sets `imageFile`, that file is used. Every other scene is filled from
-the project's uploaded images in **natural filename order**, which sorts
-`2-x.png` before `10-x.png` (plain alphabetical sorting does not). Name your
-files with a numeric prefix:
+If a unit sets `imageFile`, that file is used. Everything else is filled from the
+project's uploaded images in **natural filename order**, which sorts `2-x.png`
+before `10-x.png` (plain alphabetical sorting does not).
+
+The **intro takes the first image** whenever you upload at least one more image
+than you have scenes — so a ten-scene video wants **eleven images**: one for the
+intro, then one per scene. The simplest layout keeps your scene names and just
+prepends the intro:
 
 ```
-01-opening.png   02-habitat.png   03-anatomy.png   …   10-conservation.png
+00-intro.png   01-opening.png   02-habitat.png   …   10-legacy.png
 ```
 
-The import report tells you exactly what happened: how many images were mapped,
-which scenes were left without one, and which images went unused. You can always
-remap by hand afterwards.
+Without that spare image (exactly one per scene, or fewer) the intro falls back
+to reusing the first scene's picture, exactly as before — so existing ten-image
+projects are unaffected. The import report tells you exactly what happened: how
+many images were mapped, which image became the intro's, which scenes were left
+without one, and which images went unused. You can always remap by hand
+afterwards.
 
 ## Import behaviour
 

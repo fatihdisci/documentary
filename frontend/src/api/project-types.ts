@@ -275,6 +275,7 @@ export interface ImportReport {
   scenesUpdated: number
   scenesRemoved: number
   imagesMapped: number
+  introImage: string | null
   unmappedScenes: number[]
   unusedImages: string[]
   warnings: string[]
@@ -282,6 +283,7 @@ export interface ImportReport {
 
 export interface ImageMapping {
   imagesMapped: number
+  introImage: string | null
   unmappedScenes: number[]
   unusedImages: string[]
   warnings: string[]

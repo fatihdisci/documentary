@@ -32,6 +32,8 @@ class ImportReport(CamelModel):
     scenes_updated: int = 0
     scenes_removed: int = 0
     images_mapped: int = 0
+    #: The image assigned to the intro, when it gets its own.
+    intro_image: str | None = None
     unmapped_scenes: list[int] = []
     unused_images: list[str] = []
     warnings: list[str] = []
@@ -143,6 +145,7 @@ def apply_content(
     if map_images:
         mapping = map_images_to_scenes(project, paths)
         report.images_mapped = mapping.images_mapped
+        report.intro_image = mapping.intro_image
         report.unmapped_scenes = mapping.unmapped_scenes
         report.unused_images = mapping.unused_images
         report.warnings.extend(mapping.warnings)
@@ -213,6 +216,8 @@ def _apply_scene(scene: Scene, content: ContentScene, *, index: int) -> None:
 
 class ImageMapping(CamelModel):
     images_mapped: int = 0
+    #: The image assigned to the intro, when it gets its own (see below).
+    intro_image: str | None = None
     unmapped_scenes: list[int] = []
     unused_images: list[str] = []
     warnings: list[str] = []
@@ -230,10 +235,34 @@ def available_images(paths: ProjectPaths) -> list[str]:
     return sorted(names, key=natural_sort_key)
 
 
-def map_images_to_scenes(project: Project, paths: ProjectPaths, *, force: bool = False) -> ImageMapping:
-    """Assign images to scenes in filename order.
+def intro_takes_own_image(project: Project, image_count: int) -> bool:
+    """Whether the intro should claim its own image rather than reuse a scene's.
 
-    Scenes that already name an image keep it unless ``force`` is set, so a
+    The intro is a section in its own right, so reusing the first scene's picture
+    made the opening and the first scene show the same frame back to back. When
+    the project has at least one more image than it has scenes, that surplus image
+    becomes the intro's own — the natural "eleven images for ten scenes" layout,
+    the first of which is the intro.
+
+    Kept off when there is no surplus (so a ten-image, ten-scene project maps
+    exactly as before), when the intro is disabled, and when the intro is
+    explicitly set to reuse the first scene's image.
+    """
+    return (
+        project.intro.enabled
+        and not project.intro.use_first_scene_image
+        and image_count >= len(project.scenes) + 1
+    )
+
+
+def map_images_to_scenes(project: Project, paths: ProjectPaths, *, force: bool = False) -> ImageMapping:
+    """Assign images to the intro and scenes in filename order.
+
+    When there is a surplus image (see :func:`intro_takes_own_image`) the first
+    image goes to the intro and the rest to the scenes; otherwise every image
+    goes to the scenes and the intro reuses the first scene's picture as before.
+
+    Units that already name an image keep it unless ``force`` is set, so a
     re-import does not undo manual remapping.
     """
     result = ImageMapping()
@@ -243,25 +272,38 @@ def map_images_to_scenes(project: Project, paths: ProjectPaths, *, force: bool =
         result.unmapped_scenes = [s.order for s in project.scenes]
         return result
 
-    taken = set() if force else {s.image_file for s in project.scenes if s.image_file}
+    # Ordered targets: the intro first (when it takes its own image), then every
+    # scene. Filling this list from the sorted images is what makes the first
+    # image the intro's and the rest the scenes', in order.
+    targets: list[tuple[str, Section | Scene]] = []
+    if intro_takes_own_image(project, len(images)):
+        targets.append(("intro", project.intro))
+    targets.extend(("scene", scene) for scene in project.scenes)
+
+    # A unit's own image is never handed to another unit, even one not being
+    # mapped this pass (e.g. the intro when it is not taking its own image).
+    assigned = [project.intro.image_file] + [s.image_file for s in project.scenes]
+    taken = set() if force else {name for name in assigned if name}
     queue = [name for name in images if name not in taken]
     cursor = 0
 
-    for scene in project.scenes:
-        if scene.image_file and not force:
-            if scene.image_file not in images:
+    for kind, unit in targets:
+        if unit.image_file and not force:
+            if unit.image_file not in images:
                 result.warnings.append(
-                    f"Scene {scene.order + 1} refers to '{scene.image_file}', which is not in "
+                    f"{_target_label(kind, unit)} refers to '{unit.image_file}', which is not in "
                     "this project. Upload it or pick a different image."
                 )
             continue
         if cursor < len(queue):
-            scene.image_file = queue[cursor]
+            unit.image_file = queue[cursor]
             cursor += 1
             result.images_mapped += 1
-        else:
-            scene.image_file = None
-            result.unmapped_scenes.append(scene.order)
+            if kind == "intro":
+                result.intro_image = unit.image_file
+        elif kind == "scene":
+            unit.image_file = None
+            result.unmapped_scenes.append(unit.order)  # type: ignore[union-attr]
 
     result.unused_images = queue[cursor:]
     if result.unmapped_scenes:
@@ -271,11 +313,17 @@ def map_images_to_scenes(project: Project, paths: ProjectPaths, *, force: bool =
         )
     if result.unused_images:
         result.warnings.append(
-            f"{len(result.unused_images)} uploaded image(s) are not used by any scene: "
+            f"{len(result.unused_images)} uploaded image(s) are not used: "
             f"{', '.join(result.unused_images[:5])}"
             + ("…" if len(result.unused_images) > 5 else "")
         )
     return result
+
+
+def _target_label(kind: str, unit: Section | Scene) -> str:
+    if kind == "intro":
+        return "The intro"
+    return f"Scene {unit.order + 1}"  # type: ignore[union-attr]
 
 
 def _format_errors(exc: PydanticValidationError) -> str:

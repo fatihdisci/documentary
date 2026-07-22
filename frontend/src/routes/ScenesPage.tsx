@@ -145,9 +145,11 @@ export function ScenesPage() {
 
   const selectedScene = project.scenes.find((s) => s.id === selectedSceneId) ?? null
   const unmapped = project.scenes.filter((s) => !s.imageFile).length
-  const unusedImages = images.filter(
-    (image) => !project.scenes.some((s) => s.imageFile === image.filename),
+  // The intro can own the first image, so it counts as used too.
+  const usedImages = new Set(
+    [project.intro?.imageFile, ...project.scenes.map((s) => s.imageFile)].filter(Boolean),
   )
+  const unusedImages = images.filter((image) => !usedImages.has(image.filename))
 
   return (
     <div className="page">
@@ -222,14 +224,15 @@ export function ScenesPage() {
           void uploadFiles(Array.from(e.dataTransfer.files))
         }}
       >
-        Drop PNG, JPEG or WebP images here. They map to scenes in filename order — name them{' '}
-        <code>01-opening.png</code>, <code>02-habitat.png</code>, and so on.
+        Drop PNG, JPEG or WebP images here. They map in filename order. Give one more image than
+        you have scenes and the first becomes the intro’s own picture — name them{' '}
+        <code>00-intro.png</code>, <code>01-opening.png</code>, and so on.
       </div>
 
       {unusedImages.length > 0 && (
         <p className="notice">
-          {unusedImages.length} uploaded image{unusedImages.length === 1 ? ' is' : 's are'} not used
-          by any scene: {unusedImages.map((i) => i.filename).join(', ')}
+          {unusedImages.length} uploaded image{unusedImages.length === 1 ? ' is' : 's are'} not used:{' '}
+          {unusedImages.map((i) => i.filename).join(', ')}
         </p>
       )}
 

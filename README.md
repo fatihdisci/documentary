@@ -100,15 +100,22 @@ time for the tabs below, which give you the fine controls.
    prompts for every scene). Use **Download example template** for the
    documented format and a working sample (the Dodo), or see
    [`docs/content-schema.md`](docs/content-schema.md).
-4. **Scenes** — upload your ~10 images (drag-and-drop works). Name them with a
-   numeric prefix, e.g. `01-opening.png`, `02-habitat.png`, so they map onto
-   scenes in the right order automatically. Reorder scenes by dragging their
-   cards; click **Auto-map images** if you add or reorder images afterwards.
+4. **Scenes** — upload your images (drag-and-drop works). Give **one more image
+   than you have scenes** — e.g. 11 images for a 10-scene video — and the first
+   becomes the intro's own picture, so the opening and the first scene no longer
+   share a frame. Name them with a numeric prefix so they sort in order — the
+   simplest layout keeps your scene names and prepends the intro:
+   `00-intro.png`, `01-opening.png`, `02-habitat.png`, …. (With exactly one image
+   per scene the intro simply reuses the first scene's image, as before.) Reorder
+   scenes by dragging their cards; click **Auto-map images** if you add or
+   reorder images afterwards.
 5. **Audio** — pick a TTS provider and voice (Edge TTS is free and needs no
    API key), then **Generate missing** to synthesize narration for every
    scene. No internet? Upload your own audio file per scene instead — the app
    works fully offline that way. This tab also shows the computed video
-   runtime and the mixing controls (voice/music levels, ducking, loudness).
+   runtime and the mixing controls (voice/music levels, ducking, loudness), and
+   the **Burn subtitles into the video** toggle — on by default, so a finished
+   video is captioned without any extra steps (an `.srt` is exported either way).
 6. **Music** *(optional)* — upload one or more background tracks, audition
    them in the browser, and pick the one the render uses. Or leave it on
    *No music* / the basic generated ambient bed.
@@ -120,9 +127,12 @@ time for the tabs below, which give you the fine controls.
    defaults ship out of the box, so you can skip this entirely.
 8. **Export** — check the preflight panel (it lists anything blocking a
    render), pick a quality preset, and press **Render video**. Progress
-   streams live; you can cancel or retry at any point. Finished renders and
-   every side-car file (SRT, narration-only audio, description, thumbnail
-   prompt, render log) are listed below with one-click downloads.
+   streams live; you can cancel or retry at any point. The **Preview** preset is
+   a genuinely fast check — it renders at 30 FPS with light supersampling
+   (roughly 8× quicker than a full export) into its own cache, so it never
+   throws away the clips a full render built. Finished renders and every side-car
+   file (SRT, narration-only audio, description, thumbnail prompt, render log)
+   are listed below with one-click downloads.
 
 Projects, images, generated audio and every export live under
 `~/ExtinctVideoBuilder` (see below) — nothing leaves your machine.

@@ -221,9 +221,46 @@ class TestImageMapping:
 
         report = apply_content(project, package, paths=paths)
 
+        # The surplus feeds the intro first, then the ten scenes; two are spare.
+        assert report.images_mapped == 11
+        assert report.intro_image == "01-opening.png"
+        assert len(report.unused_images) == 2
+        assert any("not used" in w for w in report.warnings)
+
+    def test_intro_takes_its_own_first_image_when_there_is_a_surplus(
+        self, repository: ProjectRepository
+    ) -> None:
+        project = repository.create("Dodo")
+        paths = repository.paths_for(project.slug)
+        write_images(paths.images, 11)  # one more than the ten scenes
+        package = parse_content_json(json.dumps(load_dodo_package()), max_bytes=10_000_000)
+
+        report = apply_content(project, package, paths=paths)
+
+        assert report.intro_image == "01-opening.png"
+        assert project.intro.image_file == "01-opening.png"
+        assert project.scenes[0].image_file == "02-habitat.png"
+        assert report.images_mapped == 11
+        assert report.unmapped_scenes == []
+        # The opening and the first scene never show the same picture again.
+        assert project.intro.image_file != project.scenes[0].image_file
+
+    def test_intro_reuses_first_scene_without_a_surplus(
+        self, repository: ProjectRepository
+    ) -> None:
+        project = repository.create("Dodo")
+        paths = repository.paths_for(project.slug)
+        write_images(paths.images, 10)  # exactly one per scene, none to spare
+        package = parse_content_json(json.dumps(load_dodo_package()), max_bytes=10_000_000)
+
+        report = apply_content(project, package, paths=paths)
+
+        # No spare image: the intro is left to reuse the first scene at render
+        # time, exactly as before, so a ten-image project is unaffected.
+        assert report.intro_image is None
+        assert project.intro.image_file is None
+        assert project.scenes[0].image_file == "01-opening.png"
         assert report.images_mapped == 10
-        assert len(report.unused_images) == 3
-        assert any("not used by any scene" in w for w in report.warnings)
 
     def test_manual_remapping_survives_a_remap(self, repository: ProjectRepository) -> None:
         project = repository.create("Dodo")
