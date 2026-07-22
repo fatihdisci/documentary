@@ -151,8 +151,8 @@ class Style(Base):
 
 class AudioSettings(Base):
     tts_provider: TTSProviderName = TTSProviderName.EDGE
-    voice: str = Field(default="en-US-GuyNeural")
-    speech_rate: float = Field(default=1.0, ge=0.5, le=2.0)
+    voice: str = Field(default="en-US-AndrewNeural")
+    speech_rate: float = Field(default=0.95, ge=0.5, le=2.0)
     speech_pitch: float = Field(default=0.0, ge=-50.0, le=50.0)
     voice_volume_db: float = Field(default=-3.0, ge=-40.0, le=10.0)
     music_volume_db: float = Field(default=-30.0, ge=-60.0, le=0.0)

@@ -8,7 +8,13 @@ import pytest
 from pydantic import ValidationError as PydanticValidationError
 
 from app.errors import AppError, ErrorCode
-from app.models.enums import AnimationPreset, MusicSource, TransitionPreset
+from app.models.enums import (
+    AnimationPreset,
+    DurationMode,
+    MusicSource,
+    TransitionPreset,
+    TTSProviderName,
+)
 from app.models.migrations import MIGRATIONS, migrate
 from app.models.project import SCHEMA_VERSION, Project, Scene
 
@@ -39,6 +45,13 @@ class TestDefaults:
 
     def test_ducking_enabled_by_default(self) -> None:
         assert make_project().audio.duck_music_under_speech is True
+
+    def test_tts_defaults(self) -> None:
+        p = make_project()
+        assert p.audio.tts_provider is TTSProviderName.EDGE
+        assert p.audio.voice == "en-US-AndrewNeural"
+        assert p.audio.speech_rate == 0.95
+        assert p.video.duration_mode is DurationMode.AUDIO
 
 
 class TestValidation:

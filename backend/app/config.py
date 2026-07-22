@@ -59,7 +59,7 @@ class MutableSettings(BaseModel):
     temp_dir: str = ""
 
     tts_provider: TTSProviderName = TTSProviderName.EDGE
-    default_voice: str = "en-US-GuyNeural"
+    default_voice: str = "en-US-AndrewNeural"
     default_font: str = "Inter"
     default_fps: int = 60
     default_width: int = 1920

@@ -377,9 +377,15 @@ class TestPendingWork:
     def test_a_voice_change_marks_everything_stale(self, repository: ProjectRepository) -> None:
         project = repository.create("Dodo")
         scene = Scene(narration="Some narration.")
+        # Seed a hash that matches the project's current voice settings, whatever
+        # the defaults are, so only the change below makes it stale.
         scene.audio_hash = audio_hash(
-            text="Some narration.", provider="edge", voice="en-US-GuyNeural",
-            rate=1.0, pitch=0.0, pronunciation={},
+            text="Some narration.",
+            provider=project.audio.tts_provider.value,
+            voice=project.audio.voice,
+            rate=project.audio.speech_rate,
+            pitch=project.audio.speech_pitch,
+            pronunciation={},
         )
         scene.audio_file = "audio/generated/x.mp3"
         project.scenes = [scene]
