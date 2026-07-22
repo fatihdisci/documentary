@@ -437,7 +437,10 @@ function RenderStep({ goTo }: StepProps) {
   return (
     <div>
       <h2>6 · Render</h2>
-      <p className="muted">Produces a 1920×1080, 60 FPS MP4 plus subtitles and side-car files.</p>
+      <p className="muted">
+        Produces a 1920×1080 MP4 with burned-in subtitles, plus an .srt and the other
+        side-car files.
+      </p>
       {error && <ErrorBox error={error} onDismiss={clearError} />}
 
       {preflight && !preflight.ready && (

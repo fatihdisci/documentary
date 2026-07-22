@@ -450,7 +450,8 @@ export function AudioPage() {
           />
           Burn subtitles into the video
           <span className="hint">
-            Off by default. A separate .srt file is always exported and is preferable for YouTube.
+            On by default, so the video is captioned. A separate .srt is always exported too;
+            turn this off for a clean image (YouTube prefers the sidecar).
           </span>
         </label>
       </section>

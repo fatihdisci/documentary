@@ -27,10 +27,12 @@ class TestDefaults:
         assert 1.5 <= p.video.audio_tail_seconds <= 2.5
         assert p.style.transition_preset is TransitionPreset.DOCUMENTARY_DISSOLVE
 
-    def test_subtitles_external_on_burn_in_off(self) -> None:
+    def test_subtitles_export_srt_and_burn_in_on_by_default(self) -> None:
         p = make_project()
         assert p.subtitles.export_srt is True
-        assert p.subtitles.burn_in is False
+        # Burned in by default so a finished video is captioned out of the box;
+        # the .srt sidecar is still exported alongside it.
+        assert p.subtitles.burn_in is True
 
     def test_music_is_never_implicit(self) -> None:
         assert make_project().music.source is MusicSource.NONE

@@ -182,10 +182,13 @@ class MusicSettings(Base):
 
 
 class SubtitleSettings(Base):
-    #: External .srt is the default; burning in is opt-in.
+    #: Subtitles are burned into the picture by default so a finished video is
+    #: captioned without any extra steps — the guided flow never has to ask.
+    #: A separate .srt is always exported too; turn ``burn_in`` off for a clean
+    #: image (e.g. when uploading to YouTube, which prefers the sidecar).
     export_srt: bool = True
     export_scene_srt: bool = True
-    burn_in: bool = False
+    burn_in: bool = True
 
 
 class TextTiming(Base):

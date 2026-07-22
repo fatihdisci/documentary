@@ -286,7 +286,8 @@ export function ExportPage() {
           />
           Burn subtitles into the picture
           <span className="hint">
-            A separate .srt is always exported; YouTube prefers that over burned-in text.
+            On by default. A separate .srt is always exported too; turn this off for a clean
+            image, which YouTube prefers.
           </span>
         </label>
       </section>
