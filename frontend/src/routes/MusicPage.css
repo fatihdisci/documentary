@@ -56,3 +56,11 @@
   background: var(--ok-dim);
   border-color: var(--ok);
 }
+
+.music-level-row { display: flex; align-items: center; gap: 12px; }
+.music-level-row input[type='range'] { flex: 1; min-width: 120px; padding: 0; }
+.music-level-row input[type='number'] { width: 90px; flex-shrink: 0; }
+.music-level-db {
+  font-variant-numeric: tabular-nums; color: var(--text-muted); min-width: 62px;
+  text-align: right; font-size: 13px;
+}

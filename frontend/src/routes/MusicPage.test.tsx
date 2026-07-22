@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MusicPage } from './MusicPage'
@@ -75,6 +75,24 @@ describe('MusicPage', () => {
     expect(await screen.findByText('forest.mp3')).toBeInTheDocument()
     expect(screen.getByText('drone.wav')).toBeInTheDocument()
     expect(screen.getByText('2.4 MB')).toBeInTheDocument()
+  })
+
+  it('exposes a music level control that edits the project and shows the level', async () => {
+    const project = makeProject()
+    project.audio = { ...project.audio, musicVolumeDb: -30 }
+    seed(project)
+    render(<MusicPage />)
+
+    await screen.findByText('forest.mp3')
+    expect(screen.getByRole('heading', { name: 'Music level' })).toBeInTheDocument()
+    expect(screen.getByText('-30 dB')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Music level in decibels' }), {
+      target: { value: '-20' },
+    })
+
+    expect(useProjectStore.getState().project?.audio.musicVolumeDb).toBe(-20)
+    expect(screen.getByText('-20 dB')).toBeInTheDocument()
   })
 
   it('selecting a track points the project at it as uploaded music', async () => {

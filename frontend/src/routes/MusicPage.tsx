@@ -30,8 +30,16 @@ export function MusicPage() {
   const [busy, setBusy] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const libraryRef = useRef<HTMLDivElement>(null)
 
   const slug = project?.slug ?? null
+
+  // Play the previews at the configured music level. A dB value <= 0 maps
+  // cleanly onto an <audio> element's linear 0..1 volume, so no Web Audio graph
+  // is needed — just gain = 10^(dB/20). This is what lets the user hear how loud
+  // the track will actually sit before rendering.
+  const musicVolumeDb = project?.audio.musicVolumeDb ?? -30
+  const previewGain = Math.min(1, Math.pow(10, musicVolumeDb / 20))
 
   const refresh = useCallback(async () => {
     if (!slug) return
@@ -45,6 +53,14 @@ export function MusicPage() {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // Apply the level to every preview element, live as the slider moves and
+  // whenever the track list changes (new <audio> nodes mount).
+  useEffect(() => {
+    libraryRef.current?.querySelectorAll('audio').forEach((el) => {
+      el.volume = previewGain
+    })
+  }, [previewGain, tracks])
 
   if (!project || !slug) {
     return (
@@ -167,7 +183,39 @@ export function MusicPage() {
         </div>
       </section>
 
-      <section className="card">
+      {tracks.length > 0 && (
+        <section className="card">
+          <h2>Music level</h2>
+          <div className="music-level-row">
+            <input
+              type="range"
+              min={-60}
+              max={0}
+              step={0.5}
+              value={musicVolumeDb}
+              onChange={(e) => edit((d) => void (d.audio.musicVolumeDb = Number(e.target.value)))}
+              aria-label="Music level in decibels"
+            />
+            <input
+              type="number"
+              min={-60}
+              max={0}
+              step={0.5}
+              value={musicVolumeDb}
+              onChange={(e) => edit((d) => void (d.audio.musicVolumeDb = Number(e.target.value)))}
+              aria-label="Music level in decibels"
+            />
+            <span className="music-level-db">{musicVolumeDb} dB</span>
+          </div>
+          <p className="hint">
+            The previews below play at this level, so you can hear how loud the music will sit in
+            the video. Under narration it is ducked further automatically in the final render. This
+            is the same control as “Music level” on the Audio page.
+          </p>
+        </section>
+      )}
+
+      <section className="card" ref={libraryRef}>
         <h2>Library</h2>
         {tracks.length === 0 ? (
           <p className="muted">
@@ -204,6 +252,12 @@ export function MusicPage() {
                         controls
                         preload="none"
                         src={`/api/projects/${slug}/media/music/${encodeURIComponent(t.filename)}`}
+                        onPlay={(e) => {
+                          e.currentTarget.volume = previewGain
+                        }}
+                        onLoadedData={(e) => {
+                          e.currentTarget.volume = previewGain
+                        }}
                       />
                     </td>
                     <td className="track-actions">
