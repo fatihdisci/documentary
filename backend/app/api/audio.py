@@ -21,6 +21,7 @@ from app.tts.narration import (
     INTRO_ID,
     OUTRO_ID,
     attach_imported_audio,
+    collect_word_timings,
     generate_for_unit,
     iter_units,
     units_needing_audio,
@@ -179,6 +180,11 @@ async def generate_narration(slug: str, request: GenerateRequest) -> GenerateRes
         )
 
     repository.save(project)
+
+    # Sections that were already cached still have their stored timings; the
+    # loop above only sees the ones it just synthesized.
+    for unit_id, timings in collect_word_timings(project, paths).items():
+        word_timings.setdefault(unit_id, timings)
 
     # Report the resulting timeline, but never fail generation because the
     # timeline is not yet valid — the user may still be filling scenes in.

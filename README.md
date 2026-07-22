@@ -173,7 +173,7 @@ returned by any endpoint, written to a log, or included in a project bundle.
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest      # backend (611 passing)
+cd backend && .venv/bin/python -m pytest      # backend (631 passing)
 cd frontend && npm test                       # frontend (100 passing)
 ```
 

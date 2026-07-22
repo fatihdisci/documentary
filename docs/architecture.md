@@ -105,6 +105,28 @@ Shorts run on their own queue with their own on-disk history and SSE contract,
 but share a process-wide render slot (`render/slot.py`) with the long-render
 queue, so only one CPU-heavy FFmpeg job runs at a time whichever kind it is.
 
+### Subtitle timing
+
+Cues are placed from **measured word boundaries** whenever the TTS provider
+reports them (Edge is asked for word granularity explicitly). Those timings are
+written to a `.timings.json` beside the audio, keyed by the same content hash,
+so a render that reuses cached narration still gets them — narration is
+generated on the Audio tab and the render usually happens later, so without that
+persistence every cue would silently fall back to estimation.
+
+The estimator is the fallback for audio nobody measured, mainly imported clips.
+It splits the narration by speech weight (characters, word count and the pause
+each punctuation mark implies) and lays the result across the audio *starting at
+the first sound*, not at the file's first sample — a take opens with roughly
+0.15s of silence, and treating that as speaking time puts the opening subtitle
+on screen before a word is said and carries the lead through the scene.
+
+Measured against real word boundaries on a three-scene sample: estimation ran a
+mean of +0.18s and up to +0.66s ahead of the voice; the leading-silence
+correction halves the mean bias, and real timings remove the error entirely.
+A render whose generated narration predates the stored timings reports a warning
+saying so, because regenerating narration once fixes it.
+
 ### Text without `drawtext`
 
 All on-screen text is drawn by Pillow (`render/text.py`) into transparent PNGs

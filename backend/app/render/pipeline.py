@@ -25,7 +25,13 @@ from pathlib import Path
 
 from app.config import Settings, get_settings
 from app.errors import AppError, ErrorCode, RenderError, ValidationError
-from app.models.enums import JobPhase, MusicSource, QualityPreset, TransitionPreset
+from app.models.enums import (
+    AudioSource,
+    JobPhase,
+    MusicSource,
+    QualityPreset,
+    TransitionPreset,
+)
 from app.models.project import Project, Scene, Section
 from app.render import transitions
 from app.render.audio_mix import build_audio_plan, render_narration_only, resolve_music_file
@@ -40,12 +46,18 @@ from app.render.scene_clip import SceneClip, render_scene_clip, resolve_image
 from app.render.validate import ValidationReport, validate_output
 from app.shorts.manifest import write_render_manifest
 from app.storage.layout import ProjectPaths
-from app.storage.paths import unique_path
+from app.storage.paths import safe_join, unique_path
 from app.synth.music import render_ambient_bed
+from app.timing.probe import measure_speech_onset
 from app.timing.schedule import Timeline, build_timeline
 from app.timing.subtitles import render_srt, validate_cues
 from app.tts.base import WordTiming
-from app.tts.narration import generate_for_unit, iter_units, units_needing_audio
+from app.tts.narration import (
+    collect_word_timings,
+    generate_for_unit,
+    iter_units,
+    units_needing_audio,
+)
 
 logger = logging.getLogger("evb.pipeline")
 
@@ -236,7 +248,11 @@ class RenderPipeline:
 
         # 5-6. Timeline and subtitles.
         self._emit(JobPhase.COMPUTE_TIMELINE, 0.0, "Computing the timeline")
-        timeline = build_timeline(self.project, word_timings=word_timings)
+        timeline = build_timeline(
+            self.project,
+            word_timings=word_timings,
+            speech_starts=self._measure_speech_onsets(word_timings),
+        )
         self.warnings.extend(timeline.warnings)
         self._record(
             f"[timeline] total {timeline.total_duration_seconds:.3f}s, "
@@ -359,7 +375,69 @@ class RenderPipeline:
                     f"Section '{unit_id}' has narration but no audio.",
                     suggestion="Generate narration on the Audio tab, or upload an audio file.",
                 )
+
+        # Pick up timings for every section whose audio was already cached. In
+        # the normal flow narration is generated on the Audio tab and the render
+        # happens later, so without this almost every cue would be estimated.
+        for unit_id, timings in collect_word_timings(self.project, self.paths).items():
+            word_timings.setdefault(unit_id, timings)
+
+        units = iter_units(self.project)
+        measured = sum(1 for t in word_timings.values() if t)
+        self._record(
+            f"[tts] {measured} of {len(units)} section(s) have measured word timings; "
+            "the rest fall back to estimated cue timing"
+        )
+
+        # Narration generated before word timings were stored has none on disk,
+        # so those sections are timed by estimate — which reads as subtitles
+        # running slightly ahead of the voice. Say so; it is one click to fix.
+        estimated = [
+            unit_id
+            for unit_id, unit in units
+            if not word_timings.get(unit_id)
+            and unit.audio_source is AudioSource.GENERATED
+        ]
+        if estimated:
+            self.warnings.append(
+                f"{len(estimated)} section(s) have generated narration with no stored word "
+                "timings, so their subtitles are timed by estimate and can sit up to about "
+                "half a second ahead of the voice. Regenerate narration on the Audio tab "
+                "(Regenerate all) once to have them timed to the words instead."
+            )
         return word_timings
+
+    def _measure_speech_onsets(
+        self, word_timings: dict[str, list[WordTiming]]
+    ) -> dict[str, float]:
+        """Leading silence per section, for the ones without word timings.
+
+        Only imported audio reaches this: generated narration carries real word
+        boundaries, which are strictly better. One extra pass per such section
+        buys cues that start on the first word instead of during the silence in
+        front of it.
+        """
+        onsets: dict[str, float] = {}
+        for unit_id, unit in iter_units(self.project):
+            if word_timings.get(unit_id) or not unit.audio_file:
+                continue
+            try:
+                audio = safe_join(self.paths.root, unit.audio_file)
+                onset = measure_speech_onset(
+                    audio,
+                    duration=unit.audio_duration_seconds,
+                    settings=self.settings,
+                )
+            except AppError as exc:  # pragma: no cover - measurement is optional
+                logger.info("speech onset for %s unavailable: %s", unit_id, exc)
+                continue
+            if onset > 0:
+                onsets[unit_id] = onset
+        if onsets:
+            self._record(
+                f"[tts] trimmed the leading silence of {len(onsets)} clip(s) from cue timing"
+            )
+        return onsets
 
     async def _render_clips(self, timeline: Timeline) -> list[SceneClip]:
         clips: list[SceneClip] = []

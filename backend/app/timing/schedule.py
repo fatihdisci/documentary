@@ -103,6 +103,7 @@ def build_timeline(
     project: Project,
     *,
     word_timings: dict[str, list[WordTiming]] | None = None,
+    speech_starts: dict[str, float] | None = None,
     validate: bool = True,
 ) -> Timeline:
     """Compute the complete absolute timeline for ``project``."""
@@ -160,7 +161,9 @@ def build_timeline(
     # full length. Total = last section's end, plus the closing silence.
     total = entries[-1].end_seconds + project.video.audio_tail_seconds
 
-    cues, cues_by_unit = _build_all_cues(project, entries, units, word_timings or {})
+    cues, cues_by_unit = _build_all_cues(
+        project, entries, units, word_timings or {}, speech_starts or {}
+    )
 
     timeline = Timeline(
         entries=entries,
@@ -273,6 +276,7 @@ def _build_all_cues(
     entries: list[TimelineEntry],
     units: list[tuple[str, str, Scene | Section]],
     word_timings: dict[str, list[WordTiming]],
+    speech_starts: dict[str, float] | None = None,
 ) -> tuple[list[Cue], dict[str, list[Cue]]]:
     """Build subtitle cues for every section, on the absolute timeline."""
     protected_extra = list(project.pronunciation.keys())
@@ -299,6 +303,8 @@ def _build_all_cues(
             protected_extra=protected_extra,
             word_timings=word_timings.get(unit_id),
             start_index=len(all_cues) + 1,
+            pronunciation=project.pronunciation,
+            speech_start=(speech_starts or {}).get(unit_id, 0.0),
         )
         by_unit[unit_id] = cues
         all_cues.extend(cues)

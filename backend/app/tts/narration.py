@@ -20,6 +20,7 @@ from app.storage.layout import ProjectPaths
 from app.timing.probe import probe_audio
 from app.tts.base import SynthesisRequest, WordTiming
 from app.tts.registry import get_provider
+from app.tts.timings import load_word_timings, save_word_timings
 
 logger = logging.getLogger("evb.narration")
 
@@ -125,7 +126,10 @@ async def generate_for_unit(
             reused=True,
             duration_seconds=info.duration_seconds,
             audio_file=relative,
-            word_timings=[],
+            # Cached audio keeps its word timings. Without this the subtitle
+            # engine silently falls back to estimating from character counts
+            # for every scene, which runs measurably ahead of the words.
+            word_timings=load_word_timings(target),
         )
 
     provider = get_provider(project.audio.tts_provider)
@@ -147,7 +151,8 @@ async def generate_for_unit(
     unit.audio_source = AudioSource.GENERATED
     unit.audio_duration_seconds = info.duration_seconds
 
-    _prune_stale(paths, unit_id, keep=target.name)
+    timings_file = save_word_timings(target, result.word_timings)
+    _prune_stale(paths, unit_id, keep={target.name, timings_file.name if timings_file else ""})
     logger.info("generated narration for %s: %.2fs", unit_id, info.duration_seconds)
 
     return NarrationOutcome(
@@ -181,6 +186,37 @@ def attach_imported_audio(
     unit.audio_duration_seconds = info.duration_seconds
     unit.audio_hash = None  # imported audio is not derived from a hashable input
     return info.duration_seconds
+
+
+def word_timings_for(unit: Scene | Section, paths: ProjectPaths) -> list[WordTiming]:
+    """Word timings for a unit's current audio, if any were ever stored.
+
+    Imported audio has none — nobody measured where its words fall — so those
+    scenes legitimately fall back to the estimator.
+    """
+    if not unit.audio_file:
+        return []
+    try:
+        audio = _resolve(paths, unit.audio_file)
+    except AppError:
+        return []
+    return load_word_timings(audio) if audio.is_file() else []
+
+
+def collect_word_timings(
+    project: Project, paths: ProjectPaths
+) -> dict[str, list[WordTiming]]:
+    """Every unit's stored word timings, keyed by unit id.
+
+    Callers used to gather timings only from units they had just synthesized,
+    so a render over cached audio got none at all.
+    """
+    collected: dict[str, list[WordTiming]] = {}
+    for unit_id, unit in iter_units(project):
+        timings = word_timings_for(unit, paths)
+        if timings:
+            collected[unit_id] = timings
+    return collected
 
 
 def units_needing_audio(project: Project) -> list[tuple[str, Scene | Section]]:
@@ -223,10 +259,15 @@ def _resolve(paths: ProjectPaths, relative: str) -> Path:
     return safe_join(paths.root, relative)
 
 
-def _prune_stale(paths: ProjectPaths, unit_id: str, *, keep: str) -> None:
-    """Delete superseded generated audio for this unit; keep the current one."""
+def _prune_stale(paths: ProjectPaths, unit_id: str, *, keep: set[str]) -> None:
+    """Delete superseded generated audio for this unit; keep the current take.
+
+    ``keep`` covers the audio *and* its word-timings side-car — pruning one
+    without the other would leave a scene with audio but no timings, which is
+    exactly the state that makes subtitles fall back to estimates.
+    """
     for stale in paths.generated_audio.glob(f"{unit_id}-*"):
-        if stale.name != keep:
+        if stale.name not in keep:
             stale.unlink(missing_ok=True)
 
 

@@ -7,11 +7,12 @@ inferred from text length. Every timing decision downstream depends on this.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import Settings, get_settings
-from app.errors import ErrorCode, ValidationError
+from app.errors import AppError, ErrorCode, ValidationError
 from app.render.ffmpeg import FFmpegRunner
 
 logger = logging.getLogger("evb.probe")
@@ -200,6 +201,71 @@ def frame_timestamps(
     # has irregular intervals.
     timestamps.sort()
     return timestamps
+
+
+#: Anything quieter than this is treated as silence rather than speech.
+SILENCE_FLOOR_DB = -45.0
+#: Shorter dips than this are pauses inside a sentence, not leading silence.
+MIN_SILENCE_SECONDS = 0.08
+
+_SILENCE_END = re.compile(r"silence_end:\s*([0-9.]+)")
+_SILENCE_START = re.compile(r"silence_start:\s*([0-9.]+)")
+
+
+#: A lead longer than this is not dead air at the head of a take, it is part of
+#: the performance; leave it alone rather than pulling subtitles into it.
+MAX_CREDIBLE_ONSET_SECONDS = 2.0
+
+
+def measure_speech_onset(
+    path: Path, *, duration: float | None = None, settings: Settings | None = None
+) -> float:
+    """How much silence an audio file opens with, before the first word.
+
+    Used to place *estimated* subtitle cues. TTS output opens with roughly 0.15s
+    of silence; laying cues across the raw file duration puts the first subtitle
+    on screen before a word is spoken and carries that lead through the scene.
+
+    Only the leading silence is reported. The silence at the *end* of a take is
+    the natural sentence-final pause, which the cue estimator already accounts
+    for through its punctuation weighting — trimming that too would double-count
+    it and pull every cue early again.
+
+    Returns 0.0 on any measurement problem: a worse cue baseline is always
+    preferable to a failed render.
+    """
+    active = settings or get_settings()
+    total = duration if duration is not None else probe_audio(path, settings=active).duration_seconds
+    if total <= 0:
+        return 0.0
+
+    runner = FFmpegRunner(active)
+    try:
+        ffmpeg = active.require_tool("ffmpeg")
+        result = runner._run_sync(  # noqa: SLF001 - same module family
+            [
+                ffmpeg, "-hide_banner", "-nostats", "-i", str(path),
+                "-af", f"silencedetect=noise={SILENCE_FLOOR_DB}dB:d={MIN_SILENCE_SECONDS}",
+                "-f", "null", "-",
+            ],
+            timeout=120.0,
+        )
+    except AppError as exc:
+        logger.info("could not measure the speech onset of %s: %s", path.name, exc)
+        return 0.0
+
+    starts = [float(v) for v in _SILENCE_START.findall(result.stderr)]
+    ends = [float(v) for v in _SILENCE_END.findall(result.stderr)]
+
+    # Only a silence that begins at the very top of the file is leading silence;
+    # where it ends is where speech starts.
+    if not ends or not starts or starts[0] > 0.05:
+        return 0.0
+
+    onset = min(ends[0], total)
+    if onset <= 0.0 or onset > min(MAX_CREDIBLE_ONSET_SECONDS, total * 0.5):
+        return 0.0
+    return round(onset, 4)
 
 
 def measure_mean_volume(path: Path, *, settings: Settings | None = None) -> float | None:

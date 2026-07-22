@@ -145,6 +145,17 @@ render, the project and every other Short are untouched.
 | Standard | Good quality, quicker. |
 | Preview | Fast and rough — for checking timing only. |
 
+## Subtitle timing
+
+Subtitles are placed on the words the engine actually spoke, not on an estimate
+of how long the text should take. Those word boundaries are stored next to the
+narration audio, so they survive into later renders.
+
+Narration generated before this existed has no stored boundaries — the render
+warns about it, and one **Regenerate all** on the Audio tab fixes it for good.
+Imported audio has no boundaries at all, so its cues are estimated from the text
+(the silence at the head of the clip is measured and skipped).
+
 ## The one rule about timing
 
 Everything timing-related comes from a single **Timeline** computed once from

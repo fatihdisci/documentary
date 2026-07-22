@@ -224,8 +224,16 @@ def build_cues(
     protected_extra: list[str] | None = None,
     word_timings: list[WordTiming] | None = None,
     start_index: int = 1,
+    pronunciation: dict[str, str] | None = None,
+    speech_start: float = 0.0,
 ) -> list[Cue]:
-    """Turn narration plus its measured duration into timed cues."""
+    """Turn narration plus its measured duration into timed cues.
+
+    ``speech_start`` is how much silence the audio opens with. Only the
+    estimator uses it: laying cues across the whole file makes the first one
+    appear during that silence, before a word is spoken, and carries the lead
+    through the rest of the scene.
+    """
     if total_duration <= 0:
         return []
 
@@ -235,9 +243,9 @@ def build_cues(
         return []
 
     if word_timings:
-        spans = _align_to_word_timings(segments, word_timings)
+        spans = _align_to_word_timings(segments, word_timings, pronunciation)
     else:
-        spans = _distribute_by_weight(segments, total_duration, style)
+        spans = _distribute_by_weight(segments, total_duration, style, speech_start)
 
     cues: list[Cue] = []
     for index, (segment, (start, end)) in enumerate(zip(segments, spans, strict=True)):
@@ -253,15 +261,22 @@ def build_cues(
 
 
 def _distribute_by_weight(
-    segments: list[str], total: float, style: SubtitleStyle
+    segments: list[str], total: float, style: SubtitleStyle,
+    speech_start: float = 0.0,
 ) -> list[tuple[float, float]]:
-    """Split ``total`` across segments by speech weight, honouring cue bounds.
+    """Split the speaking time across segments by weight, honouring cue bounds.
 
     When the clamped cues do not fill the audio, the leftover time becomes
     *gaps between cues* rather than stretching each cue. That is how real
     subtitles behave: a four-word line does not sit on screen for eleven
     seconds just because the narration around it is slow.
+
+    Cues start at ``speech_start`` rather than at zero, so the leading silence
+    of a take is not treated as time in which something is being said.
     """
+    offset = speech_start if 0.0 < speech_start < total * 0.5 else 0.0
+    total = total - offset
+
     weights = [max(speech_weight(s), 1.0) for s in segments]
     weight_sum = sum(weights)
     durations = [total * w / weight_sum for w in weights]
@@ -292,7 +307,7 @@ def _distribute_by_weight(
         gaps = [slack * w / gap_total for w in gap_weights] + [0.0]
 
     spans: list[tuple[float, float]] = []
-    cursor = 0.0
+    cursor = offset
     for duration, gap in zip(durations, gaps, strict=True):
         spans.append((cursor, cursor + duration))
         cursor += duration + gap
@@ -305,7 +320,8 @@ def _comparable(text: str) -> str:
 
 
 def _align_to_word_timings(
-    segments: list[str], word_timings: list[WordTiming]
+    segments: list[str], word_timings: list[WordTiming],
+    pronunciation: dict[str, str] | None = None,
 ) -> list[tuple[float, float]]:
     """Use real provider timings, matching by text coverage.
 
@@ -313,12 +329,25 @@ def _align_to_word_timings(
     sentence boundaries by default. Consuming entries until their combined text
     covers the segment works for both, and tolerates punctuation being attached
     differently on each side.
+
+    The timings describe the text that was *spoken*, which is the narration with
+    pronunciation respellings applied — "Raphus cucullatus" is voiced as
+    "RAH-fus koo-koo-LAH-tus" and is far longer. Comparing the displayed form
+    against those words would consume too few of them and pull every later cue
+    early, so the same substitution is applied before measuring coverage.
     """
+    from app.tts.pronunciation import apply_pronunciation, sanitize_for_tts
+
     spans: list[tuple[float, float]] = []
     cursor = 0
 
     for segment in segments:
-        target = _comparable(segment)
+        spoken = (
+            sanitize_for_tts(apply_pronunciation(segment, pronunciation))
+            if pronunciation
+            else segment
+        )
+        target = _comparable(spoken)
         if not target or cursor >= len(word_timings):
             last = spans[-1][1] if spans else 0.0
             spans.append((last, last + 1.0))
