@@ -191,6 +191,133 @@ class TestArtifacts:
         assert Project.model_validate(snapshot).slug == rendered[1].slug
 
 
+class TestShortsSourcePackage:
+    """The opt-in clean master, produced beside a captioned export.
+
+    This project burns subtitles in, so the export is permanently captioned and
+    a second subtitle-free pass really has to run. What matters is that the
+    normal export is completely unaffected by it, and that the package it leaves
+    behind is verifiable rather than inferred.
+    """
+
+    def package(self, rendered):  # noqa: ANN001, ANN202
+        from app.shorts.manifest import load_manifest
+
+        manifest = load_manifest(rendered[0].artifacts.manifest)
+        assert manifest.shorts_source is not None, "no clean master was prepared"
+        return manifest, manifest.shorts_source
+
+    def test_the_manifest_is_v2_and_carries_the_package(self, rendered) -> None:  # noqa: ANN001
+        from app.shorts.manifest import MANIFEST_SCHEMA_VERSION
+
+        manifest, package = self.package(rendered)
+        assert manifest.schema_version == MANIFEST_SCHEMA_VERSION
+        assert manifest.source_has_burned_in_subtitles is True
+        assert manifest.supports_native_captions is True
+        assert package.origin == "dedicated-pass"
+
+    def test_the_clean_master_is_a_real_separate_file(self, rendered) -> None:  # noqa: ANN001
+        _, _, paths, _, _ = rendered
+        manifest, package = self.package(rendered)
+
+        master = paths.shorts_source / package.clean_master.filename
+        assert master.is_file()
+        assert master != rendered[0].artifacts.video
+        assert package.clean_master.sha256 != manifest.source.sha256, (
+            "a subtitle-free pass must not produce the captioned export's bytes"
+        )
+
+    def test_it_matches_the_export_frame_for_frame(self, rendered) -> None:  # noqa: ANN001
+        """Same timeline, same geometry, same rate, same audio — only no captions."""
+        _, _, paths, _, _ = rendered
+        manifest, package = self.package(rendered)
+        master = paths.shorts_source / package.clean_master.filename
+
+        clean = probe_video(master)
+        export = probe_video(rendered[0].artifacts.video)
+
+        assert (clean.width, clean.height) == (export.width, export.height)
+        assert clean.avg_frame_rate == export.avg_frame_rate
+        assert clean.codec == export.codec == "h264"
+        assert clean.pix_fmt == export.pix_fmt
+        assert clean.audio_codec == export.audio_codec
+        assert clean.audio_sample_rate == export.audio_sample_rate
+        assert clean.duration_seconds == pytest.approx(export.duration_seconds, abs=0.35)
+
+    def test_the_clean_master_carries_the_same_audio_mix(self, rendered) -> None:  # noqa: ANN001
+        _, _, paths, _, _ = rendered
+        _, package = self.package(rendered)
+        master = paths.shorts_source / package.clean_master.filename
+
+        clean = measure_mean_volume(master)
+        export = measure_mean_volume(rendered[0].artifacts.video)
+        assert clean is not None and export is not None
+        assert clean == pytest.approx(export, abs=1.0)
+
+    def test_it_verifies_against_its_own_manifest(self, rendered) -> None:  # noqa: ANN001
+        from app.shorts.manifest import verify_clean_master
+
+        _, _, paths, _, _ = rendered
+        manifest, package = self.package(rendered)
+        master = paths.shorts_source / package.clean_master.filename
+
+        verified = verify_clean_master(manifest, master)
+        assert verified.cue_sidecar.cue_count > 0
+
+    def test_the_cue_sidecar_holds_the_render_s_own_cues(self, rendered) -> None:  # noqa: ANN001
+        from app.shorts.cues import load_sidecar
+
+        result, _, paths, _, _ = rendered
+        _, package = self.package(rendered)
+        sidecar = load_sidecar(
+            paths.shorts_source / package.cue_sidecar.filename, package.cue_sidecar
+        )
+
+        assert len(sidecar.cues) == len(result.timeline.cues)
+        assert sidecar.clean_master_sha256 == package.clean_master.sha256
+
+        # Absolute times, straight off the timeline, in order, with the unit each
+        # one belongs to. This is what a Short rebases.
+        for recorded, original in zip(sidecar.cues, result.timeline.cues, strict=True):
+            assert recorded.start_seconds == pytest.approx(original.start_seconds, abs=0.001)
+            assert recorded.end_seconds == pytest.approx(original.end_seconds, abs=0.001)
+            assert recorded.lines == original.lines
+            assert recorded.unit_id, "every cue records the section it came from"
+
+    def test_the_sidecar_lives_beside_the_master_not_in_exports(self, rendered) -> None:  # noqa: ANN001
+        """Neither file clutters the user's export list."""
+        _, _, paths, _, _ = rendered
+        _, package = self.package(rendered)
+
+        top_level = {p.name for p in paths.exports.iterdir() if p.is_file()}
+        assert package.clean_master.filename not in top_level
+        assert package.cue_sidecar.filename not in top_level
+        assert (paths.shorts_source / package.cue_sidecar.filename).is_file()
+
+    def test_the_normal_export_is_unchanged_by_all_of_this(self, rendered) -> None:  # noqa: ANN001
+        """The published long video is the same file it has always been."""
+        result, project, paths, _, _ = rendered
+
+        assert result.artifacts.video.parent == paths.exports
+        assert result.artifacts.video.name.startswith(project.slug)
+        assert result.artifacts.video.suffix == ".mp4"
+        assert result.validation.passed
+        # The .srt files are still user artifacts, produced exactly as before.
+        assert result.artifacts.subtitles.is_file()
+        assert len(result.artifacts.scene_subtitles) >= 3
+
+    def test_the_clean_clips_have_their_own_cache_namespace(self, rendered) -> None:  # noqa: ANN001
+        """Neither clip cache may evict the other's files."""
+        from app.render.clean_master import CLEAN_MASTER_CACHE_SLUG
+
+        _, _, paths, _, _ = rendered
+        captioned = [p for p in paths.clips.iterdir() if p.is_file()]
+        clean = list((paths.clips / CLEAN_MASTER_CACHE_SLUG).glob("*"))
+
+        assert captioned, "the captioned export's clips are still cached"
+        assert clean, "the clean master's clips are cached separately"
+
+
 class TestProgress:
     def test_progress_covers_the_pipeline(self, rendered) -> None:  # noqa: ANN001
         events = rendered[3]

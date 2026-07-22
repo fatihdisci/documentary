@@ -119,15 +119,63 @@
 .duration-meter .fill.bad { background: var(--fail); }
 .duration-scale { font-size: 11.5px; }
 
+/* --- captions ----------------------------------------------------------- */
+
+.source-captions { font-size: 11px; }
+.source-captions.ready { color: var(--ok); }
+.source-captions.legacy { color: var(--text-faint); }
+
+.caption-modes { display: flex; flex-direction: column; gap: 8px; }
+.caption-mode {
+  display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-input); cursor: pointer;
+}
+.caption-mode.selected { border-color: var(--accent); background: var(--bg-panel); }
+.caption-mode.disabled { opacity: 0.6; cursor: not-allowed; }
+.caption-mode input { grid-row: 1 / span 3; align-self: center; }
+.caption-mode-label { font-size: 13px; font-weight: 600; }
+.caption-mode .hint { grid-column: 2; font-size: 11.5px; color: var(--text-muted); }
+.caption-mode-blocked {
+  grid-column: 2; font-size: 11.5px; color: var(--warn); margin-top: 2px;
+}
+
+.caption-style { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.caption-presets { display: flex; gap: 8px; flex-wrap: wrap; }
+.caption-preset {
+  flex: 1 1 150px; display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-input); cursor: pointer;
+}
+.caption-preset.selected { border-color: var(--accent); background: var(--bg-panel); }
+.caption-preset-label { font-size: 12.5px; font-weight: 600; }
+.caption-preset .hint { font-size: 11px; color: var(--text-muted); }
+.caption-note, .caption-count { margin: 0; font-size: 12px; }
+.caption-blocking { margin-top: 12px; }
+.caption-blocking button { margin-top: 6px; }
+
 /* --- 9:16 preview ------------------------------------------------------- */
 
 .preview-row { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
 
 .canvas-preview { display: flex; flex-direction: column; gap: 6px; align-items: center; }
 .canvas-frame {
+  position: relative;
   width: 150px; height: 267px; /* 1080x1920 at 1:7.2 */
   background: #000; border: 1px solid var(--border-strong); border-radius: 4px;
   display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+/* Where Shorts-native captions land: the same proportions the renderer uses —
+   a ~210px-tall box whose base sits 380px above a 1920px canvas. */
+.canvas-caption-band {
+  position: absolute; left: 8%; right: 8%;
+  bottom: 19.8%; height: 11%;
+  border-radius: 3px; background: rgba(0, 0, 0, 0.62);
+  outline: 1px dashed var(--border-strong);
+  display: flex; align-items: center; justify-content: center;
+}
+.canvas-caption-band span {
+  font-size: 8px; font-weight: 600; color: #fff; letter-spacing: 0.02em;
 }
 .canvas-fit {
   width: 100%; aspect-ratio: 16 / 9; background: var(--bg-panel);

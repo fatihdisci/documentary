@@ -168,5 +168,9 @@ class JobPhase(str, Enum):
     MIX_AUDIO = "mix-audio"
     ENCODE = "encode"
     VALIDATE_OUTPUT = "validate-output"
+    #: Optional second pass: the subtitle-free clean master and cue data that let
+    #: Shorts draw their own large captions. Skipped entirely when the project
+    #: opted out, and free when the export has no burned-in subtitles anyway.
+    PREPARE_SHORTS_SOURCE = "prepare-shorts-source"
     WRITE_ARTIFACTS = "write-artifacts"
     CLEANUP = "cleanup"

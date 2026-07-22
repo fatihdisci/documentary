@@ -27,28 +27,28 @@ export function ErrorBox({ error, onRetry, onDismiss }: Props) {
 
       {error.suggestion && (
         <p className="error-suggestion">
-          <strong>Suggested fix:</strong> {error.suggestion}
+          <strong>Ne yapmalı:</strong> {error.suggestion}
         </p>
       )}
 
       {error.logPath && (
         <p className="error-log">
-          <strong>Log:</strong> <code>{error.logPath}</code>
+          <strong>Kayıt dosyası:</strong> <code>{error.logPath}</code>
         </p>
       )}
 
       <div className="error-actions">
         {onRetry && (
           <button onClick={onRetry} className="primary">
-            Retry
+            Tekrar dene
           </button>
         )}
         {error.details && (
           <button onClick={() => setShowDetails((v) => !v)}>
-            {showDetails ? 'Hide' : 'Show'} technical details
+            {showDetails ? 'Teknik ayrıntıları gizle' : 'Teknik ayrıntıları göster'}
           </button>
         )}
-        {onDismiss && <button onClick={onDismiss}>Dismiss</button>}
+        {onDismiss && <button onClick={onDismiss}>Kapat</button>}
       </div>
 
       {showDetails && error.details && <pre className="error-details">{error.details}</pre>}

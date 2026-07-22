@@ -17,10 +17,28 @@ logger = logging.getLogger("evb.migrations")
 
 RawProject = dict[str, object]
 
+def _v1_to_v2(raw: RawProject) -> RawProject:
+    """v2 added ``export.prepareCleanMasterForShorts``, defaulting to on.
+
+    A clean master is a second subtitle-free encode of the whole video, which
+    roughly doubles render time whenever subtitles are burned in. That is a fine
+    default for a project created after the feature existed — the user is told
+    what it costs before they render — but it must never be applied silently to
+    a project someone made earlier. So the migration writes the flag explicitly
+    off; the user turns it on when they actually want Shorts captions.
+    """
+    working = dict(raw)
+    export = working.get("export")
+    export = dict(export) if isinstance(export, dict) else {}
+    export.setdefault("prepareCleanMasterForShorts", False)
+    working["export"] = export
+    return working
+
+
 #: Maps "from version" -> function producing the next version's dict.
-#: Empty at v1 because there is nothing older; the machinery is exercised by
-#: tests using a synthetic v0 so it cannot rot before it is first needed.
-MIGRATIONS: dict[int, Callable[[RawProject], RawProject]] = {}
+MIGRATIONS: dict[int, Callable[[RawProject], RawProject]] = {
+    1: _v1_to_v2,
+}
 
 
 def migrate(raw: RawProject) -> RawProject:
@@ -33,15 +51,15 @@ def migrate(raw: RawProject) -> RawProject:
     if not isinstance(version, int):
         raise ValidationError(
             ErrorCode.SCHEMA_VALIDATION,
-            "The project file's schemaVersion is not a number.",
+            "Proje dosyasının sürüm bilgisi sayı değil.",
             details=f"schemaVersion={version!r}",
         )
 
     if version > SCHEMA_VERSION:
         raise ValidationError(
             ErrorCode.UNSUPPORTED_SCHEMA_VERSION,
-            f"This project was created by a newer version of the app "
-            f"(schema v{version}; this build understands up to v{SCHEMA_VERSION}).",
+            f"Bu proje uygulamanın daha yeni bir sürümüyle oluşturulmuş "
+            f"(sürüm {version}; bu kurulum en fazla {SCHEMA_VERSION} sürümünü anlıyor).",
             details=f"file schemaVersion={version}, supported={SCHEMA_VERSION}",
         )
 
@@ -51,7 +69,7 @@ def migrate(raw: RawProject) -> RawProject:
         if step is None:
             raise ValidationError(
                 ErrorCode.UNSUPPORTED_SCHEMA_VERSION,
-                f"No migration is registered from schema v{version} to v{version + 1}.",
+                f"{version} sürümünden {version + 1} sürümüne geçiş tanımlı değil.",
                 details=f"available migrations: {sorted(MIGRATIONS)}",
             )
         logger.info("migrating project schema v%d -> v%d", version, version + 1)

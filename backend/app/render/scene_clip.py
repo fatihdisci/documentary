@@ -187,10 +187,9 @@ def resolve_image(project: Project, unit: Scene | Section, paths: ProjectPaths) 
         label = _label(project, unit)
         raise ValidationError(
             ErrorCode.MISSING_IMAGE,
-            f"{label} has no image.",
+            f"{label} için görsel seçilmemiş.",
             suggestion=(
-                "Upload an image and map it to this scene, or disable the scene so it "
-                "is skipped."
+                "Bu sahne için bir görsel yükleyin ya da sahneyi kapatın."
             ),
         )
 
@@ -198,21 +197,21 @@ def resolve_image(project: Project, unit: Scene | Section, paths: ProjectPaths) 
     if not path.is_file():
         raise ValidationError(
             ErrorCode.MISSING_IMAGE,
-            f"The image '{filename}' is missing from this project.",
+            f"'{filename}' görseli bu projede yok.",
             details=str(path),
-            suggestion="Re-upload the image, or pick a different one for this scene.",
+            suggestion="Görseli tekrar yükleyin ya da bu sahne için başka bir görsel seçin.",
         )
     return path
 
 
 def _label(project: Project, unit: Scene | Section) -> str:
     if unit is project.intro:
-        return "The intro"
+        return "Giriş"
     if unit is project.outro:
-        return "The outro"
+        return "Kapanış"
     if isinstance(unit, Scene):
-        return f"Scene {unit.order + 1}" + (f" ({unit.title})" if unit.title else "")
-    return "A section"
+        return f"{unit.order + 1}. sahne" + (f" ({unit.title})" if unit.title else "")
+    return "Bir bölüm"
 
 
 async def render_scene_clip(

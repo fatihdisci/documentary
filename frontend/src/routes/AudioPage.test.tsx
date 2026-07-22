@@ -56,7 +56,7 @@ describe('AudioPage', () => {
   it('prompts to open a project when none is loaded', () => {
     seedProject(null)
     render(<AudioPage />)
-    expect(screen.getByText('Open a project first.')).toBeInTheDocument()
+    expect(screen.getByText('Önce bir proje açın.')).toBeInTheDocument()
   })
 
   it('shows the computed runtime and the number of scenes missing audio', async () => {
@@ -73,7 +73,7 @@ describe('AudioPage', () => {
     expect(await screen.findByText('5:12')).toBeInTheDocument()
     expect(screen.getByText('24')).toBeInTheDocument()
     // Both scenes have narration but no audio yet.
-    expect(screen.getByRole('button', { name: /Generate missing \(2\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Eksikleri seslendir \(2\)/ })).toBeInTheDocument()
   })
 
   it('generates narration for the whole project', async () => {
@@ -89,7 +89,7 @@ describe('AudioPage', () => {
     seedProject(makeProject({ scenes: [makeScene({ id: 's1', narration: 'Text.' })] }))
     render(<AudioPage />)
 
-    await user.click(await screen.findByRole('button', { name: /Generate missing/ }))
+    await user.click(await screen.findByRole('button', { name: /Eksikleri seslendir/ }))
     await waitFor(() => expect(generate).toHaveBeenCalledWith('the-dodo', [], false))
   })
 
@@ -108,7 +108,7 @@ describe('AudioPage', () => {
     seedProject(makeProject({ scenes: [makeScene({ id: 's1', narration: 'Text.' })] }))
     render(<AudioPage />)
 
-    await user.click(await screen.findByRole('button', { name: /Generate missing/ }))
+    await user.click(await screen.findByRole('button', { name: /Eksikleri seslendir/ }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Edge TTS could not be reached.')
@@ -121,7 +121,7 @@ describe('AudioPage', () => {
     render(<AudioPage />)
 
     // Wait for voices to load, then pick a different one.
-    await screen.findByText(/voices available/)
+    await screen.findByText(/konuşmacı var/)
     const voiceSelect = screen
       .getAllByRole('combobox')
       .find((el) => (el as HTMLSelectElement).value === 'en-US-GuyNeural')!

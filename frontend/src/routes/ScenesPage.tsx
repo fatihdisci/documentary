@@ -47,9 +47,9 @@ function SortableSceneCard({
   })
 
   const issues: string[] = []
-  if (!scene.imageFile) issues.push('No image')
-  if (!scene.narration.trim()) issues.push('No narration')
-  if (!scene.audioFile) issues.push('No audio yet')
+  if (!scene.imageFile) issues.push('Görsel yok')
+  if (!scene.narration.trim()) issues.push('Metin yok')
+  if (!scene.audioFile) issues.push('Ses henüz yok')
 
   return (
     <li
@@ -60,7 +60,7 @@ function SortableSceneCard({
       }`}
       onClick={onSelect}
     >
-      <div className="scene-drag" {...attributes} {...listeners} aria-label={`Reorder scene ${index + 1}`}>
+      <div className="scene-drag" {...attributes} {...listeners} aria-label={`${index + 1}. sahneyi taşı`}>
         ⠿
       </div>
       <div className="scene-thumb">
@@ -71,18 +71,18 @@ function SortableSceneCard({
             loading="lazy"
           />
         ) : (
-          <span className="thumb-placeholder">no image</span>
+          <span className="thumb-placeholder">görsel yok</span>
         )}
         <span className="scene-number">{index + 1}</span>
       </div>
       <div className="scene-body">
-        <h3>{scene.title || <em className="muted">Untitled scene</em>}</h3>
+        <h3>{scene.title || <em className="muted">Başlıksız sahne</em>}</h3>
         {scene.subtitle && <p className="scene-subtitle">{scene.subtitle}</p>}
         <p className="scene-narration">{scene.narration || '—'}</p>
         <div className="scene-tags">
           <span className="tag">{scene.animationPreset}</span>
           {scene.audioDurationSeconds != null && (
-            <span className="tag">{scene.audioDurationSeconds.toFixed(1)}s audio</span>
+            <span className="tag">{scene.audioDurationSeconds.toFixed(1)} sn ses</span>
           )}
           {issues.map((issue) => (
             <span key={issue} className="tag tag-warn">
@@ -129,8 +129,8 @@ export function ScenesPage() {
   if (!project) {
     return (
       <div className="page">
-        <h1>Scenes</h1>
-        <p className="page-subtitle">Open a project first.</p>
+        <h1>Sahneler</h1>
+        <p className="page-subtitle">Önce bir proje açın.</p>
       </div>
     )
   }
@@ -159,17 +159,17 @@ export function ScenesPage() {
       const { filename } = cleanup
       void runCleanup(async () => {
         await api.deleteImage(slug, filename)
-        return `Deleted ${filename}.`
+        return `${filename} silindi.`
       })
     } else if (cleanup.kind === 'allImages') {
       void runCleanup(async () => {
         const { removed } = await api.deleteAllImages(slug)
-        return `Deleted ${removed} image${removed === 1 ? '' : 's'}.`
+        return `${removed} görsel silindi.`
       })
     } else {
       void runCleanup(async () => {
         const { removed } = await api.cleanDerived(slug)
-        return `Cleared ${removed} cached file${removed === 1 ? '' : 's'}.`
+        return `${removed} geçici dosya temizlendi.`
       })
     }
   }
@@ -201,16 +201,15 @@ export function ScenesPage() {
     <div className="page">
       <header className="page-header">
         <div>
-          <h1>Scenes</h1>
+          <h1>Sahneler</h1>
           <p className="page-subtitle">
-            {project.scenes.length} scene{project.scenes.length === 1 ? '' : 's'} ·{' '}
-            {images.length} image{images.length === 1 ? '' : 's'}
-            {unmapped > 0 && ` · ${unmapped} without an image`}
+            {project.scenes.length} sahne · {images.length} görsel
+            {unmapped > 0 && ` · ${unmapped} sahnede görsel yok`}
           </p>
         </div>
         <div className="header-actions">
           <button onClick={() => fileInput.current?.click()} disabled={uploading}>
-            {uploading ? 'Uploading…' : 'Upload images'}
+            {uploading ? 'Yükleniyor…' : 'Görsel yükle'}
           </button>
           <button
             onClick={() =>
@@ -220,7 +219,7 @@ export function ScenesPage() {
                 .catch(setError)
             }
           >
-            Auto-map images
+            Görselleri sahnelere dağıt
           </button>
           <button
             onClick={() =>
@@ -230,15 +229,15 @@ export function ScenesPage() {
                 .catch(setError)
             }
           >
-            Add scene
+            Sahne ekle
           </button>
           <button
             className="subtle"
             onClick={() => setCleanup({ kind: 'cache' })}
             disabled={busy}
-            title="Delete cached clips, normalized images and text cards. Your images, audio and exports are kept."
+            title="Video oluştururken üretilen geçici dosyaları siler. Görselleriniz, sesleriniz ve hazır videolarınız durur."
           >
-            Clear render cache
+            Geçici dosyaları temizle
           </button>
         </div>
       </header>
@@ -249,7 +248,7 @@ export function ScenesPage() {
         multiple
         accept="image/png,image/jpeg,image/webp"
         hidden
-        aria-label="Upload scene images"
+        aria-label="Sahne görsellerini yükle"
         onChange={(e) => {
           void uploadFiles(Array.from(e.target.files ?? []))
           e.target.value = ''
@@ -260,7 +259,7 @@ export function ScenesPage() {
 
       {selectedScene?.imageFile && (
         <section className="card preview-panel">
-          <h2>Preview — {selectedScene.title || 'selected scene'}</h2>
+          <h2>Önizleme — {selectedScene.title || 'seçili sahne'}</h2>
           <ScenePreview project={project} scene={selectedScene} />
         </section>
       )}
@@ -278,16 +277,16 @@ export function ScenesPage() {
           void uploadFiles(Array.from(e.dataTransfer.files))
         }}
       >
-        Drop PNG, JPEG or WebP images here. They map in filename order. Give one more image than
-        you have scenes and the first becomes the intro’s own picture — name them{' '}
-        <code>00-intro.png</code>, <code>01-opening.png</code>, and so on.
+        Görselleri buraya sürükleyin (PNG, JPEG veya WebP). Dosya adına göre sırayla sahnelere
+        dağıtılır. Sahne sayınızdan bir fazla görsel verirseniz ilki giriş görseli olur — dosyaları{' '}
+        <code>00-giris.png</code>, <code>01-sahne.png</code> gibi adlandırın.
       </div>
 
       {notice && <p className="notice ok">{notice}</p>}
 
       {unusedImages.length > 0 && (
         <p className="notice">
-          {unusedImages.length} uploaded image{unusedImages.length === 1 ? ' is' : 's are'} not used:{' '}
+          {unusedImages.length} görsel hiçbir sahnede kullanılmıyor:{' '}
           {unusedImages.map((i) => i.filename).join(', ')}
         </p>
       )}
@@ -295,13 +294,13 @@ export function ScenesPage() {
       {images.length > 0 && (
         <section className="card image-manager">
           <div className="image-manager-head">
-            <h2>Uploaded images ({images.length})</h2>
+            <h2>Yüklenen görseller ({images.length})</h2>
             <button
               className="danger"
               onClick={() => setCleanup({ kind: 'allImages' })}
               disabled={busy}
             >
-              Delete all images
+              Tüm görselleri sil
             </button>
           </div>
           <ul className="image-grid">
@@ -317,7 +316,7 @@ export function ScenesPage() {
                 </span>
                 <button
                   className="image-delete"
-                  aria-label={`Delete ${image.filename}`}
+                  aria-label={`${image.filename} dosyasını sil`}
                   onClick={() => setCleanup({ kind: 'image', filename: image.filename })}
                   disabled={busy}
                 >
@@ -343,8 +342,8 @@ export function ScenesPage() {
 
       {project.scenes.length === 0 ? (
         <div className="empty">
-          <h2>No scenes yet</h2>
-          <p>Import a content package on the Content tab, or add scenes manually.</p>
+          <h2>Henüz sahne yok</h2>
+          <p>Metinler sekmesinden hazır bir dosya yükleyin ya da elle sahne ekleyin.</p>
         </div>
       ) : (
         <DndContext
@@ -373,32 +372,31 @@ export function ScenesPage() {
         <ConfirmDialog
           title={
             cleanup.kind === 'cache'
-              ? 'Clear render cache?'
+              ? 'Geçici dosyalar temizlensin mi?'
               : cleanup.kind === 'allImages'
-                ? 'Delete all images?'
-                : 'Delete this image?'
+                ? 'Tüm görseller silinsin mi?'
+                : 'Bu görsel silinsin mi?'
           }
           body={
             cleanup.kind === 'cache' ? (
               <p>
-                This deletes the cached render files (clips, normalized images, text cards and
-                subtitle overlays). They rebuild automatically on the next render. Your images,
-                narration audio and finished exports are <strong>not</strong> touched.
+                Video oluştururken üretilen geçici dosyalar silinir. Bir sonraki videoda
+                kendiliğinden yeniden üretilirler. Görselleriniz, ses kayıtlarınız ve hazır
+                videolarınıza <strong>dokunulmaz</strong>.
               </p>
             ) : cleanup.kind === 'allImages' ? (
               <p>
-                This permanently deletes all {images.length} uploaded image
-                {images.length === 1 ? '' : 's'} and removes them from every scene and the intro.
-                This cannot be undone.
+                Yüklediğiniz {images.length} görselin tamamı kalıcı olarak silinir ve tüm
+                sahnelerden kaldırılır. Bu işlem geri alınamaz.
               </p>
             ) : (
               <p>
-                This permanently deletes <strong>{cleanup.filename}</strong> and removes it from any
-                scene or the intro using it. This cannot be undone.
+                <strong>{cleanup.filename}</strong> kalıcı olarak silinir ve onu kullanan
+                sahnelerden kaldırılır. Bu işlem geri alınamaz.
               </p>
             )
           }
-          confirmLabel={cleanup.kind === 'cache' ? 'Clear cache' : 'Delete'}
+          confirmLabel={cleanup.kind === 'cache' ? 'Temizle' : 'Sil'}
           destructive={cleanup.kind !== 'cache'}
           onCancel={() => setCleanup(null)}
           onConfirm={confirmCleanup}

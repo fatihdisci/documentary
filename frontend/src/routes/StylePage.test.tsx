@@ -112,24 +112,24 @@ describe('StylePage', () => {
   it('prompts to open a project when none is loaded', () => {
     useProjectStore.setState({ project: null })
     render(<StylePage />)
-    expect(screen.getByText('Open a project first.')).toBeInTheDocument()
+    expect(screen.getByText('Önce bir proje açın.')).toBeInTheDocument()
   })
 
   it('renders the global controls seeded from the project style', () => {
     seed(makeProject())
     render(<StylePage />)
 
-    expect(screen.getByText('Global')).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Documentary dissolve' })).toBeInTheDocument()
+    expect(screen.getByText('Genel')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Belgesel geçişi (önerilen)' })).toBeInTheDocument()
     // Default tab is Title, whose size is 64.
-    expect(screen.getByText('Size — 64px')).toBeInTheDocument()
+    expect(screen.getByText('Boyut — 64px')).toBeInTheDocument()
   })
 
   it('edits the active text class and writes it to the store', () => {
     seed(makeProject())
     render(<StylePage />)
 
-    const sizeSlider = screen.getByLabelText(/Size — 64px/)
+    const sizeSlider = screen.getByLabelText(/Boyut — 64px/)
     fireEvent.change(sizeSlider, { target: { value: '90' } })
 
     expect(useProjectStore.getState().project?.style.title.size).toBe(90)
@@ -140,9 +140,9 @@ describe('StylePage', () => {
     seed(makeProject())
     render(<StylePage />)
 
-    await user.click(screen.getByRole('tab', { name: 'Caption' }))
+    await user.click(screen.getByRole('tab', { name: 'Küçük yazı' }))
     // Caption default size is 38.
-    expect(screen.getByText('Size — 38px')).toBeInTheDocument()
+    expect(screen.getByText('Boyut — 38px')).toBeInTheDocument()
 
     const colorHex = screen.getAllByDisplayValue('#FFFFFF')[0] as HTMLInputElement
     await user.clear(colorHex)
@@ -159,10 +159,10 @@ describe('StylePage', () => {
     seed(makeProject())
     render(<StylePage />)
 
-    expect(screen.queryByText(/Cue timing/)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('tab', { name: 'Subtitles' }))
-    expect(screen.getByText(/Cue timing/)).toBeInTheDocument()
-    expect(screen.getByText(/Reading speed cap — 17 cps/)).toBeInTheDocument()
+    expect(screen.queryByText(/Altyazı satırları/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Altyazı' }))
+    expect(screen.getByText(/Altyazı satırları/)).toBeInTheDocument()
+    expect(screen.getByText(/Okuma hızı sınırı — saniyede 17 harf/)).toBeInTheDocument()
   })
 
   it('changes the default transition preset', () => {

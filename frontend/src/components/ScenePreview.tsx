@@ -105,7 +105,7 @@ export function ScenePreview({ project, scene }: { project: Project; scene: Scen
             }}
           />
         ) : (
-          <div className="preview-empty">No image for this scene</div>
+          <div className="preview-empty">Bu sahnede görsel yok</div>
         )}
 
         {style.overlayOpacity > 0 && (
@@ -140,7 +140,7 @@ export function ScenePreview({ project, scene }: { project: Project; scene: Scen
       </div>
 
       <div className="preview-controls">
-        <button onClick={() => setPlaying((p) => !p)} aria-label={playing ? 'Pause' : 'Play'}>
+        <button onClick={() => setPlaying((p) => !p)} aria-label={playing ? 'Duraklat' : 'Oynat'}>
           {playing ? '❚❚' : '▶'}
         </button>
         <input
@@ -149,7 +149,7 @@ export function ScenePreview({ project, scene }: { project: Project; scene: Scen
           max={1}
           step={0.001}
           value={progress}
-          aria-label="Scrub preview"
+          aria-label="Önizlemede ileri geri git"
           onChange={(e) => {
             setPlaying(false)
             setProgress(Number(e.target.value))
@@ -162,7 +162,7 @@ export function ScenePreview({ project, scene }: { project: Project; scene: Scen
 
       <p className="preview-caption">
         {error ? (
-          'Motion unavailable — showing a static frame.'
+          'Hareket bilgisi alınamadı — sabit görüntü gösteriliyor.'
         ) : (
           <>
             <span className="preview-move">{motion.description}</span>

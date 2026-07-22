@@ -66,7 +66,7 @@ def validate_image_bytes(data: bytes, original_name: str) -> tuple[Image.Image, 
     if suffix not in SUPPORTED_IMAGE_SUFFIXES:
         raise ValidationError(
             ErrorCode.UNSUPPORTED_IMAGE,
-            f"'{original_name}' is not a supported image type ({suffix or 'no extension'}).",
+            f"'{original_name}' desteklenmeyen bir görsel türü ({suffix or 'uzantısız'}).",
             details=f"supported: {', '.join(sorted(SUPPORTED_IMAGE_SUFFIXES))}",
         )
 
@@ -80,22 +80,22 @@ def validate_image_bytes(data: bytes, original_name: str) -> tuple[Image.Image, 
     except UnidentifiedImageError as exc:
         raise ValidationError(
             ErrorCode.CORRUPT_IMAGE,
-            f"'{original_name}' could not be decoded as an image.",
+            f"'{original_name}' bir görsel olarak açılamadı.",
             details=str(exc),
         ) from exc
     except Image.DecompressionBombError as exc:
         raise ValidationError(
             ErrorCode.UNSUPPORTED_IMAGE,
-            f"'{original_name}' is unreasonably large ({MAX_IMAGE_PIXELS:,} pixel limit).",
+            f"'{original_name}' aşırı büyük (en fazla {MAX_IMAGE_PIXELS:,} piksel).",
             details=str(exc),
-            suggestion="Downscale the image before uploading.",
+            suggestion="Görseli küçültüp tekrar yükleyin.",
         ) from exc
     except OSError as exc:
         raise ValidationError(
             ErrorCode.CORRUPT_IMAGE,
-            f"'{original_name}' appears to be truncated or corrupt.",
+            f"'{original_name}' eksik ya da bozuk görünüyor.",
             details=str(exc),
-            suggestion="Re-export the image and upload it again.",
+            suggestion="Görseli yeniden kaydedip tekrar yükleyin.",
         ) from exc
     finally:
         Image.MAX_IMAGE_PIXELS = previous_limit
@@ -105,12 +105,12 @@ def validate_image_bytes(data: bytes, original_name: str) -> tuple[Image.Image, 
     if image.width < MIN_IMAGE_WIDTH or image.height < MIN_IMAGE_HEIGHT:
         raise ValidationError(
             ErrorCode.IMAGE_TOO_SMALL,
-            f"'{original_name}' is {image.width}x{image.height}, which is too small "
-            f"for a 1080p render with pan and zoom.",
-            details=f"minimum: {MIN_IMAGE_WIDTH}x{MIN_IMAGE_HEIGHT}",
+            f"'{original_name}' {image.width}x{image.height} boyutunda; yakınlaşma "
+            "hareketiyle 1080p bir video için fazla küçük.",
+            details=f"en az: {MIN_IMAGE_WIDTH}x{MIN_IMAGE_HEIGHT}",
             suggestion=(
-                f"Use an image at least {MIN_IMAGE_WIDTH}x{MIN_IMAGE_HEIGHT}. "
-                "For zooming, 2560x1440 or larger gives noticeably better results."
+                f"En az {MIN_IMAGE_WIDTH}x{MIN_IMAGE_HEIGHT} boyutunda bir görsel kullanın. "
+                "2560x1440 ve üzeri gözle görülür şekilde daha iyi sonuç verir."
             ),
         )
 
@@ -140,18 +140,19 @@ def _describe(
     # 16:9 is 1.778. Anything far from it gets cropped noticeably.
     if aspect < 1.2:
         warnings.append(
-            f"This image is {'portrait' if aspect < 1.0 else 'nearly square'} "
-            f"({image.width}x{image.height}). Filling a 16:9 frame will crop it "
-            "significantly — set the focus point so the subject survives the crop."
+            f"Bu görsel {'dikey' if aspect < 1.0 else 'neredeyse kare'} "
+            f"({image.width}x{image.height}). Geniş ekrana sığdırmak için epeyce kırpılacak — "
+            "odak noktasını ayarlayın ki asıl konu kadraj dışında kalmasın."
         )
     elif aspect > 2.6:
         warnings.append(
-            f"This image is very wide ({image.width}x{image.height}); the top and "
-            "bottom of a 16:9 frame will be filled by cropping inward."
+            f"Bu görsel çok geniş ({image.width}x{image.height}); geniş ekrana sığdırmak "
+            "için yanlardan kırpılacak."
         )
     if image.width < 1920 or image.height < 1080:
         warnings.append(
-            f"At {image.width}x{image.height} this is below 1080p, so zooming in will soften it."
+            f"{image.width}x{image.height} boyutu 1080p'nin altında; yakınlaşınca görüntü "
+            "bulanıklaşacak."
         )
 
     return ImageInfo(
@@ -182,7 +183,7 @@ def rebuild_thumbnail(paths: ProjectPaths, filename: str) -> Path:
     if not source.is_file():
         raise ValidationError(
             ErrorCode.MISSING_IMAGE,
-            f"Image '{filename}' is not in this project.",
+            f"'{filename}' görseli bu projede yok.",
             details=str(source),
         )
     with Image.open(source) as image:
@@ -213,7 +214,7 @@ def delete_image(paths: ProjectPaths, filename: str) -> None:
     if not target.is_file():
         raise ValidationError(
             ErrorCode.MISSING_IMAGE,
-            f"Image '{filename}' is not in this project.",
+            f"'{filename}' görseli bu projede yok.",
         )
     target.unlink()
     (paths.thumbnails / f"{Path(filename).stem}.jpg").unlink(missing_ok=True)
@@ -227,8 +228,8 @@ def validate_audio_name(original_name: str) -> str:
     if suffix not in SUPPORTED_AUDIO_SUFFIXES:
         raise ValidationError(
             ErrorCode.UNSUPPORTED_AUDIO,
-            f"'{original_name}' is not a supported audio type ({suffix or 'no extension'}).",
-            details=f"supported: {', '.join(sorted(SUPPORTED_AUDIO_SUFFIXES))}",
+            f"'{original_name}' desteklenmeyen bir ses türü ({suffix or 'uzantısız'}).",
+            details=f"desteklenenler: {', '.join(sorted(SUPPORTED_AUDIO_SUFFIXES))}",
         )
     return sanitize_filename(original_name, default_stem="audio")
 
@@ -269,7 +270,7 @@ def delete_music(paths: ProjectPaths, filename: str) -> None:
     if not target.is_file():
         raise ValidationError(
             ErrorCode.MISSING_IMAGE,
-            f"Track '{filename}' is not in this project.",
+            f"'{filename}' parçası bu projede yok.",
         )
     target.unlink()
     logger.info("deleted music %s from %s", filename, paths.root.name)

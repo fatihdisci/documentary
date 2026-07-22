@@ -52,7 +52,7 @@ describe('Diagnostics', () => {
 
     expect(await screen.findByText('FFmpeg')).toBeInTheDocument()
     expect(screen.getByText('ffmpeg version 8.1.1')).toBeInTheDocument()
-    expect(screen.getByText('Ready to render.')).toBeInTheDocument()
+    expect(screen.getByText('Her şey hazır, video oluşturabilirsiniz.')).toBeInTheDocument()
   })
 
   it('explains the Pillow text engine and the missing drawtext filter', async () => {
@@ -81,8 +81,8 @@ describe('Diagnostics', () => {
     })
     render(<Diagnostics />)
 
-    expect(await screen.findByText(/Not ready to render/)).toBeInTheDocument()
-    expect(screen.getByText('Failed')).toBeInTheDocument()
+    expect(await screen.findByText(/Henüz hazır değil/)).toBeInTheDocument()
+    expect(screen.getByText('Sorun var')).toBeInTheDocument()
     expect(screen.getByText(/Install FFmpeg with brew install ffmpeg\./)).toBeInTheDocument()
   })
 
@@ -105,7 +105,7 @@ describe('Diagnostics', () => {
     expect(screen.getByText('ffmpeg could not be found.')).toBeInTheDocument()
     expect(screen.getByText(/Install FFmpeg \(brew install ffmpeg\)\./)).toBeInTheDocument()
     expect(screen.getByText('/tmp/backend.log')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tekrar dene' })).toBeInTheDocument()
   })
 
   it('reveals technical details on demand', async () => {
@@ -124,7 +124,7 @@ describe('Diagnostics', () => {
     )
     render(<Diagnostics />)
 
-    await user.click(await screen.findByRole('button', { name: /Show technical details/ }))
+    await user.click(await screen.findByRole('button', { name: /Teknik ayrıntıları göster/ }))
     expect(screen.getByText('stderr: Invalid argument')).toBeInTheDocument()
   })
 
@@ -133,7 +133,7 @@ describe('Diagnostics', () => {
     render(<Diagnostics />)
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
-    expect(screen.getByText(/Could not reach the backend/)).toBeInTheDocument()
-    expect(screen.getByText(/backend is running/)).toBeInTheDocument()
+    expect(screen.getByText(/Uygulamaya ulaşılamadı/)).toBeInTheDocument()
+    expect(screen.getByText(/arka planda çalıştığından/)).toBeInTheDocument()
   })
 })

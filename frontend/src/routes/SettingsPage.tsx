@@ -64,8 +64,8 @@ export function SettingsPage() {
   if (!draft || !data) {
     return (
       <div className="page">
-        <h1>Settings</h1>
-        {error ? <ErrorBox error={error} onRetry={() => void load()} /> : <p className="muted">Loading…</p>}
+        <h1>Ayarlar</h1>
+        {error ? <ErrorBox error={error} onRetry={() => void load()} /> : <p className="muted">Yükleniyor…</p>}
       </div>
     )
   }
@@ -76,13 +76,15 @@ export function SettingsPage() {
     <div className="page">
       <header className="page-header">
         <div>
-          <h1>Settings</h1>
-          <p className="page-subtitle">Applies to new projects; existing projects keep their own values.</p>
+          <h1>Ayarlar</h1>
+          <p className="page-subtitle">
+            Buradaki ayarlar yeni projeler için geçerlidir. Mevcut projeler kendi ayarlarını korur.
+          </p>
         </div>
         <div className="header-actions">
-          {saved && <span className="saved-pill">Saved</span>}
+          {saved && <span className="saved-pill">Kaydedildi</span>}
           <button className="primary" onClick={() => void save()} disabled={busy}>
-            {busy ? 'Saving…' : 'Save settings'}
+            {busy ? 'Kaydediliyor…' : 'Ayarları kaydet'}
           </button>
         </div>
       </header>
@@ -90,29 +92,30 @@ export function SettingsPage() {
       {error && <ErrorBox error={error} onDismiss={() => setError(null)} />}
 
       <section className="card">
-        <h2>Tools</h2>
+        <h2>Video motoru</h2>
         <div className="field-grid">
           <label>
-            FFmpeg path
+            FFmpeg konumu
             <input value={draft.ffmpegPath} onChange={(e) => set('ffmpegPath', e.target.value)} />
-            <span className="hint">Resolved: {data.resolvedPaths.ffmpeg || 'not found'}</span>
+            <span className="hint">Bulunan: {data.resolvedPaths.ffmpeg || 'bulunamadı'}</span>
           </label>
           <label>
-            ffprobe path
+            ffprobe konumu
             <input value={draft.ffprobePath} onChange={(e) => set('ffprobePath', e.target.value)} />
-            <span className="hint">Resolved: {data.resolvedPaths.ffprobe || 'not found'}</span>
+            <span className="hint">Bulunan: {data.resolvedPaths.ffprobe || 'bulunamadı'}</span>
           </label>
         </div>
         <p className="hint">
-          Leave these as <code>ffmpeg</code> / <code>ffprobe</code> to search your PATH.
+          Bilmiyorsanız <code>ffmpeg</code> ve <code>ffprobe</code> olarak bırakın; uygulama
+          bilgisayarınızda kendisi arar.
         </p>
       </section>
 
       <section className="card">
-        <h2>Storage</h2>
+        <h2>Dosya konumları</h2>
         <div className="field-grid">
           <label>
-            Projects directory
+            Projeler klasörü
             <input
               value={draft.projectsDir}
               placeholder={data.resolvedPaths.projectsDir}
@@ -120,7 +123,7 @@ export function SettingsPage() {
             />
           </label>
           <label>
-            Exports directory
+            Hazır videolar klasörü
             <input
               value={draft.exportsDir}
               placeholder={data.resolvedPaths.exportsDir}
@@ -128,7 +131,7 @@ export function SettingsPage() {
             />
           </label>
           <label>
-            Temporary directory
+            Geçici dosyalar klasörü
             <input
               value={draft.tempDir}
               placeholder={data.resolvedPaths.tempDir}
@@ -136,7 +139,7 @@ export function SettingsPage() {
             />
           </label>
           <label>
-            Keep failed-render temp files for (days)
+            Başarısız denemelerin geçici dosyaları kaç gün saklansın?
             <input
               type="number"
               min={0}
@@ -152,15 +155,15 @@ export function SettingsPage() {
             checked={draft.cleanupTempOnSuccess}
             onChange={(e) => set('cleanupTempOnSuccess', e.target.checked)}
           />
-          Delete temporary files after a successful render
+          Video başarıyla oluşunca geçici dosyaları sil
         </label>
       </section>
 
       <section className="card">
-        <h2>Defaults for new projects</h2>
+        <h2>Yeni projeler için varsayılanlar</h2>
         <div className="field-grid">
           <label>
-            Resolution
+            Çözünürlük
             <select
               value={`${draft.defaultWidth}x${draft.defaultHeight}`}
               onChange={(e) => {
@@ -175,7 +178,7 @@ export function SettingsPage() {
             </select>
           </label>
           <label>
-            Frame rate
+            Saniyedeki kare sayısı
             <select value={draft.defaultFps} onChange={(e) => set('defaultFps', Number(e.target.value))}>
               <option value={60}>60 fps</option>
               <option value={30}>30 fps</option>
@@ -183,32 +186,32 @@ export function SettingsPage() {
             </select>
           </label>
           <label>
-            Default transition
+            Sahne geçişi
             <select
               value={draft.defaultTransition}
               onChange={(e) => set('defaultTransition', e.target.value as AppSettings['defaultTransition'])}
             >
-              <option value="documentary-dissolve">Documentary dissolve</option>
-              <option value="cross-dissolve">Cross dissolve</option>
-              <option value="fade-through-black">Fade through black</option>
-              <option value="none">No transition</option>
+              <option value="documentary-dissolve">Belgesel geçişi</option>
+              <option value="cross-dissolve">Yumuşak geçiş</option>
+              <option value="fade-through-black">Siyaha kararıp açılma</option>
+              <option value="none">Geçiş yok</option>
             </select>
-            <span className="hint">Only restrained transitions are offered as a default.</span>
+            <span className="hint">Burada sadece sakin, göze batmayan geçişler sunulur.</span>
           </label>
           <label>
-            Export quality
+            Video kalitesi
             <select
               value={draft.defaultQuality}
               onChange={(e) => set('defaultQuality', e.target.value as AppSettings['defaultQuality'])}
             >
-              <option value="youtube-hq">YouTube high quality</option>
-              <option value="high">High</option>
-              <option value="standard">Standard</option>
-              <option value="preview">Preview (fast, low quality)</option>
+              <option value="youtube-hq">YouTube kalitesi</option>
+              <option value="high">Yüksek</option>
+              <option value="standard">Normal</option>
+              <option value="preview">Hızlı deneme (düşük kalite)</option>
             </select>
           </label>
           <label>
-            Scene lead-in (seconds)
+            Sahne başı sessizlik (saniye)
             <input
               type="number"
               step={0.05}
@@ -217,10 +220,10 @@ export function SettingsPage() {
               value={draft.defaultSceneLeadInSeconds}
               onChange={(e) => set('defaultSceneLeadInSeconds', Number(e.target.value))}
             />
-            <span className="hint">Silence before narration starts in each scene.</span>
+            <span className="hint">Sahne başladıktan kaç saniye sonra konuşma başlasın?</span>
           </label>
           <label>
-            Scene tail (seconds)
+            Sahne sonu bekleme (saniye)
             <input
               type="number"
               step={0.05}
@@ -229,23 +232,25 @@ export function SettingsPage() {
               value={draft.defaultSceneTailSeconds}
               onChange={(e) => set('defaultSceneTailSeconds', Number(e.target.value))}
             />
-            <span className="hint">Visual hold after narration ends.</span>
+            <span className="hint">Konuşma bittikten sonra görüntü ne kadar ekranda kalsın?</span>
           </label>
           <label>
-            Intermediate codec
+            Ara dosya biçimi
             <select
               value={draft.intermediateCodec}
               onChange={(e) => set('intermediateCodec', e.target.value as AppSettings['intermediateCodec'])}
             >
-              <option value="h264-crf14-fast">H.264 CRF 14 (fast, small)</option>
-              <option value="h264-crf12">H.264 CRF 12 (higher quality)</option>
-              <option value="prores-lt">ProRes 422 LT (large, fastest to decode)</option>
-              <option value="prores-422">ProRes 422 (largest)</option>
+              <option value="h264-crf14-fast">H.264 CRF 14 (hızlı, az yer kaplar)</option>
+              <option value="h264-crf12">H.264 CRF 12 (daha kaliteli)</option>
+              <option value="prores-lt">ProRes 422 LT (çok yer kaplar, çok hızlı)</option>
+              <option value="prores-422">ProRes 422 (en çok yer kaplar)</option>
             </select>
-            <span className="hint">Used for cached per-scene clips, not the final file.</span>
+            <span className="hint">
+              Sadece sahnelerin geçici dosyaları için kullanılır; bitmiş videoyu etkilemez.
+            </span>
           </label>
           <label>
-            Default voice
+            Varsayılan konuşmacı
             <input value={draft.defaultVoice} onChange={(e) => set('defaultVoice', e.target.value)} />
           </label>
         </div>
@@ -255,47 +260,47 @@ export function SettingsPage() {
             checked={draft.useHardwareEncoder}
             onChange={(e) => set('useHardwareEncoder', e.target.checked)}
           />
-          Use the hardware encoder when available
+          Mümkünse ekran kartını kullan
           <span className="hint">
-            Faster, but software libx264 gives better quality per bit and always works.
+            Daha hızlı olur, ama aynı dosya boyutunda kalite biraz düşer.
           </span>
         </label>
       </section>
 
       <section className="card">
-        <h2>API keys</h2>
+        <h2>Servis anahtarları</h2>
         <p className="muted">
-          Stored in <code>secrets.json</code> with owner-only permissions. Keys are never returned by
-          the API, written to a log, or included in a project bundle.
+          Sadece sizin okuyabileceğiniz bir dosyada saklanır. Anahtarlar hiçbir zaman ekrana
+          yazılmaz, kayıt dosyalarına düşmez ve proje yedeğine eklenmez.
         </p>
         <div className="row">
           <input
             type="password"
             value={apiKey}
-            placeholder={keyConfigured ? '•••••••• (configured)' : 'ElevenLabs API key (optional)'}
+            placeholder={keyConfigured ? '•••••••• (kayıtlı)' : 'ElevenLabs anahtarı (isteğe bağlı)'}
             onChange={(e) => setApiKey(e.target.value)}
-            aria-label="ElevenLabs API key"
+            aria-label="ElevenLabs anahtarı"
           />
           <button onClick={() => void saveKey(apiKey)} disabled={!apiKey || busy}>
-            Save key
+            Anahtarı kaydet
           </button>
           {keyConfigured && (
             <button className="danger" onClick={() => void saveKey(null)} disabled={busy}>
-              Remove key
+              Anahtarı sil
             </button>
           )}
         </div>
         <p className="hint">
-          Optional. Edge TTS is free and needs no key, and you can always upload your own narration
-          audio instead.
+          Zorunlu değil. Edge seslendirmesi ücretsizdir ve anahtar istemez; dilerseniz kendi ses
+          kayıtlarınızı da yükleyebilirsiniz.
         </p>
       </section>
 
       <section className="card">
-        <h2>Limits</h2>
+        <h2>Sınırlar</h2>
         <div className="field-grid">
           <label>
-            Max upload size (MB)
+            En büyük dosya yükleme boyutu (MB)
             <input
               type="number"
               min={1}
@@ -305,7 +310,7 @@ export function SettingsPage() {
             />
           </label>
           <label>
-            Max content JSON size (MB)
+            En büyük metin dosyası boyutu (MB)
             <input
               type="number"
               min={1}
@@ -315,7 +320,7 @@ export function SettingsPage() {
             />
           </label>
           <label>
-            Disk safety margin (MB)
+            Boş bırakılacak disk alanı (MB)
             <input
               type="number"
               min={0}
@@ -323,15 +328,17 @@ export function SettingsPage() {
               value={draft.diskSafetyMarginMb}
               onChange={(e) => set('diskSafetyMarginMb', Number(e.target.value))}
             />
-            <span className="hint">Renders are blocked if less than this would remain free.</span>
+            <span className="hint">
+              Diskte bu kadar boş yer kalmayacaksa video oluşturma başlatılmaz.
+            </span>
           </label>
           <label>
-            Log level
+            Kayıt ayrıntısı
             <select value={draft.logLevel} onChange={(e) => set('logLevel', e.target.value)}>
-              <option value="DEBUG">Debug (verbose)</option>
-              <option value="INFO">Info</option>
-              <option value="WARNING">Warning</option>
-              <option value="ERROR">Error</option>
+              <option value="DEBUG">Her şey (çok ayrıntılı)</option>
+              <option value="INFO">Normal</option>
+              <option value="WARNING">Sadece uyarılar</option>
+              <option value="ERROR">Sadece hatalar</option>
             </select>
           </label>
         </div>

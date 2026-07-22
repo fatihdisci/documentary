@@ -51,16 +51,16 @@ def resolve_music_file(project: Project, paths: ProjectPaths) -> Path | None:
     if not project.music.file:
         raise ValidationError(
             ErrorCode.MISSING_AUDIO,
-            "Music is set to 'uploaded' but no file has been chosen.",
-            suggestion="Upload a music file on the Audio tab, or set music to 'No music'.",
+            "Müzik “yüklediğim müzik” seçili ama hiçbir parça seçilmemiş.",
+            suggestion="Müzik sekmesinden bir parça seçin ya da müziği kapatın.",
         )
     path = safe_join(paths.music, project.music.file)
     if not path.is_file():
         raise ValidationError(
             ErrorCode.MISSING_AUDIO,
-            f"The music file '{project.music.file}' is missing from this project.",
+            f"'{project.music.file}' müzik dosyası bu projede yok.",
             details=str(path),
-            suggestion="Re-upload the music file, or switch music off.",
+            suggestion="Müzik dosyasını tekrar yükleyin ya da müziği kapatın.",
         )
     return path
 
@@ -97,9 +97,9 @@ def build_audio_plan(
         if not audio_path.is_file():
             raise ValidationError(
                 ErrorCode.MISSING_AUDIO,
-                f"Narration audio for '{entry.unit_id}' is missing.",
+                f"'{entry.unit_id}' bölümünün ses kaydı bulunamadı.",
                 details=str(audio_path),
-                suggestion="Regenerate narration on the Audio tab, or re-upload the file.",
+                suggestion="Seslendirme sekmesinden yeniden seslendirin ya da dosyayı tekrar yükleyin.",
             )
 
         plan.inputs.append(audio_path)
@@ -124,7 +124,7 @@ def build_audio_plan(
     total = timeline.total_duration_seconds
 
     if not narration_labels:
-        plan.notes.append("This project has no narration audio, so the video will be silent.")
+        plan.notes.append("Bu projede hiç ses kaydı yok; video sessiz olacak.")
         return plan
 
     # --- narration bus ---------------------------------------------------
@@ -173,8 +173,8 @@ def build_audio_plan(
     else:
         if project.audio.duck_music_under_speech and not has_sidechain:
             plan.notes.append(
-                "This FFmpeg build has no 'sidechaincompress' filter, so the music sits at a "
-                "fixed lower level instead of ducking dynamically."
+                "Bu FFmpeg sürümünde otomatik kısma özelliği yok; bu yüzden müzik, "
+                "konuşmaya göre değişmek yerine sabit ve daha düşük bir seviyede kalacak."
             )
             plan.filters.append(f"[{music_label}]volume=-6dB[bedstatic]")
             music_label = "bedstatic"
@@ -191,8 +191,8 @@ def build_audio_plan(
     else:
         if project.audio.normalize_loudness and not has_loudnorm:
             plan.notes.append(
-                "This FFmpeg build has no 'loudnorm' filter, so a fixed limiter is used "
-                "instead of EBU R128 normalization."
+                "Bu FFmpeg sürümünde ses dengeleme özelliği yok; bu yüzden ses seviyesi "
+                "otomatik dengelenmek yerine sabit bir sınırlayıcıyla ayarlanacak."
             )
         plan.filters.append(
             f"[{mixed}]aformat=sample_fmts=fltp:sample_rates={SAMPLE_RATE}:channel_layouts=stereo,"
@@ -237,8 +237,8 @@ async def render_narration_only(
     if plan.output_label is None:
         raise ValidationError(
             ErrorCode.MISSING_AUDIO,
-            "There is no narration to export.",
-            suggestion="Generate narration on the Audio tab first.",
+            "Dışa aktarılacak konuşma sesi yok.",
+            suggestion="Önce Seslendirme sekmesinden metinleri seslendirin.",
         )
 
     args = [ffmpeg, "-hide_banner", "-nostdin", "-y"]

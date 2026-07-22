@@ -214,9 +214,9 @@ class TestDiskPreflight:
         assert error.http_status == 507
         # The message must contain real numbers, not a vague complaint.
         assert "GB" in error.message
-        assert "free" in error.message.lower()
-        assert "scene clips" in (error.details or "")
-        assert "codec" in error.suggestion
+        assert "boş yer" in error.message.lower()
+        assert "sahne dosyaları" in (error.details or "")
+        assert "ara dosya biçimi" in error.suggestion
 
 
 class TestAudioPlan:
@@ -286,7 +286,7 @@ class TestAudioPlan:
             capabilities=capabilities, music_path=music,
         )
         assert not any("sidechaincompress" in f for f in plan.filters)
-        assert any("fixed lower level" in note for note in plan.notes)
+        assert any("sabit ve daha düşük" in note for note in plan.notes)
 
     def test_loudness_normalization_targets_the_configured_lufs(
         self, rendered_project
@@ -328,7 +328,7 @@ class TestAudioPlan:
 
         plan = build_audio_plan(project, build_timeline(project), paths)
         assert plan.output_label is None
-        assert any("silent" in note for note in plan.notes)
+        assert any("sessiz olacak" in note for note in plan.notes)
 
 
 class TestSceneClipCaching:

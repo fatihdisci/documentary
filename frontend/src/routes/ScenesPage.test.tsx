@@ -15,13 +15,13 @@ describe('ScenesPage', () => {
   it('prompts to open a project when none is loaded', () => {
     seedProject(null)
     render(<ScenesPage />)
-    expect(screen.getByText('Open a project first.')).toBeInTheDocument()
+    expect(screen.getByText('Önce bir proje açın.')).toBeInTheDocument()
   })
 
   it('shows an empty state when there are no scenes', () => {
     seedProject(makeProject({ scenes: [] }))
     render(<ScenesPage />)
-    expect(screen.getByText('No scenes yet')).toBeInTheDocument()
+    expect(screen.getByText('Henüz sahne yok')).toBeInTheDocument()
   })
 
   it('lists scenes and flags what each one is missing', () => {
@@ -38,8 +38,8 @@ describe('ScenesPage', () => {
     expect(screen.getByText('Opening')).toBeInTheDocument()
     expect(screen.getByText('Habitat')).toBeInTheDocument()
     // s1 has narration but no image/audio; s2 additionally has no narration.
-    expect(screen.getAllByText('No image').length).toBe(2)
-    expect(screen.getByText('No narration')).toBeInTheDocument()
+    expect(screen.getAllByText('Görsel yok').length).toBe(2)
+    expect(screen.getByText('Metin yok')).toBeInTheDocument()
   })
 
   it('uploads images and reloads the project', async () => {
@@ -51,7 +51,7 @@ describe('ScenesPage', () => {
     seedProject(makeProject({ scenes: [makeScene({ id: 's1', title: 'Opening' })] }))
     render(<ScenesPage />)
 
-    const input = screen.getByLabelText('Upload scene images')
+    const input = screen.getByLabelText('Sahne görsellerini yükle')
     const file = new File([new Uint8Array([1, 2, 3])], '01-opening.png', { type: 'image/png' })
     await user.upload(input, file)
 
@@ -73,7 +73,7 @@ describe('ScenesPage', () => {
     seedProject(makeProject({ scenes: [makeScene({ id: 's1' })] }))
     render(<ScenesPage />)
 
-    const input = screen.getByLabelText('Upload scene images')
+    const input = screen.getByLabelText('Sahne görsellerini yükle')
     const file = new File([new Uint8Array([1])], 'big.png', { type: 'image/png' })
     await user.upload(input, file)
 

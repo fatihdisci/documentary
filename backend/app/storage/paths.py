@@ -78,7 +78,7 @@ def safe_join(root: Path, *parts: str | Path) -> Path:
     if resolved != resolved_root and resolved_root not in resolved.parents:
         raise AppError(
             ErrorCode.PATH_TRAVERSAL,
-            "That file path points outside the project folder and was rejected.",
+            "Bu dosya yolu proje klasörünün dışını gösteriyor ve kabul edilmedi.",
             details=f"root={resolved_root}\nrequested={candidate}\nresolved={resolved}",
             http_status=400,
         )
@@ -107,7 +107,7 @@ def unique_path(directory: Path, stem: str, suffix: str, *, width: int = 2) -> P
         if version > 9999:
             raise AppError(
                 ErrorCode.EXPORT_EXISTS,
-                f"Could not find a free export filename for '{stem}' after 9999 versions.",
+                f"'{stem}' için boş bir dosya adı bulunamadı (9999 deneme).",
                 details=f"directory={directory}",
             )
 

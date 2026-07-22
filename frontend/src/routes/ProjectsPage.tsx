@@ -46,8 +46,10 @@ export function ProjectsPage({ onOpen }: Props) {
     <div className="page">
       <header className="page-header">
         <div>
-          <h1>Projects</h1>
-          <p className="page-subtitle">Each project is a folder on disk you can back up or move.</p>
+          <h1>Projeler</h1>
+          <p className="page-subtitle">
+            Her video ayrı bir projedir. Her proje bilgisayarınızda kendi klasöründe durur.
+          </p>
         </div>
       </header>
 
@@ -57,22 +59,22 @@ export function ProjectsPage({ onOpen }: Props) {
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="New project name — e.g. Dodo"
-          aria-label="New project name"
+          placeholder="Yeni proje adı — örneğin Dodo Kuşu"
+          aria-label="Yeni proje adı"
         />
         <button type="submit" className="primary" disabled={!newName.trim() || creating}>
-          {creating ? 'Creating…' : 'Create project'}
+          {creating ? 'Oluşturuluyor…' : 'Proje oluştur'}
         </button>
       </form>
 
-      {loading && projects.length === 0 && <p className="muted">Loading projects…</p>}
+      {loading && projects.length === 0 && <p className="muted">Projeler yükleniyor…</p>}
 
       {!loading && projects.length === 0 && (
         <div className="empty">
-          <h2>No projects yet</h2>
+          <h2>Henüz proje yok</h2>
           <p>
-            Create one above, then import a content package and drop in your images. The Dodo
-            example package is available on the Content tab.
+            Yukarıdan bir proje oluşturun. Sonra Metinler sekmesinden hazır örnek dosyayı
+            yükleyebilir ya da kendi metinlerinizi yazabilirsiniz.
           </p>
         </div>
       )}
@@ -89,11 +91,11 @@ export function ProjectsPage({ onOpen }: Props) {
               <span className="project-info">
                 <span className="project-name">
                   {project.name}
-                  {project.archived && <span className="tag">Archived</span>}
+                  {project.archived && <span className="tag">Arşivde</span>}
                 </span>
                 <span className="project-meta">
-                  {project.sceneCount} scene{project.sceneCount === 1 ? '' : 's'}
-                  {project.commonName && ` · ${project.commonName}`} · updated{' '}
+                  {project.sceneCount} sahne
+                  {project.commonName && ` · ${project.commonName}`} · son değişiklik{' '}
                   {new Date(project.updatedAt).toLocaleString()}
                 </span>
               </span>
@@ -102,29 +104,29 @@ export function ProjectsPage({ onOpen }: Props) {
             <div className="project-actions">
               {project.archived ? (
                 <button onClick={() => void withReload(() => api.unarchiveProject(project.slug))}>
-                  Unarchive
+                  Arşivden çıkar
                 </button>
               ) : (
                 <>
                   <button
                     onClick={() =>
                       void withReload(() =>
-                        api.duplicateProject(project.slug, `${project.name} copy`),
+                        api.duplicateProject(project.slug, `${project.name} kopya`),
                       )
                     }
                   >
-                    Duplicate
+                    Kopyala
                   </button>
                   <button onClick={() => void withReload(() => api.archiveProject(project.slug))}>
-                    Archive
+                    Arşivle
                   </button>
                 </>
               )}
               <a className="button-link" href={`/api/projects/${project.slug}/bundle`} download>
-                Export bundle
+                Yedeğini indir
               </a>
               <button className="danger" onClick={() => setPendingDelete(project.slug)}>
-                Delete
+                Sil
               </button>
             </div>
           </li>
@@ -133,19 +135,19 @@ export function ProjectsPage({ onOpen }: Props) {
 
       {pendingDelete && (
         <ConfirmDialog
-          title="Delete this project permanently?"
+          title="Bu proje kalıcı olarak silinsin mi?"
           body={
             <>
               <p>
-                This deletes <strong>{pendingDelete}</strong> and everything in it — images, audio,
-                exports and project.json — from disk. It cannot be undone.
+                <strong>{pendingDelete}</strong> projesi ve içindeki her şey — görseller, sesler,
+                oluşturulan videolar — bilgisayarınızdan silinir. Bu işlem geri alınamaz.
               </p>
               <p className="muted">
-                If you only want it out of the way, use <strong>Archive</strong> instead.
+                Sadece listeden kaybolsun istiyorsanız <strong>Arşivle</strong> deyin.
               </p>
             </>
           }
-          confirmLabel="Delete permanently"
+          confirmLabel="Kalıcı olarak sil"
           destructive
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => {

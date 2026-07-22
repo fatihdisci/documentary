@@ -65,7 +65,7 @@ describe('MusicPage', () => {
   it('prompts to open a project when none is loaded', () => {
     seed(null)
     render(<MusicPage />)
-    expect(screen.getByText('Open a project first.')).toBeInTheDocument()
+    expect(screen.getByText('Önce bir proje açın.')).toBeInTheDocument()
   })
 
   it('lists the uploaded tracks with their sizes', async () => {
@@ -84,10 +84,10 @@ describe('MusicPage', () => {
     render(<MusicPage />)
 
     await screen.findByText('forest.mp3')
-    expect(screen.getByRole('heading', { name: 'Music level' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Müzik seviyesi' })).toBeInTheDocument()
     expect(screen.getByText('-30 dB')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Music level in decibels' }), {
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Müzik seviyesi (desibel)' }), {
       target: { value: '-20' },
     })
 
@@ -101,13 +101,13 @@ describe('MusicPage', () => {
     render(<MusicPage />)
 
     const row = (await screen.findByText('forest.mp3')).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: 'Use' }))
+    await user.click(within(row).getByRole('button', { name: 'Kullan' }))
 
     const music = useProjectStore.getState().project?.music
     expect(music?.source).toBe('uploaded')
     expect(music?.file).toBe('forest.mp3')
     // The selected row is flagged in use.
-    expect(await screen.findByText(/in use/)).toBeInTheDocument()
+    expect(await screen.findByText(/kullanımda/)).toBeInTheDocument()
   })
 
   it('“No music” clears the source and file', async () => {
@@ -118,7 +118,7 @@ describe('MusicPage', () => {
     render(<MusicPage />)
 
     await screen.findByText('forest.mp3')
-    await user.click(screen.getByRole('button', { name: 'No music' }))
+    await user.click(screen.getByRole('button', { name: 'Müzik yok' }))
 
     const music = useProjectStore.getState().project?.music
     expect(music?.source).toBe('none')
@@ -132,11 +132,11 @@ describe('MusicPage', () => {
     render(<MusicPage />)
 
     const row = (await screen.findByText('drone.wav')).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: 'Delete' }))
+    await user.click(within(row).getByRole('button', { name: 'Sil' }))
 
     // A confirmation modal, not an immediate destructive action.
-    const dialog = screen.getByRole('dialog', { name: 'Delete this track?' })
-    await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    const dialog = screen.getByRole('dialog', { name: 'Bu parça silinsin mi?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Sil' }))
 
     await waitFor(() => expect(del).toHaveBeenCalledWith('the-dodo', 'drone.wav'))
   })
@@ -148,7 +148,7 @@ describe('MusicPage', () => {
     render(<MusicPage />)
 
     await screen.findByText('forest.mp3')
-    const input = screen.getByLabelText('Upload music track')
+    const input = screen.getByLabelText('Müzik dosyası yükle')
     const file = new File([new Uint8Array([1, 2, 3])], 'new-bed.mp3', { type: 'audio/mpeg' })
     await user.upload(input, file)
 

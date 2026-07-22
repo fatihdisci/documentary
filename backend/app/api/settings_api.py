@@ -71,9 +71,9 @@ def update_settings(value: MutableSettings) -> SettingsResponse:
         if candidate.is_absolute() and not candidate.is_file():
             raise ValidationError(
                 ErrorCode.FFMPEG_NOT_FOUND if tool == "ffmpeg" else ErrorCode.FFPROBE_NOT_FOUND,
-                f"The configured {tool} path does not exist: {candidate}",
+                f"Belirtilen {tool} konumu yok: {candidate}",
                 details=f"{tool}_path={configured!r}",
-                suggestion=f"Leave it as '{tool}' to search PATH, or point it at a real executable.",
+                suggestion=f"Uygulamanın kendisi arasın diye '{tool}' yazın ya da gerçek bir dosya yolu verin.",
             )
 
     # Directory overrides must be creatable, otherwise projects silently vanish.
@@ -87,7 +87,7 @@ def update_settings(value: MutableSettings) -> SettingsResponse:
         except OSError as exc:
             raise ValidationError(
                 ErrorCode.PERMISSION_DENIED,
-                f"Cannot use {directory} as the {field_name.replace('_', ' ')}.",
+                f"{directory} klasörü kullanılamıyor.",
                 details=str(exc),
             ) from exc
 
@@ -101,16 +101,16 @@ def set_secret(update: SecretUpdate) -> SettingsResponse:
     if update.key not in KNOWN_SECRETS:
         raise ValidationError(
             ErrorCode.SCHEMA_VALIDATION,
-            f"Unknown secret '{update.key}'.",
+            f"Tanınmayan anahtar: '{update.key}'.",
             details=f"known secrets: {', '.join(sorted(KNOWN_SECRETS))}",
-            suggestion="Check the spelling of the secret name.",
+            suggestion="Anahtar adının yazımını kontrol edin.",
         )
     try:
         get_settings().set_secret(update.key, update.value or None)
     except OSError as exc:
         raise AppError(
             ErrorCode.PERMISSION_DENIED,
-            "Could not write the secrets file.",
+            "Anahtar dosyası yazılamadı.",
             details=str(exc),
         ) from exc
     return _build_response()

@@ -36,7 +36,7 @@ class RenderJob(CamelModel):
     quality: QualityPreset = QualityPreset.YOUTUBE_HQ
 
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
-    message: str = "Queued"
+    message: str = "Sırada"
 
     created_at: datetime = Field(default_factory=_now)
     started_at: datetime | None = None

@@ -61,8 +61,8 @@ export function AudioPage() {
   if (!project || !slug) {
     return (
       <div className="page">
-        <h1>Audio</h1>
-        <p className="page-subtitle">Open a project first.</p>
+        <h1>Seslendirme</h1>
+        <p className="page-subtitle">Önce bir proje açın.</p>
       </div>
     )
   }
@@ -78,15 +78,15 @@ export function AudioPage() {
 
   const units = [
     ...(project.intro.enabled && project.intro.narration.trim()
-      ? [{ id: 'intro', label: 'Intro', unit: project.intro }]
+      ? [{ id: 'intro', label: 'Giriş', unit: project.intro }]
       : []),
     ...project.scenes.map((s, i) => ({
       id: s.id,
-      label: s.title || `Scene ${i + 1}`,
+      label: s.title || `Sahne ${i + 1}`,
       unit: s,
     })),
     ...(project.outro.enabled && project.outro.narration.trim()
-      ? [{ id: 'outro', label: 'Outro', unit: project.outro }]
+      ? [{ id: 'outro', label: 'Kapanış', unit: project.outro }]
       : []),
   ]
 
@@ -128,17 +128,17 @@ export function AudioPage() {
     <div className="page">
       <header className="page-header">
         <div>
-          <h1>Audio</h1>
+          <h1>Seslendirme</h1>
           <p className="page-subtitle">
-            Scene durations come from the real measured length of each narration clip.
+            Metinleriniz seslendirilir. Her sahne, kendi ses kaydı kadar ekranda kalır.
           </p>
         </div>
         <div className="header-actions">
           <button className="primary" onClick={() => void generate([])} disabled={busy || !missing}>
-            {busy ? 'Working…' : `Generate missing (${missing})`}
+            {busy ? 'Çalışıyor…' : `Eksikleri seslendir (${missing})`}
           </button>
           <button onClick={() => void generate([], true)} disabled={busy}>
-            Regenerate all
+            Hepsini yeniden seslendir
           </button>
         </div>
       </header>
@@ -150,7 +150,7 @@ export function AudioPage() {
         type="file"
         accept="audio/wav,audio/mpeg,audio/mp4,.wav,.mp3,.m4a"
         hidden
-        aria-label="Upload narration audio"
+        aria-label="Hazır ses dosyası yükle"
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file) void uploadAudio(file)
@@ -159,10 +159,10 @@ export function AudioPage() {
       />
 
       <section className="card">
-        <h2>Voice</h2>
+        <h2>Ses</h2>
         <div className="field-grid">
           <label>
-            Provider
+            Ses kaynağı
             <select
               value={providerName}
               onChange={(e) =>
@@ -172,7 +172,7 @@ export function AudioPage() {
               {providers.map((p) => (
                 <option key={p.name} value={p.name} disabled={!p.available}>
                   {p.name}
-                  {p.available ? '' : ' (unavailable)'}
+                  {p.available ? '' : ' (kullanılamıyor)'}
                 </option>
               ))}
             </select>
@@ -181,7 +181,7 @@ export function AudioPage() {
 
           {providerName !== 'imported' && (
             <label>
-              Voice
+              Konuşmacı
               <select
                 value={project.audio.voice}
                 onChange={(e) => edit((d) => void (d.audio.voice = e.target.value))}
@@ -200,16 +200,16 @@ export function AudioPage() {
                   className="inline-filter"
                   value={voiceFilter}
                   onChange={(e) => setVoiceFilter(e.target.value)}
-                  placeholder="filter, e.g. en-GB"
-                  aria-label="Filter voices"
+                  placeholder="ara — örneğin tr-TR"
+                  aria-label="Konuşmacı ara"
                 />
-                {voices.length} voices available
+                {voices.length} konuşmacı var
               </span>
             </label>
           )}
 
           <label>
-            Speech rate
+            Konuşma hızı
             <input
               type="range"
               min={0.5}
@@ -218,20 +218,23 @@ export function AudioPage() {
               value={project.audio.speechRate}
               onChange={(e) => edit((d) => void (d.audio.speechRate = Number(e.target.value)))}
             />
-            <span className="hint">{project.audio.speechRate.toFixed(2)}× — changing this regenerates all narration.</span>
+            <span className="hint">
+              {project.audio.speechRate.toFixed(2)}× — bunu değiştirirseniz tüm seslendirme
+              yeniden yapılır.
+            </span>
           </label>
 
           <label>
-            Duration mode
+            Sahne süreleri nasıl belirlensin?
             <select
               value={project.video.durationMode}
               onChange={(e) =>
                 edit((d) => void (d.video.durationMode = e.target.value as typeof d.video.durationMode))
               }
             >
-              <option value="audio">Audio-driven (scene = narration + padding)</option>
-              <option value="target">Target duration (spread extra hold time)</option>
-              <option value="manual">Manual (you set every duration)</option>
+              <option value="audio">Konuşmaya göre (önerilen)</option>
+              <option value="target">Hedef süreye göre (sahneler uzatılır)</option>
+              <option value="manual">Elle (süreleri siz belirlersiniz)</option>
             </select>
           </label>
         </div>
@@ -239,27 +242,27 @@ export function AudioPage() {
 
       {timing && (
         <section className="card">
-          <h2>Expected runtime</h2>
+          <h2>Tahmini video süresi</h2>
           <div className="timing-grid">
             <div className="timing-stat big">
               <span className="value">{String(timing.summary.totalFormatted ?? '—')}</span>
-              <span className="label">Total runtime</span>
+              <span className="label">Toplam süre</span>
             </div>
             <div className="timing-stat">
               <span className="value">{formatSeconds(Number(timing.summary.narrationSeconds))}</span>
-              <span className="label">Narration</span>
+              <span className="label">Konuşma</span>
             </div>
             <div className="timing-stat">
               <span className="value">{Number(timing.summary.transitionSeconds).toFixed(1)}s</span>
-              <span className="label">Transition overlap</span>
+              <span className="label">Geçişler</span>
             </div>
             <div className="timing-stat">
               <span className="value">{formatSeconds(Number(timing.summary.introSeconds))}</span>
-              <span className="label">Intro</span>
+              <span className="label">Giriş</span>
             </div>
             <div className="timing-stat">
               <span className="value">{formatSeconds(Number(timing.summary.outroSeconds))}</span>
-              <span className="label">Outro</span>
+              <span className="label">Kapanış</span>
             </div>
             <div className="timing-stat">
               <span
@@ -270,11 +273,11 @@ export function AudioPage() {
                 {Number(timing.summary.differenceSeconds) >= 0 ? '+' : ''}
                 {Number(timing.summary.differenceSeconds).toFixed(0)}s
               </span>
-              <span className="label">vs target</span>
+              <span className="label">hedefe göre fark</span>
             </div>
             <div className="timing-stat">
               <span className="value">{timing.cueCount}</span>
-              <span className="label">Subtitle cues</span>
+              <span className="label">Altyazı satırı</span>
             </div>
           </div>
 
@@ -288,21 +291,21 @@ export function AudioPage() {
 
           <div className="row" style={{ marginTop: 12 }}>
             <a className="button-link" href={`/api/projects/${slug}/audio/subtitles.srt`} download>
-              Download full SRT
+              Altyazı dosyasını indir (.srt)
             </a>
           </div>
         </section>
       )}
 
       <section className="card">
-        <h2>Narration by section</h2>
+        <h2>Bölüm bölüm seslendirme</h2>
         <table className="audio-table">
           <thead>
             <tr>
-              <th>Section</th>
-              <th>Source</th>
-              <th>Duration</th>
-              <th>Audio</th>
+              <th>Bölüm</th>
+              <th>Kaynak</th>
+              <th>Süre</th>
+              <th>Ses</th>
               <th />
             </tr>
           </thead>
@@ -312,7 +315,11 @@ export function AudioPage() {
                 <td className="unit-label">{u.label}</td>
                 <td>
                   <span className={`tag ${u.unit.audioSource === 'none' ? 'tag-warn' : ''}`}>
-                    {u.unit.audioSource === 'none' ? 'missing' : u.unit.audioSource}
+                    {u.unit.audioSource === 'none'
+                      ? 'yok'
+                      : u.unit.audioSource === 'generated'
+                        ? 'seslendirildi'
+                        : 'dışarıdan'}
                   </span>
                 </td>
                 <td>
@@ -330,7 +337,7 @@ export function AudioPage() {
                       }/${u.unit.audioFile.split('/').pop()}`}
                     />
                   ) : (
-                    <span className="muted">no audio</span>
+                    <span className="muted">ses yok</span>
                   )}
                 </td>
                 <td className="unit-actions">
@@ -339,11 +346,11 @@ export function AudioPage() {
                     disabled={busy || !u.unit.narration.trim() || providerName === 'imported'}
                     title={
                       providerName === 'imported'
-                        ? 'Switch the provider to Edge to generate narration'
-                        : 'Regenerate this section only'
+                        ? 'Seslendirme için ses kaynağını Edge yapın'
+                        : 'Sadece bu bölümü yeniden seslendir'
                     }
                   >
-                    Generate
+                    Seslendir
                   </button>
                   <button
                     onClick={() => {
@@ -352,30 +359,31 @@ export function AudioPage() {
                     }}
                     disabled={busy}
                   >
-                    Upload
+                    Ses yükle
                   </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {units.length === 0 && <p className="muted">No scenes with narration yet.</p>}
+        {units.length === 0 && <p className="muted">Henüz metni olan sahne yok.</p>}
       </section>
 
       {lastRun && (
         <section className="card">
-          <h2>Last run</h2>
+          <h2>Son işlem</h2>
           <p className="muted">
-            {lastRun.generatedCount} generated, {lastRun.reusedCount} reused from cache.
+            {lastRun.generatedCount} bölüm seslendirildi, {lastRun.reusedCount} bölüm hazırdan
+            kullanıldı.
           </p>
         </section>
       )}
 
       <section className="card">
-        <h2>Mixing</h2>
+        <h2>Ses dengesi</h2>
         <div className="field-grid">
           <label>
-            Voice level (dB)
+            Konuşma seviyesi (dB)
             <input
               type="number"
               step={0.5}
@@ -386,7 +394,7 @@ export function AudioPage() {
             />
           </label>
           <label>
-            Music level (dB)
+            Müzik seviyesi (dB)
             <input
               type="number"
               step={0.5}
@@ -397,7 +405,7 @@ export function AudioPage() {
             />
           </label>
           <label>
-            Music source
+            Müzik
             <select
               value={project.music.source}
               onChange={(e) =>
@@ -407,22 +415,22 @@ export function AudioPage() {
                 })
               }
             >
-              <option value="none">No music</option>
-              <option value="uploaded">Uploaded music file</option>
-              <option value="generated-ambient">Basic generated ambient bed</option>
+              <option value="none">Müzik yok</option>
+              <option value="uploaded">Yüklediğim müzik</option>
+              <option value="generated-ambient">Basit fon müziği (uygulama üretir)</option>
             </select>
             <span className="hint">
               {project.music.source === 'generated-ambient'
-                ? 'A simple synthesized drone. Useful for testing; replace it with a real track for publishing.'
+                ? 'Basit bir fon sesi. Denemek için iyidir; yayınlarken gerçek bir parça kullanın.'
                 : project.music.source === 'none'
-                  ? 'No background music will be mixed in.'
+                  ? 'Arka planda müzik çalmaz.'
                   : project.music.file
-                    ? `Using “${project.music.file}”. Manage tracks on the Music tab.`
-                    : 'No track selected yet — upload and pick one on the Music tab.'}
+                    ? `“${project.music.file}” kullanılıyor. Parçaları Müzik sekmesinden yönetin.`
+                    : 'Henüz parça seçilmedi — Müzik sekmesinden bir parça yükleyip seçin.'}
             </span>
           </label>
           <label>
-            Loudness target (LUFS)
+            Genel ses seviyesi (LUFS)
             <input
               type="number"
               step={0.5}
@@ -431,7 +439,7 @@ export function AudioPage() {
               value={project.audio.targetLufs}
               onChange={(e) => edit((d) => void (d.audio.targetLufs = Number(e.target.value)))}
             />
-            <span className="hint">−16 LUFS suits YouTube.</span>
+            <span className="hint">YouTube için −16 uygundur.</span>
           </label>
         </div>
         <label className="checkbox">
@@ -440,7 +448,7 @@ export function AudioPage() {
             checked={project.audio.duckMusicUnderSpeech}
             onChange={(e) => edit((d) => void (d.audio.duckMusicUnderSpeech = e.target.checked))}
           />
-          Duck the music automatically while narration plays
+          Konuşma varken müziği otomatik kıs
         </label>
         <label className="checkbox">
           <input
@@ -448,10 +456,10 @@ export function AudioPage() {
             checked={project.subtitles.burnIn}
             onChange={(e) => edit((d) => void (d.subtitles.burnIn = e.target.checked))}
           />
-          Burn subtitles into the video
+          Altyazıyı videonun içine göm
           <span className="hint">
-            On by default, so the video is captioned. A separate .srt is always exported too;
-            turn this off for a clean image (YouTube prefers the sidecar).
+            Açık gelir, böylece video altyazılı olur. Ayrı bir .srt dosyası her hâlükârda
+            oluşur; görüntünün temiz kalmasını isterseniz bunu kapatın.
           </span>
         </label>
       </section>

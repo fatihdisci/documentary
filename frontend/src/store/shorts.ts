@@ -14,6 +14,8 @@ import { create } from 'zustand'
 import { api, describeError } from '@/api/client'
 import type { ApiErrorPayload } from '@/api/types'
 import type {
+  ShortCaptionMode,
+  ShortCaptionPreset,
   ShortJob,
   ShortJobEvent,
   ShortRecord,
@@ -22,6 +24,7 @@ import type {
   ShortSourceTimeline,
   ShortsPreflightResponse,
 } from '@/api/shorts-types'
+import { captionSupportOf } from '@/api/shorts-types'
 import { attachJobStream, type JobStream } from '@/lib/jobStream'
 import type { Selection } from '@/lib/shortsPlan'
 
@@ -36,6 +39,9 @@ interface ShortsState {
   timeline: ShortSourceTimeline | null
   /** Selected sections, in the order the user clicked them. */
   selection: Selection[]
+  /** Where this Short's captions come from. Defaults to the legacy behaviour. */
+  captionMode: ShortCaptionMode
+  captionPreset: ShortCaptionPreset
   preflight: ShortsPreflightResponse | null
   job: ShortJob | null
   event: ShortJobEvent | null
@@ -51,6 +57,8 @@ interface ShortsState {
   removeSelection: (slug: string, unitId: string) => void
   clearSelection: (slug: string) => void
   setTrim: (slug: string, unitId: string, edge: 'start' | 'end', value: number | null) => void
+  setCaptionMode: (slug: string, mode: ShortCaptionMode) => void
+  setCaptionPreset: (slug: string, preset: ShortCaptionPreset) => void
   refreshPreflight: (slug: string) => Promise<void>
   start: (slug: string) => Promise<void>
   cancel: () => Promise<void>
@@ -76,8 +84,12 @@ function cancelPreflight() {
   preflightTimer = null
 }
 
-export function requestFor(renderId: string, selection: Selection[]): ShortRequest {
-  return {
+export function requestFor(
+  renderId: string,
+  selection: Selection[],
+  captions?: { mode: ShortCaptionMode; preset: ShortCaptionPreset },
+): ShortRequest {
+  const request: ShortRequest = {
     sourceRenderId: renderId,
     segments: selection.map((item) => ({
       unitId: item.unitId,
@@ -85,6 +97,13 @@ export function requestFor(renderId: string, selection: Selection[]): ShortReque
       endSeconds: item.endSeconds,
     })),
   }
+  // Only sent when it is not the default, so a legacy Short's request — and the
+  // cache key derived from it — stays byte-for-byte what it always was.
+  if (captions && captions.mode !== 'source-burned-in') {
+    request.captionMode = captions.mode
+    if (captions.mode === 'shorts-native') request.captionStyle = { preset: captions.preset }
+  }
+  return request
 }
 
 export const useShortsStore = create<ShortsState>((set, get) => {
@@ -105,6 +124,8 @@ export const useShortsStore = create<ShortsState>((set, get) => {
     selectedRenderId: null,
     timeline: null,
     selection: [],
+    captionMode: 'source-burned-in',
+    captionPreset: 'standard',
     preflight: null,
     job: null,
     event: null,
@@ -137,7 +158,17 @@ export const useShortsStore = create<ShortsState>((set, get) => {
 
     selectSource: async (slug, renderId) => {
       cancelPreflight()
-      set({ selectedRenderId: renderId, selection: [], preflight: null, timeline: null })
+      // Switching to a render that cannot do large captions drops back to the
+      // legacy mode rather than leaving a selection the backend would reject.
+      const source = get().sources.find((entry) => entry.renderId === renderId)
+      const mode = captionSupportOf(source).nativeAvailable ? get().captionMode : 'source-burned-in'
+      set({
+        selectedRenderId: renderId,
+        selection: [],
+        preflight: null,
+        timeline: null,
+        captionMode: mode,
+      })
       try {
         set({ timeline: await api.shortsTimeline(slug, renderId), error: null })
       } catch (err) {
@@ -190,8 +221,18 @@ export const useShortsStore = create<ShortsState>((set, get) => {
       schedulePreflight(slug)
     },
 
+    setCaptionMode: (slug, mode) => {
+      set({ captionMode: mode })
+      schedulePreflight(slug)
+    },
+
+    setCaptionPreset: (slug, preset) => {
+      set({ captionPreset: preset })
+      if (get().captionMode === 'shorts-native') schedulePreflight(slug)
+    },
+
     refreshPreflight: async (slug) => {
-      const { selectedRenderId, selection } = get()
+      const { selectedRenderId, selection, captionMode, captionPreset } = get()
       if (!selectedRenderId || selection.length === 0) {
         set({ preflight: null })
         return
@@ -199,7 +240,7 @@ export const useShortsStore = create<ShortsState>((set, get) => {
       try {
         const preflight = await api.shortsPreflight(
           slug,
-          requestFor(selectedRenderId, selection),
+          requestFor(selectedRenderId, selection, { mode: captionMode, preset: captionPreset }),
         )
         set({ preflight, error: null })
       } catch (err) {
@@ -208,11 +249,14 @@ export const useShortsStore = create<ShortsState>((set, get) => {
     },
 
     start: async (slug) => {
-      const { selectedRenderId, selection } = get()
+      const { selectedRenderId, selection, captionMode, captionPreset } = get()
       if (!selectedRenderId || selection.length === 0) return
       set({ busy: true, error: null, event: null })
       try {
-        const job = await api.createShort(slug, requestFor(selectedRenderId, selection))
+        const job = await api.createShort(
+          slug,
+          requestFor(selectedRenderId, selection, { mode: captionMode, preset: captionPreset }),
+        )
         set({ job })
         if (TERMINAL.has(job.status)) {
           // A cache hit finishes before it starts; just refresh the history.

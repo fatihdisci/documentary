@@ -20,12 +20,14 @@ from app.config import Settings, get_settings
 from app.errors import AppError, ErrorCode, NotFoundError, ValidationError
 from app.models.enums import JobStatus
 from app.render.ffmpeg import FFmpegRunner
+from app.shorts.cues import CueSidecar, load_sidecar, rebase_cues
 from app.shorts.encode import segment_cache_name
 from app.shorts.manifest import (
     MANIFEST_SUFFIX,
     RenderManifest,
     load_manifest,
     manifest_path_for,
+    verify_clean_master,
     verify_source,
 )
 from app.shorts.models import (
@@ -35,6 +37,8 @@ from app.shorts.models import (
     RECOMMENDED_MAX_SECONDS,
     RECOMMENDED_MIN_SECONDS,
     ShortArtifact,
+    ShortCaptionMode,
+    ShortCaptionSupport,
     ShortManifest,
     ShortPreviewFrame,
     ShortRecord,
@@ -119,13 +123,138 @@ class ShortsService:
 
         raise NotFoundError(
             ErrorCode.SHORT_SOURCE_NOT_READY,
-            f"No completed render with id '{render_id}' was found for this project.",
-            details=f"looked for a manifest in {paths.exports}",
+            f"Bu projede '{render_id}' numaralı tamamlanmış bir video bulunamadı.",
+            details=f"aranan klasör: {paths.exports}",
             suggestion=(
-                "Reload the Shorts tab. If the render is missing, render the long video "
-                "again — only a completed render can be a source."
+                "Sekmeyi yenileyin. Video gerçekten yoksa uzun videoyu yeniden oluşturun — "
+                "kısa video ancak tamamlanmış bir videodan kesilebilir."
             ),
         )
+
+    # --- caption capability ---------------------------------------------
+
+    def clean_master_path(self, paths: ProjectPaths, manifest: RenderManifest) -> Path | None:
+        """Where this render's clean master lives, if it claims one.
+
+        Read from the package's own recorded filename. Nothing here reconstructs
+        a name from the export's: a Short only ever uses a file the manifest
+        explicitly points at.
+        """
+        package = manifest.shorts_source
+        if package is None:
+            return None
+        directory = paths.exports / package.directory if package.directory else paths.exports
+        return safe_join(directory, package.clean_master.filename)
+
+    def cue_sidecar_path(self, paths: ProjectPaths, manifest: RenderManifest) -> Path | None:
+        package = manifest.shorts_source
+        if package is None:
+            return None
+        directory = paths.exports / package.directory if package.directory else paths.exports
+        return safe_join(directory, package.cue_sidecar.filename)
+
+    def caption_support(
+        self, paths: ProjectPaths, manifest: RenderManifest, *, deep: bool = False
+    ) -> ShortCaptionSupport:
+        """Whether this render can drive Shorts-native captions, and why not.
+
+        ``deep`` runs the full checksum and ffprobe verification. The default is
+        the cheap version — existence and recorded size — because this is called
+        for every source card in the picker and hashing a 2 GB export per card
+        would be absurd. The full check always runs before a job is queued.
+        """
+        burned = manifest.source_has_burned_in_subtitles
+        package = manifest.shorts_source
+
+        if package is None:
+            return ShortCaptionSupport(
+                native_available=False,
+                source_has_burned_in_subtitles=burned,
+                reason=(
+                    "Bu videonun altyazıları görüntünün içine gömülü. Büyük altyazı "
+                    "kullanmak için uzun videoyu, altyazısız kopya hazırlama seçeneği açıkken "
+                    "yeniden oluşturun."
+                    if burned
+                    else "Bu video, büyük altyazı özelliği eklenmeden önce oluşturulmuş; "
+                    "altyazı verisi yok. Uzun videoyu altyazısız kopya hazırlama seçeneği "
+                    "açıkken yeniden oluşturun."
+                ),
+            )
+
+        base = ShortCaptionSupport(
+            source_has_burned_in_subtitles=burned,
+            cue_count=package.cue_sidecar.cue_count,
+            clean_master_filename=package.clean_master.filename,
+            cue_sidecar_filename=package.cue_sidecar.filename,
+            cue_schema_version=package.cue_sidecar.schema_version,
+            clean_master_origin=package.origin,
+        )
+
+        if not manifest.supports_native_captions:
+            return base.model_copy(
+                update={
+                    "reason": (
+                        "Bu videonun kısa video verileri uygulamanın daha yeni bir sürümüyle "
+                        "yazılmış ve burada okunamıyor. Uzun videoyu yeniden oluşturun."
+                    )
+                }
+            )
+
+        master = self.clean_master_path(paths, manifest)
+        sidecar = self.cue_sidecar_path(paths, manifest)
+        try:
+            if master is None or sidecar is None:
+                raise ValidationError(
+                    ErrorCode.SHORT_CLEAN_SOURCE_STALE,
+                    "Bu videonun altyazısız kopyası bulunamadı.",
+                )
+            verify_clean_master(
+                manifest, master, settings=self.settings,
+                check_checksum=deep, probe=deep,
+            )
+            load_sidecar(sidecar, package.cue_sidecar if deep else None)
+        except AppError as exc:
+            return base.model_copy(update={"reason": exc.message})
+
+        if package.cue_sidecar.cue_count == 0:
+            return base.model_copy(
+                update={
+                    "reason": (
+                        "Bu videoda konuşma altyazısı yok, çizilecek bir şey de yok. Metin "
+                        "ekleyip videoyu yeniden oluşturun."
+                    )
+                }
+            )
+
+        return base.model_copy(update={"native_available": True, "reason": None})
+
+    def load_caption_cues(
+        self, paths: ProjectPaths, manifest: RenderManifest
+    ) -> CueSidecar:
+        """Fully verified caption data for a render. Raises if anything is off."""
+        master = self.clean_master_path(paths, manifest)
+        sidecar = self.cue_sidecar_path(paths, manifest)
+        if master is None or sidecar is None:
+            raise ValidationError(
+                ErrorCode.SHORT_CAPTIONS_UNAVAILABLE,
+                "Bu videonun altyazıları görüntünün içine gömülü. Büyük altyazı kullanmak "
+                "için uzun videoyu, altyazısız kopya hazırlama seçeneği açıkken yeniden "
+                "oluşturun.",
+                details="bu videonun kayıtlarında altyazısız kopya bilgisi yok",
+            )
+        package = verify_clean_master(manifest, master, settings=self.settings)
+        cues = load_sidecar(sidecar, package.cue_sidecar)
+        if cues.clean_master_sha256 != package.clean_master.sha256:
+            raise ValidationError(
+                ErrorCode.SHORT_CLEAN_SOURCE_STALE,
+                "Bu videonun altyazı verisi başka bir kopyaya ait.",
+                details=(
+                    f"altyazı dosyası: {cues.clean_master_sha256[:16]}, "
+                    f"kayıtlı: {package.clean_master.sha256[:16]}"
+                ),
+                suggestion="Uzun videoyu yeniden oluşturun ve kısa videoyu ondan kesin.",
+            )
+        return cues
 
     def timeline(self, slug: str, render_id: str) -> ShortSourceTimeline:
         manifest, source = self.load_source(slug, render_id)
@@ -172,34 +301,73 @@ class ShortsService:
         warnings: list[str] = []
         source: ShortSourceRender | None = None
         manifest: RenderManifest | None = None
+        style = request.resolved_caption_style()
 
         try:
             manifest, source = self.load_source(slug, request.source_render_id)
         except AppError as exc:
             return ShortsPreflightResponse(
-                ready=False, blocking_issues=[exc.message], warnings=[]
+                ready=False,
+                blocking_issues=[exc.message],
+                warnings=[],
+                caption_mode=request.caption_mode,
             )
 
         paths = self.paths_for(slug)
         video = safe_join(paths.exports, manifest.source.filename)
+        support = source.captions
         try:
             # Cheap checks only here — hashing a 2 GB export on every keystroke
             # would be absurd. The full checksum is verified when the job runs.
             verify_source(manifest, video, settings=self.settings, check_checksum=False)
         except AppError as exc:
             return ShortsPreflightResponse(
-                ready=False, blocking_issues=[exc.message], source=source
+                ready=False,
+                blocking_issues=[exc.message],
+                source=source,
+                caption_mode=request.caption_mode,
+                caption_support=support,
+            )
+
+        # Captions are validated *before* the plan, so a render that cannot do
+        # native captions says exactly that rather than reporting some unrelated
+        # trim problem first. There is deliberately no fallback to the burned-in
+        # source: that would put two sets of captions on the same Short.
+        if request.caption_mode.needs_clean_master and not support.native_available:
+            blocking.append(
+                support.reason
+                or "Bu video, kısa video altyazılarıyla kullanılamıyor."
             )
 
         try:
             plan = build_plan(manifest, request)
         except AppError as exc:
             return ShortsPreflightResponse(
-                ready=False, blocking_issues=[exc.message], source=source
+                ready=False,
+                blocking_issues=[*blocking, exc.message],
+                source=source,
+                caption_mode=request.caption_mode,
+                caption_style=style if request.caption_mode.needs_clean_master else None,
+                caption_support=support,
             )
 
         warnings.extend(plan.warnings)
         total = plan.total_duration_seconds
+
+        rendered_cues = 0
+        if request.caption_mode is ShortCaptionMode.SHORTS_NATIVE and support.native_available:
+            try:
+                cues = self.load_caption_cues(paths, manifest)
+                rendered_cues = len(rebase_cues(cues.cues, plan.groups))
+            except AppError as exc:
+                blocking.append(exc.message)
+            else:
+                if rendered_cues == 0:
+                    warnings.append(
+                        "Seçtiğiniz bölümlerin hiçbirinde konuşma yok, bu yüzden kısa videoda "
+                        "altyazı olmayacak. Konuşması olan bir bölüm seçin ya da altyazıyı "
+                        "kapatın."
+                    )
 
         frames: list[ShortPreviewFrame] = []
         if with_frames:
@@ -222,6 +390,10 @@ class ShortsService:
             preview_frames=frames,
             cached_short_id=cached.short_id if cached else None,
             estimated_render_seconds=round(max(3.0, total * 0.45 + 2.0), 0),
+            caption_mode=request.caption_mode,
+            caption_style=style if request.caption_mode.needs_clean_master else None,
+            caption_support=support,
+            caption_cue_count=rendered_cues,
         )
 
     # --- preview frames -------------------------------------------------
@@ -260,9 +432,9 @@ class ShortsService:
         if path is None:
             raise NotFoundError(
                 ErrorCode.SHORT_SOURCE_NOT_READY,
-                "A thumbnail could not be read from this render.",
-                details=f"tried to grab a frame at {at:.2f}s",
-                suggestion="The video itself is fine; only the preview image is missing.",
+                "Bu videodan küçük bir önizleme görüntüsü alınamadı.",
+                details=f"{at:.2f}. saniyeden kare alınmaya çalışıldı",
+                suggestion="Videoda sorun yok; yalnızca önizleme görüntüsü eksik.",
             )
         return path
 
@@ -272,8 +444,8 @@ class ShortsService:
         if not target.is_file():
             raise NotFoundError(
                 ErrorCode.SHORT_NOT_FOUND,
-                f"'{filename}' is not a cached preview frame.",
-                suggestion="Reload the Shorts tab to rebuild the preview.",
+                f"'{filename}' diye bir önizleme görüntüsü yok.",
+                suggestion="Önizlemeyi yeniden oluşturmak için sekmeyi yenileyin.",
             )
         return target
 
@@ -340,8 +512,8 @@ class ShortsService:
                 return manifest, path
         raise NotFoundError(
             ErrorCode.SHORT_NOT_FOUND,
-            f"No Short with id '{short_id}' was found for this project.",
-            details=f"looked in {paths.shorts_exports}",
+            f"Bu projede '{short_id}' numaralı bir kısa video bulunamadı.",
+            details=f"aranan klasör: {paths.shorts_exports}",
         )
 
     def export_path(self, slug: str, filename: str) -> Path:
@@ -350,8 +522,8 @@ class ShortsService:
         if not target.is_file():
             raise NotFoundError(
                 ErrorCode.SHORT_NOT_FOUND,
-                f"'{filename}' is not in this project's Shorts exports.",
-                suggestion="Reload the Shorts tab; the file may have been deleted.",
+                f"'{filename}' bu projenin kısa videoları arasında yok.",
+                suggestion="Sekmeyi yenileyin; dosya silinmiş olabilir.",
             )
         return target
 
@@ -458,6 +630,8 @@ class ShortsService:
             section_titles=[s.title for s in manifest.plan.segments],
             job_id=manifest.job_id,
             artifacts=artifacts,
+            caption_mode=manifest.caption_mode,
+            caption_preset=manifest.caption_style.preset if manifest.caption_style else None,
         )
 
     def _describe(
@@ -474,11 +648,11 @@ class ShortsService:
 
         issue: str | None = None
         if not exists:
-            issue = "The exported video is no longer on disk."
+            issue = "Video dosyası artık diskte yok."
         elif size != manifest.source.size_bytes:
-            issue = "The exported video has changed since it was rendered."
+            issue = "Video dosyası oluşturulduğundan beri değişmiş."
         elif not manifest.source.has_audio:
-            issue = "This render has no audio track."
+            issue = "Bu videoda ses yok."
 
         created = manifest.written_at
         if created.tzinfo is None:
@@ -502,6 +676,7 @@ class ShortsService:
             usable=issue is None,
             issue=issue,
             status=JobStatus.COMPLETED.value,
+            captions=self.caption_support(paths, manifest),
         )
 
     def _render_id(self, manifest: RenderManifest, manifest_path: Path) -> str:
@@ -530,9 +705,17 @@ def _cut_names(manifest: ShortManifest) -> set[str]:
         # A single-group Short is cut and composed in one pass, so it never
         # wrote a cached segment in the first place.
         return set()
+    # Cuts are content-addressed by the file they came out of, which is the clean
+    # master whenever the Short was not built from the captioned export.
+    provenance = manifest.captions
+    checksum = (
+        provenance.clean_master_sha256
+        if provenance is not None and provenance.clean_master_sha256
+        else manifest.source_sha256
+    )
     return {
         segment_cache_name(
-            manifest.source_sha256,
+            checksum,
             group.start_seconds,
             group.end_seconds,
             manifest.fps,
@@ -545,8 +728,8 @@ def _require_safe_id(value: str, kind: str) -> None:
     if not _SAFE_ID.match(value or ""):
         raise ValidationError(
             ErrorCode.PATH_TRAVERSAL,
-            f"'{value}' is not a valid {kind} id.",
-            details="ids may only contain letters, digits, dot, dash and underscore",
+            f"'{value}' geçerli bir kimlik değil.",
+            details="kimlikler yalnızca harf, rakam, nokta, tire ve alt çizgi içerebilir",
             http_status=400,
         )
 

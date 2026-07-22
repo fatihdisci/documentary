@@ -213,13 +213,13 @@ class TestDurationModes:
 
         for entry in timeline.entries:
             assert entry.duration_seconds >= entry.narration_duration_seconds
-        assert any("longer than" in w for w in timeline.warnings)
+        assert any("hedeften" in w for w in timeline.warnings)
 
     def test_target_mode_warns_when_padding_is_added(self) -> None:
         project = make_project(
             scene_audio=[10.0] * 3, duration_mode=DurationMode.TARGET, target=300.0
         )
-        assert any("extra visual hold" in w for w in build_timeline(project).warnings)
+        assert any("ek bekleme süresi" in w for w in build_timeline(project).warnings)
 
     def test_manual_durations_are_honoured(self) -> None:
         project = make_project(scene_audio=[4.0, 2.0], duration_mode=DurationMode.MANUAL)
@@ -240,8 +240,8 @@ class TestDurationModes:
 
         error = exc_info.value
         assert error.code is ErrorCode.INVALID_DURATION
-        assert "Scene 2" in error.message
-        assert "cut off" in error.message
+        assert "2. sahne" in error.message
+        assert "kesilirdi" in error.message
         # The suggestion tells the user the minimum duration that would work.
         assert "10." in error.suggestion
 
@@ -253,7 +253,7 @@ class TestTransitionValidation:
         with pytest.raises(AppError) as exc_info:
             build_timeline(project)
         assert exc_info.value.code is ErrorCode.INVALID_TRANSITION
-        assert "shorten" in exc_info.value.suggestion.lower()
+        assert "kısaltın" in exc_info.value.suggestion.lower()
 
     def test_an_over_long_transition_is_clamped_with_a_warning(self) -> None:
         project = make_project(scene_audio=[3.0, 3.0], transition=3.0)
@@ -263,7 +263,7 @@ class TestTransitionValidation:
         timeline = build_timeline(project)
 
         assert timeline.entries[0].transition_duration == pytest.approx(5.0 * MAX_TRANSITION_RATIO)
-        assert any("shortened" in w for w in timeline.warnings)
+        assert any("kısaltıldı" in w for w in timeline.warnings)
 
     def test_per_scene_override_is_used(self) -> None:
         project = make_project(scene_audio=[10.0, 10.0], transition=0.5)

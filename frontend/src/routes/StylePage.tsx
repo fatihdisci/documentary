@@ -21,32 +21,32 @@ import './StylePage.css'
 type TextGroup = 'title' | 'subtitle' | 'caption' | 'subtitles'
 
 const TEXT_GROUPS: { id: TextGroup; label: string; sample: string }[] = [
-  { id: 'title', label: 'Title', sample: 'The Dodo' },
-  { id: 'subtitle', label: 'Subtitle', sample: 'Raphus cucullatus' },
-  { id: 'caption', label: 'Caption', sample: 'Mauritius · c. 1681' },
-  { id: 'subtitles', label: 'Subtitles', sample: 'Flightless and fearless, it had no predators.' },
+  { id: 'title', label: 'Başlık', sample: 'Dodo Kuşu' },
+  { id: 'subtitle', label: 'Alt başlık', sample: 'Raphus cucullatus' },
+  { id: 'caption', label: 'Küçük yazı', sample: 'Mauritius · 1681 civarı' },
+  { id: 'subtitles', label: 'Altyazı', sample: 'Uçamıyordu ve hiç düşmanı yoktu.' },
 ]
 
 // Human labels for the pipeline's transition presets.
 const TRANSITIONS: { id: TransitionPreset; label: string }[] = [
-  { id: 'none', label: 'Hard cut (none)' },
-  { id: 'cross-dissolve', label: 'Cross dissolve' },
-  { id: 'documentary-dissolve', label: 'Documentary dissolve' },
-  { id: 'slow-cinematic-dissolve', label: 'Slow cinematic dissolve' },
-  { id: 'fade-through-black', label: 'Fade through black' },
-  { id: 'fade-through-white', label: 'Fade through white' },
-  { id: 'dip-to-black', label: 'Dip to black' },
-  { id: 'subtle-zoom-dissolve', label: 'Subtle zoom dissolve' },
-  { id: 'horizontal-slide', label: 'Horizontal slide' },
-  { id: 'vertical-slide', label: 'Vertical slide' },
-  { id: 'blur-dissolve', label: 'Blur dissolve' },
+  { id: 'none', label: 'Geçiş yok (sert kesme)' },
+  { id: 'cross-dissolve', label: 'Yumuşak geçiş' },
+  { id: 'documentary-dissolve', label: 'Belgesel geçişi (önerilen)' },
+  { id: 'slow-cinematic-dissolve', label: 'Yavaş sinematik geçiş' },
+  { id: 'fade-through-black', label: 'Siyaha kararıp açılma' },
+  { id: 'fade-through-white', label: 'Beyaza açılıp kararma' },
+  { id: 'dip-to-black', label: 'Kısa siyah' },
+  { id: 'subtle-zoom-dissolve', label: 'Hafif yakınlaşarak geçiş' },
+  { id: 'horizontal-slide', label: 'Yana kaydırma' },
+  { id: 'vertical-slide', label: 'Yukarı kaydırma' },
+  { id: 'blur-dissolve', label: 'Bulanıklaşarak geçiş' },
 ]
 
 const ANIMATIONS: { id: TextAnimation; label: string }[] = [
-  { id: 'none', label: 'None (cut in)' },
-  { id: 'fade', label: 'Fade' },
-  { id: 'slide-up', label: 'Slide up' },
-  { id: 'slide-left', label: 'Slide left' },
+  { id: 'none', label: 'Yok (birden görünsün)' },
+  { id: 'fade', label: 'Yavaşça belirsin' },
+  { id: 'slide-up', label: 'Aşağıdan kaysın' },
+  { id: 'slide-left', label: 'Sağdan kaysın' },
 ]
 
 const TEXT_POSITIONS = [
@@ -54,6 +54,18 @@ const TEXT_POSITIONS = [
   'middle-left', 'middle-center', 'middle-right',
   'bottom-left', 'bottom-center', 'bottom-right',
 ] as const
+
+const POSITION_LABEL: Record<(typeof TEXT_POSITIONS)[number], string> = {
+  'top-left': 'Üst sol',
+  'top-center': 'Üst orta',
+  'top-right': 'Üst sağ',
+  'middle-left': 'Orta sol',
+  'middle-center': 'Tam orta',
+  'middle-right': 'Orta sağ',
+  'bottom-left': 'Alt sol',
+  'bottom-center': 'Alt orta',
+  'bottom-right': 'Alt sağ',
+}
 
 // Bundled first; the rest are common system families offered as suggestions.
 // A family the machine lacks is reported by the renderer, never silently swapped.
@@ -95,8 +107,8 @@ export function StylePage() {
   if (!project) {
     return (
       <div className="page">
-        <h1>Style</h1>
-        <p className="page-subtitle">Open a project first.</p>
+        <h1>Görünüm</h1>
+        <p className="page-subtitle">Önce bir proje açın.</p>
       </div>
     )
   }
@@ -159,18 +171,18 @@ export function StylePage() {
     <div className="page">
       <header className="page-header">
         <div>
-          <h1>Style</h1>
+          <h1>Görünüm</h1>
           <p className="page-subtitle">
-            Type, colour, motion and transitions for the whole video. Every scene inherits these;
-            individual scenes can still override their own transition and motion on the Scenes page.
+            Videodaki yazıların ve sahne geçişlerinin görünümü. Burada yaptığınız ayarlar tüm
+            sahneler için geçerlidir.
           </p>
         </div>
       </header>
 
       <section className="card">
-        <h2>Global</h2>
+        <h2>Genel</h2>
         <div className="field-grid">
-          <Field label="Font family" hint="Inter is bundled and renders identically everywhere.">
+          <Field label="Yazı tipi" hint="Inter uygulamayla birlikte gelir ve her bilgisayarda aynı görünür.">
             <input
               list="font-suggestions"
               value={style.fontFamily}
@@ -183,7 +195,7 @@ export function StylePage() {
             </datalist>
           </Field>
 
-          <Field label="Text position" hint="Where overlays anchor within the safe area.">
+          <Field label="Yazıların yeri" hint="Yazılar ekranın neresinde dursun?">
             <select
               value={style.textPosition}
               onChange={(e) =>
@@ -192,13 +204,13 @@ export function StylePage() {
             >
               {TEXT_POSITIONS.map((p) => (
                 <option key={p} value={p}>
-                  {p.replace('-', ' ')}
+                  {POSITION_LABEL[p]}
                 </option>
               ))}
             </select>
           </Field>
 
-          <Field label={`Safe margin — ${style.textSafeMargin}px`} hint="Keeps text clear of the frame edge.">
+          <Field label={`Kenar boşluğu — ${style.textSafeMargin}px`} hint="Yazıların ekran kenarına yapışmasını önler.">
             <input
               type="range"
               min={0}
@@ -210,8 +222,8 @@ export function StylePage() {
           </Field>
 
           <Field
-            label={`Scrim opacity — ${style.overlayOpacity.toFixed(2)}`}
-            hint="Dark gradient drawn under text for readability."
+            label={`Karartma — ${style.overlayOpacity.toFixed(2)}`}
+            hint="Yazıların altına çizilen hafif koyu perde. Yazıyı okunaklı yapar."
           >
             <input
               type="range"
@@ -223,7 +235,7 @@ export function StylePage() {
             />
           </Field>
 
-          <Field label="Default transition" hint="Applied between scenes that don't set their own.">
+          <Field label="Sahne geçişi" hint="Kendi geçişini seçmemiş sahneler arasında kullanılır.">
             <select
               value={style.transitionPreset}
               onChange={(e) =>
@@ -238,17 +250,17 @@ export function StylePage() {
             </select>
           </Field>
 
-          <Field label="Watermark text" hint="Leave blank for none.">
+          <Field label="Köşe yazısı (filigran)" hint="İstemiyorsanız boş bırakın.">
             <input
               value={style.watermarkText}
               maxLength={80}
-              placeholder="e.g. @yourchannel"
+              placeholder="örneğin @kanaladiniz"
               onChange={(e) => editStyle((s) => void (s.watermarkText = e.target.value))}
             />
           </Field>
 
           {style.watermarkText.trim() !== '' && (
-            <Field label={`Watermark opacity — ${style.watermarkOpacity.toFixed(2)}`}>
+            <Field label={`Köşe yazısı belirginliği — ${style.watermarkOpacity.toFixed(2)}`}>
               <input
                 type="range"
                 min={0}
@@ -264,7 +276,7 @@ export function StylePage() {
 
       <section className="card">
         <div className="style-tabs-row">
-          <div className="style-tabs" role="tablist" aria-label="Text class">
+          <div className="style-tabs" role="tablist" aria-label="Yazı türü">
             {TEXT_GROUPS.map((g) => (
               <button
                 key={g.id}
@@ -277,8 +289,8 @@ export function StylePage() {
               </button>
             ))}
           </div>
-          <button onClick={resetTextGroup} title="Reset this text class to defaults">
-            Reset {meta.label.toLowerCase()}
+          <button onClick={resetTextGroup} title="Bu yazı türünü varsayılan ayarlara döndür">
+            Sıfırla: {meta.label.toLowerCase()}
           </button>
         </div>
 
@@ -312,7 +324,7 @@ export function StylePage() {
         </div>
 
         <div className="field-grid">
-          <Field label="Font weight">
+          <Field label="Kalınlık">
             <select
               value={active.fontWeight}
               onChange={(e) => editText((t) => void (t.fontWeight = Number(e.target.value)))}
@@ -325,7 +337,7 @@ export function StylePage() {
             </select>
           </Field>
 
-          <Field label={`Size — ${active.size}px`}>
+          <Field label={`Boyut — ${active.size}px`}>
             <input
               type="range"
               min={8}
@@ -336,14 +348,14 @@ export function StylePage() {
             />
           </Field>
 
-          <Field label="Colour">
+          <Field label="Renk">
             <div className="color-row">
               <input
                 type="color"
                 className="color-swatch"
                 value={active.color}
                 onChange={(e) => editText((t) => void (t.color = e.target.value.toUpperCase()))}
-                aria-label="Text colour"
+                aria-label="Yazı rengi"
               />
               <input
                 value={active.color}
@@ -353,7 +365,7 @@ export function StylePage() {
             </div>
           </Field>
 
-          <Field label="Animation">
+          <Field label="Nasıl görünsün?">
             <select
               value={active.animation}
               onChange={(e) => editText((t) => void (t.animation = e.target.value as TextAnimation))}
@@ -366,7 +378,7 @@ export function StylePage() {
             </select>
           </Field>
 
-          <Field label={`Letter spacing — ${active.letterSpacing.toFixed(1)}`}>
+          <Field label={`Harf aralığı — ${active.letterSpacing.toFixed(1)}`}>
             <input
               type="range"
               min={-5}
@@ -377,7 +389,7 @@ export function StylePage() {
             />
           </Field>
 
-          <Field label={`Line spacing — ${active.lineSpacing.toFixed(2)}`}>
+          <Field label={`Satır aralığı — ${active.lineSpacing.toFixed(2)}`}>
             <input
               type="range"
               min={0.6}
@@ -388,7 +400,7 @@ export function StylePage() {
             />
           </Field>
 
-          <Field label={`Max width — ${Math.round(active.maxWidthRatio * 100)}% of frame`}>
+          <Field label={`En fazla genişlik — ekranın %${Math.round(active.maxWidthRatio * 100)}'i`}>
             <input
               type="range"
               min={0.1}
@@ -399,7 +411,7 @@ export function StylePage() {
             />
           </Field>
 
-          <Field label={`Fade in / out — ${active.fadeInSeconds.toFixed(1)}s / ${active.fadeOutSeconds.toFixed(1)}s`}>
+          <Field label={`Belirme / kaybolma — ${active.fadeInSeconds.toFixed(1)} sn / ${active.fadeOutSeconds.toFixed(1)} sn`}>
             <div className="color-row">
               <input
                 type="number"
@@ -408,7 +420,7 @@ export function StylePage() {
                 step={0.1}
                 value={active.fadeInSeconds}
                 onChange={(e) => editText((t) => void (t.fadeInSeconds = Number(e.target.value)))}
-                aria-label="Fade in seconds"
+                aria-label="Belirme süresi (saniye)"
               />
               <input
                 type="number"
@@ -417,7 +429,7 @@ export function StylePage() {
                 step={0.1}
                 value={active.fadeOutSeconds}
                 onChange={(e) => editText((t) => void (t.fadeOutSeconds = Number(e.target.value)))}
-                aria-label="Fade out seconds"
+                aria-label="Kaybolma süresi (saniye)"
               />
             </div>
           </Field>
@@ -429,11 +441,11 @@ export function StylePage() {
             checked={active.shadow}
             onChange={(e) => editText((t) => void (t.shadow = e.target.checked))}
           />
-          Drop shadow
+          Gölge
         </label>
         {active.shadow && (
           <div className="field-grid">
-            <Field label={`Shadow blur — ${active.shadowBlur}px`}>
+            <Field label={`Gölge yumuşaklığı — ${active.shadowBlur}px`}>
               <input
                 type="range"
                 min={0}
@@ -443,7 +455,7 @@ export function StylePage() {
                 onChange={(e) => editText((t) => void (t.shadowBlur = Number(e.target.value)))}
               />
             </Field>
-            <Field label={`Shadow offset — ${active.shadowOffset}px`}>
+            <Field label={`Gölge kayması — ${active.shadowOffset}px`}>
               <input
                 type="range"
                 min={0}
@@ -462,11 +474,11 @@ export function StylePage() {
             checked={active.outlineWidth > 0}
             onChange={(e) => editText((t) => void (t.outlineWidth = e.target.checked ? 2 : 0))}
           />
-          Outline
+          Yazı kenarlığı
         </label>
         {active.outlineWidth > 0 && (
           <div className="field-grid">
-            <Field label={`Outline width — ${active.outlineWidth}px`}>
+            <Field label={`Kenarlık kalınlığı — ${active.outlineWidth}px`}>
               <input
                 type="range"
                 min={1}
@@ -476,14 +488,14 @@ export function StylePage() {
                 onChange={(e) => editText((t) => void (t.outlineWidth = Number(e.target.value)))}
               />
             </Field>
-            <Field label="Outline colour">
+            <Field label="Kenarlık rengi">
               <div className="color-row">
                 <input
                   type="color"
                   className="color-swatch"
                   value={active.outlineColor}
                   onChange={(e) => editText((t) => void (t.outlineColor = e.target.value.toUpperCase()))}
-                  aria-label="Outline colour"
+                  aria-label="Kenarlık rengi"
                 />
                 <input
                   value={active.outlineColor}
@@ -501,18 +513,18 @@ export function StylePage() {
             checked={active.box}
             onChange={(e) => editText((t) => void (t.box = e.target.checked))}
           />
-          Background box behind the text
+          Yazının arkasına kutu koy
         </label>
         {active.box && (
           <div className="field-grid">
-            <Field label="Box colour">
+            <Field label="Kutu rengi">
               <div className="color-row">
                 <input
                   type="color"
                   className="color-swatch"
                   value={active.boxColor}
                   onChange={(e) => editText((t) => void (t.boxColor = e.target.value.toUpperCase()))}
-                  aria-label="Box colour"
+                  aria-label="Kutu rengi"
                 />
                 <input
                   value={active.boxColor}
@@ -521,7 +533,7 @@ export function StylePage() {
                 />
               </div>
             </Field>
-            <Field label={`Box opacity — ${active.boxOpacity.toFixed(2)}`}>
+            <Field label={`Kutu koyuluğu — ${active.boxOpacity.toFixed(2)}`}>
               <input
                 type="range"
                 min={0}
@@ -531,7 +543,7 @@ export function StylePage() {
                 onChange={(e) => editText((t) => void (t.boxOpacity = Number(e.target.value)))}
               />
             </Field>
-            <Field label={`Padding X — ${active.boxPaddingX}px`}>
+            <Field label={`Yatay boşluk — ${active.boxPaddingX}px`}>
               <input
                 type="range"
                 min={0}
@@ -541,7 +553,7 @@ export function StylePage() {
                 onChange={(e) => editText((t) => void (t.boxPaddingX = Number(e.target.value)))}
               />
             </Field>
-            <Field label={`Padding Y — ${active.boxPaddingY}px`}>
+            <Field label={`Dikey boşluk — ${active.boxPaddingY}px`}>
               <input
                 type="range"
                 min={0}
@@ -551,7 +563,7 @@ export function StylePage() {
                 onChange={(e) => editText((t) => void (t.boxPaddingY = Number(e.target.value)))}
               />
             </Field>
-            <Field label={`Corner radius — ${active.boxRadius}px`}>
+            <Field label={`Köşe yuvarlaklığı — ${active.boxRadius}px`}>
               <input
                 type="range"
                 min={0}
@@ -566,13 +578,13 @@ export function StylePage() {
 
         {group === 'subtitles' && (
           <div className="subtitle-extra">
-            <h3>Cue timing &amp; wrapping</h3>
+            <h3>Altyazı satırları</h3>
             <p className="muted">
-              Only used when subtitles are burned in or exported. These bound how each cue is split
-              and how long it stays on screen.
+              Altyazı metninin nasıl bölüneceğini ve her satırın ekranda ne kadar kalacağını
+              belirler.
             </p>
             <div className="field-grid">
-              <Field label={`Max chars per line — ${(style.subtitles as SubtitleStyle).maxCharsPerLine}`}>
+              <Field label={`Satırda en fazla harf — ${(style.subtitles as SubtitleStyle).maxCharsPerLine}`}>
                 <input
                   type="range"
                   min={16}
@@ -582,7 +594,7 @@ export function StylePage() {
                   onChange={(e) => editSubtitle((t) => void (t.maxCharsPerLine = Number(e.target.value)))}
                 />
               </Field>
-              <Field label={`Max lines — ${(style.subtitles as SubtitleStyle).maxLines}`}>
+              <Field label={`En fazla satır — ${(style.subtitles as SubtitleStyle).maxLines}`}>
                 <input
                   type="range"
                   min={1}
@@ -592,7 +604,7 @@ export function StylePage() {
                   onChange={(e) => editSubtitle((t) => void (t.maxLines = Number(e.target.value)))}
                 />
               </Field>
-              <Field label={`Min cue — ${(style.subtitles as SubtitleStyle).minCueSeconds.toFixed(1)}s`}>
+              <Field label={`En kısa süre — ${(style.subtitles as SubtitleStyle).minCueSeconds.toFixed(1)} sn`}>
                 <input
                   type="range"
                   min={0.3}
@@ -602,7 +614,7 @@ export function StylePage() {
                   onChange={(e) => editSubtitle((t) => void (t.minCueSeconds = Number(e.target.value)))}
                 />
               </Field>
-              <Field label={`Max cue — ${(style.subtitles as SubtitleStyle).maxCueSeconds.toFixed(1)}s`}>
+              <Field label={`En uzun süre — ${(style.subtitles as SubtitleStyle).maxCueSeconds.toFixed(1)} sn`}>
                 <input
                   type="range"
                   min={1}
@@ -613,8 +625,8 @@ export function StylePage() {
                 />
               </Field>
               <Field
-                label={`Reading speed cap — ${(style.subtitles as SubtitleStyle).maxCharsPerSecond.toFixed(0)} cps`}
-                hint="Cues are stretched if they'd exceed this."
+                label={`Okuma hızı sınırı — saniyede ${(style.subtitles as SubtitleStyle).maxCharsPerSecond.toFixed(0)} harf`}
+                hint="Daha hızlı akacak satırlar biraz uzatılır."
               >
                 <input
                   type="range"

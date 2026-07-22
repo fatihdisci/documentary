@@ -121,6 +121,7 @@ const exportSettings: ExportSettings = {
   exportNarrationAudio: true,
   exportDescription: true,
   keepTempFiles: false,
+  prepareCleanMasterForShorts: true,
 }
 
 function section(overrides: Partial<Section> = {}): Section {

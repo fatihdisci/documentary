@@ -75,7 +75,7 @@ class TestPreflight:
 
         body = client.get(f"/api/projects/{slug}/render/preflight").json()
         assert body["ready"] is False
-        assert any("Scene 2" in issue and "image" in issue for issue in body["blockingIssues"])
+        assert any("2. sahne" in issue and "görsel" in issue for issue in body["blockingIssues"])
 
     def test_blocks_when_narration_has_no_audio(self, client: TestClient, settings) -> None:  # noqa: ANN001
         slug = build_project(client, settings)
@@ -86,7 +86,7 @@ class TestPreflight:
 
         body = client.get(f"/api/projects/{slug}/render/preflight").json()
         assert body["ready"] is False
-        assert any("no audio" in issue for issue in body["blockingIssues"])
+        assert any("sesi henüz yok" in issue for issue in body["blockingIssues"])
 
     def test_lists_the_transitions_that_will_be_used(
         self, client: TestClient, settings
@@ -100,7 +100,7 @@ class TestPreflight:
         slug = client.post("/api/projects", json={"name": "Empty"}).json()["project"]["slug"]
         body = client.get(f"/api/projects/{slug}/render/preflight").json()
         assert body["ready"] is False
-        assert any("no enabled scenes" in issue for issue in body["blockingIssues"])
+        assert any("açık hiç sahne yok" in issue for issue in body["blockingIssues"])
 
 
 class TestJobEndpoints:
@@ -200,7 +200,7 @@ class TestRealRender:
 
         second = client.post(f"/api/projects/{slug}/render", json={"quality": "preview"})
         assert second.status_code == 409
-        assert "cancel" in second.json()["suggestion"]
+        assert "iptal" in second.json()["suggestion"]
 
         self._wait(client, first.json()["id"])
 

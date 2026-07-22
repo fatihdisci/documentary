@@ -12,9 +12,9 @@ import { ErrorBox } from './ErrorBox'
 import './Diagnostics.css'
 
 const STATUS_LABEL: Record<CheckStatus, string> = {
-  ok: 'OK',
-  warn: 'Warning',
-  fail: 'Failed',
+  ok: 'Tamam',
+  warn: 'Uyarı',
+  fail: 'Sorun var',
 }
 
 export function Diagnostics() {
@@ -42,30 +42,30 @@ export function Diagnostics() {
     <div className="page">
       <header className="page-header">
         <div>
-          <h1>Diagnostics</h1>
+          <h1>Sistem kontrolü</h1>
           <p className="page-subtitle">
-            Measured facts about this machine — probed, not assumed.
+            Video oluşturmak için gereken her şey bilgisayarınızda var mı, burada görürsünüz.
           </p>
         </div>
         <button onClick={() => void load()} disabled={loading}>
-          {loading ? 'Checking…' : 'Re-run checks'}
+          {loading ? 'Kontrol ediliyor…' : 'Yeniden kontrol et'}
         </button>
       </header>
 
       {error && <ErrorBox error={error} onRetry={() => void load()} />}
 
-      {loading && !report && <p className="muted">Probing FFmpeg, disk and network…</p>}
+      {loading && !report && <p className="muted">Kontrol ediliyor…</p>}
 
       {report && (
         <>
           <div className={`summary summary-${report.healthy ? 'ok' : 'fail'}`}>
             <strong>
               {report.healthy
-                ? 'Ready to render.'
-                : 'Not ready to render — resolve the failed checks below.'}
+                ? 'Her şey hazır, video oluşturabilirsiniz.'
+                : 'Henüz hazır değil — aşağıdaki sorunları giderin.'}
             </strong>
             <span className="muted">
-              Checked {new Date(report.generatedAt * 1000).toLocaleTimeString()}
+              Son kontrol: {new Date(report.generatedAt * 1000).toLocaleTimeString()}
             </span>
           </div>
 
@@ -93,7 +93,7 @@ export function Diagnostics() {
 
           {report.notes.length > 0 && (
             <section className="notes">
-              <h2>Notes about this FFmpeg build</h2>
+              <h2>Video motoru hakkında notlar</h2>
               {report.notes.map((note) => (
                 <p key={note}>{note}</p>
               ))}

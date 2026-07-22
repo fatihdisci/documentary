@@ -9,7 +9,7 @@ import pytest
 
 from app.errors import AppError, ErrorCode
 from app.models.enums import AudioSource
-from app.models.project import Project, Scene
+from app.models.project import SCHEMA_VERSION, Project, Scene
 from app.storage.repository import ProjectRepository
 from tests.factories import write_images
 
@@ -50,7 +50,7 @@ class TestCreateAndLoad:
         project = repository.create("Dodo")
         text = repository.paths_for(project.slug).project_file.read_text("utf-8")
         assert "\n  " in text, "project.json should be indented, not minified"
-        assert json.loads(text)["schemaVersion"] == 1
+        assert json.loads(text)["schemaVersion"] == SCHEMA_VERSION
 
     def test_missing_project_raises_a_clear_404(self, repository: ProjectRepository) -> None:
         with pytest.raises(AppError) as exc_info:

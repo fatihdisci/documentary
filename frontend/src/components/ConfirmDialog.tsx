@@ -16,8 +16,8 @@ interface Props {
 export function ConfirmDialog({
   title,
   body,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel = 'Onayla',
+  cancelLabel = 'Vazgeç',
   destructive = false,
   onConfirm,
   onCancel,

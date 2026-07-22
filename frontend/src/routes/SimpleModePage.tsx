@@ -23,6 +23,16 @@ interface StepProps {
 const STEPS = ['Content', 'Images', 'Voice', 'Music', 'Narration', 'Render'] as const
 type StepName = (typeof STEPS)[number]
 
+/** Adım adları ekranda Türkçe görünür; anahtarlar kodda sabit kalır. */
+const STEP_LABEL: Record<StepName, string> = {
+  Content: 'Metinler',
+  Images: 'Görseller',
+  Voice: 'Ses',
+  Music: 'Müzik',
+  Narration: 'Seslendirme',
+  Render: 'Video',
+}
+
 export function SimpleModePage({ goTo }: { goTo: (tab: string) => void }) {
   const { project, images } = useProjectStore()
   const [step, setStep] = useState(0)
@@ -30,8 +40,8 @@ export function SimpleModePage({ goTo }: { goTo: (tab: string) => void }) {
   if (!project) {
     return (
       <div className="page">
-        <h1>Guided setup</h1>
-        <p className="page-subtitle">Open a project first.</p>
+        <h1>Kolay kurulum</h1>
+        <p className="page-subtitle">Önce bir proje açın.</p>
       </div>
     )
   }
@@ -60,15 +70,16 @@ export function SimpleModePage({ goTo }: { goTo: (tab: string) => void }) {
     <div className="page simple-mode">
       <header className="page-header">
         <div>
-          <h1>Guided setup</h1>
+          <h1>Kolay kurulum</h1>
           <p className="page-subtitle">
-            Six steps to a finished video. Need finer control? Each step links to its full tab.
+            Altı adımda videonuz hazır. Daha fazla ayar isterseniz her adımdan ilgili sekmeye
+            geçebilirsiniz.
           </p>
         </div>
-        <button onClick={() => goTo('content')}>Switch to the full editor</button>
+        <button onClick={() => goTo('content')}>Tüm ayarları göster</button>
       </header>
 
-      <ol className="stepper" aria-label="Progress">
+      <ol className="stepper" aria-label="Adımlar">
         {STEPS.map((name, i) => (
           <li key={name}>
             <button
@@ -77,7 +88,7 @@ export function SimpleModePage({ goTo }: { goTo: (tab: string) => void }) {
               aria-current={i === step ? 'step' : undefined}
             >
               <span className="step-num">{done[name] ? '✓' : i + 1}</span>
-              {name}
+              {STEP_LABEL[name]}
             </button>
           </li>
         ))}
@@ -94,17 +105,17 @@ export function SimpleModePage({ goTo }: { goTo: (tab: string) => void }) {
 
       <div className="simple-nav">
         <button onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
-          ← Back
+          ← Geri
         </button>
         <span className="simple-progress">
-          Step {step + 1} of {STEPS.length}
+          Adım {step + 1} / {STEPS.length}
         </span>
         <button
           className="primary"
           onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
           disabled={step === STEPS.length - 1}
         >
-          Next →
+          İleri →
         </button>
       </div>
     </div>
@@ -133,10 +144,10 @@ function ContentStep({ goTo }: StepProps) {
 
   return (
     <div>
-      <h2>1 · Content</h2>
+      <h2>1 · Metinler</h2>
       <p className="muted">
-        Import a content package — a JSON file with narration, titles and image prompts for every
-        scene. It fills the whole project at once.
+        Videonun konuşma metinlerini ve başlıklarını içeren hazır bir dosya yükleyin. Tüm sahneler
+        tek seferde dolar.
       </p>
       {error && <ErrorBox error={error} onDismiss={() => setError(null)} />}
       <input
@@ -144,7 +155,7 @@ function ContentStep({ goTo }: StepProps) {
         type="file"
         accept="application/json,.json"
         hidden
-        aria-label="Content package JSON"
+        aria-label="Metin dosyası (JSON)"
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file) void importFile(file)
@@ -153,14 +164,14 @@ function ContentStep({ goTo }: StepProps) {
       />
       <div className="row">
         <button className="primary" onClick={() => fileInput.current?.click()} disabled={busy}>
-          {busy ? 'Importing…' : 'Import content package'}
+          {busy ? 'Yükleniyor…' : 'Metin dosyası yükle'}
         </button>
-        <button onClick={() => goTo('content')}>Download the example / edit by hand →</button>
+        <button onClick={() => goTo('content')}>Örneği indir / elle yaz →</button>
       </div>
       <p className={`step-status ${project!.scenes.length > 0 ? 'ok' : ''}`}>
         {project!.scenes.length > 0
-          ? `✓ ${project!.scenes.length} scenes ready.`
-          : 'No scenes yet.'}
+          ? `✓ ${project!.scenes.length} sahne hazır.`
+          : 'Henüz sahne yok.'}
       </p>
     </div>
   )
@@ -190,10 +201,11 @@ function ImagesStep({ goTo }: StepProps) {
 
   return (
     <div>
-      <h2>2 · Images</h2>
+      <h2>2 · Görseller</h2>
       <p className="muted">
-        Upload one image per scene. Name them in order — <code>01-opening.png</code>,{' '}
-        <code>02-habitat.png</code> — and they map onto scenes automatically.
+        Her sahne için bir görsel yükleyin. Dosyaları sırayla adlandırın —{' '}
+        <code>01-acilis.png</code>, <code>02-yasam-alani.png</code> — sahnelere kendiliğinden
+        dağıtılırlar.
       </p>
       {error && <ErrorBox error={error} onDismiss={() => setError(null)} />}
       <input
@@ -202,7 +214,7 @@ function ImagesStep({ goTo }: StepProps) {
         multiple
         accept="image/png,image/jpeg,image/webp"
         hidden
-        aria-label="Scene images"
+        aria-label="Sahne görselleri"
         onChange={(e) => {
           void upload(Array.from(e.target.files ?? []))
           e.target.value = ''
@@ -210,14 +222,14 @@ function ImagesStep({ goTo }: StepProps) {
       />
       <div className="row">
         <button className="primary" onClick={() => fileInput.current?.click()} disabled={busy}>
-          {busy ? 'Uploading…' : 'Upload images'}
+          {busy ? 'Yükleniyor…' : 'Görsel yükle'}
         </button>
-        <button onClick={() => goTo('scenes')}>Arrange scenes →</button>
+        <button onClick={() => goTo('scenes')}>Sahneleri düzenle →</button>
       </div>
       <p className={`step-status ${mapped === project!.scenes.length && images.length > 0 ? 'ok' : ''}`}>
         {images.length === 0
-          ? 'No images yet.'
-          : `${images.length} uploaded · ${mapped}/${project!.scenes.length} scenes have an image.`}
+          ? 'Henüz görsel yok.'
+          : `${images.length} görsel yüklendi · ${project!.scenes.length} sahnenin ${mapped} tanesinde görsel var.`}
       </p>
     </div>
   )
@@ -241,14 +253,14 @@ function VoiceStep({ goTo }: StepProps) {
 
   return (
     <div>
-      <h2>3 · Voice</h2>
+      <h2>3 · Ses</h2>
       <p className="muted">
-        Pick who narrates. Edge TTS is free and needs no API key (but needs internet). Or import
-        your own audio later.
+        Metinleri kim okusun? Edge ücretsizdir, kayıt gerektirmez, sadece internet ister. İsterseniz
+        kendi ses kayıtlarınızı da yükleyebilirsiniz.
       </p>
       <div className="field-grid">
         <label>
-          Provider
+          Ses kaynağı
           <select
             value={providerName}
             onChange={(e) =>
@@ -258,14 +270,14 @@ function VoiceStep({ goTo }: StepProps) {
             {providers.map((p) => (
               <option key={p.name} value={p.name} disabled={!p.available}>
                 {p.name}
-                {p.available ? '' : ' (unavailable)'}
+                {p.available ? '' : ' (kullanılamıyor)'}
               </option>
             ))}
           </select>
         </label>
         {providerName !== 'imported' && (
           <label>
-            Voice
+            Konuşmacı
             <select
               value={project!.audio.voice}
               onChange={(e) => edit((d) => void (d.audio.voice = e.target.value))}
@@ -283,9 +295,11 @@ function VoiceStep({ goTo }: StepProps) {
         )}
       </div>
       <div className="row">
-        <button onClick={() => void goTo('audio')}>Rate, pitch and mixing →</button>
+        <button onClick={() => void goTo('audio')}>Hız ve ses dengesi →</button>
       </div>
-      <p className="step-status ok">✓ Narrated by {providerName === 'imported' ? 'your own audio' : project!.audio.voice}.</p>
+      <p className="step-status ok">
+        ✓ Seslendiren: {providerName === 'imported' ? 'kendi ses kayıtlarınız' : project!.audio.voice}.
+      </p>
     </div>
   )
 }
@@ -318,15 +332,15 @@ function MusicStep({ goTo }: StepProps) {
 
   return (
     <div>
-      <h2>4 · Music <span className="optional">optional</span></h2>
-      <p className="muted">Background music is optional. Pick one:</p>
+      <h2>4 · Müzik <span className="optional">isteğe bağlı</span></h2>
+      <p className="muted">Arka plan müziği zorunlu değil. Birini seçin:</p>
       {error && <ErrorBox error={error} onDismiss={() => setError(null)} />}
       <input
         ref={fileInput}
         type="file"
         accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac"
         hidden
-        aria-label="Music track"
+        aria-label="Müzik dosyası"
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file) void upload(file)
@@ -338,20 +352,24 @@ function MusicStep({ goTo }: StepProps) {
           className={source === 'none' ? 'primary' : ''}
           onClick={() => edit((d) => void ((d.music.source = 'none'), (d.music.file = null)))}
         >
-          No music
+          Müzik yok
         </button>
         <button className={source === 'uploaded' ? 'primary' : ''} onClick={() => fileInput.current?.click()} disabled={busy}>
-          {busy ? 'Uploading…' : source === 'uploaded' && project!.music.file ? `Track: ${project!.music.file}` : 'Upload a track'}
+          {busy
+            ? 'Yükleniyor…'
+            : source === 'uploaded' && project!.music.file
+              ? `Parça: ${project!.music.file}`
+              : 'Müzik yükle'}
         </button>
         <button
           className={source === 'generated-ambient' ? 'primary' : ''}
           onClick={() => edit((d) => void ((d.music.source = 'generated-ambient'), (d.music.file = null)))}
         >
-          Generated ambient bed
+          Uygulama üretsin
         </button>
       </div>
       <div className="row">
-        <button onClick={() => goTo('music')}>Manage the music library →</button>
+        <button onClick={() => goTo('music')}>Müzik listesini yönet →</button>
       </div>
     </div>
   )
@@ -377,7 +395,7 @@ function NarrationStep({ goTo }: StepProps) {
     setError(null)
     try {
       const r = await api.generateNarration(slug, [], false)
-      setResult(`${r.generatedCount} generated, ${r.reusedCount} reused.`)
+      setResult(`${r.generatedCount} bölüm seslendirildi, ${r.reusedCount} bölüm hazırdan kullanıldı.`)
       await openProject(slug)
     } catch (err) {
       setError(describeError(err))
@@ -388,32 +406,32 @@ function NarrationStep({ goTo }: StepProps) {
 
   return (
     <div>
-      <h2>5 · Narration</h2>
+      <h2>5 · Seslendirme</h2>
       <p className="muted">
-        Generate the spoken audio for every scene. Scene lengths are then measured from the real
-        clips.
+        Her sahnenin sesi burada üretilir. Sahne süreleri de bu kayıtlara göre belirlenir.
       </p>
       {error && <ErrorBox error={error} onDismiss={() => setError(null)} />}
       {importedProvider ? (
         <p className="step-status">
-          You chose imported audio — upload a clip per scene on the Audio tab.
-          <button className="linkish" onClick={() => goTo('audio')}>Open Audio →</button>
+          Kendi ses kayıtlarınızı kullanmayı seçtiniz — her sahne için Seslendirme sekmesinden
+          dosya yükleyin.
+          <button className="linkish" onClick={() => goTo('audio')}>Seslendirmeyi aç →</button>
         </p>
       ) : (
         <>
           <div className="row">
             <button className="primary" onClick={() => void generate()} disabled={busy || missing === 0}>
-              {busy ? 'Generating…' : `Generate narration (${missing} missing)`}
+              {busy ? 'Seslendiriliyor…' : `Seslendir (${missing} eksik)`}
             </button>
-            <button onClick={() => goTo('audio')}>Per-scene control →</button>
+            <button onClick={() => goTo('audio')}>Sahne sahne ayar →</button>
           </div>
           {result && <p className="step-status ok">✓ {result}</p>}
           <p className={`step-status ${missing === 0 && units.length > 0 ? 'ok' : ''}`}>
             {units.length === 0
-              ? 'No narration written yet — add it on the Content tab.'
+              ? 'Henüz metin yazılmamış — Metinler sekmesinden ekleyin.'
               : missing === 0
-                ? '✓ Every scene has audio.'
-                : `${missing} scene${missing === 1 ? '' : 's'} still need audio.`}
+                ? '✓ Bütün sahnelerin sesi hazır.'
+                : `${missing} sahnenin sesi eksik.`}
           </p>
         </>
       )}
@@ -436,16 +454,16 @@ function RenderStep({ goTo }: StepProps) {
 
   return (
     <div>
-      <h2>6 · Render</h2>
+      <h2>6 · Video</h2>
       <p className="muted">
-        Produces a 1920×1080 MP4 with burned-in subtitles, plus an .srt and the other
-        side-car files.
+        1920×1080 boyutunda, altyazılı bir MP4 dosyası ve yanında ayrı bir .srt altyazı dosyası
+        oluşturulur.
       </p>
       {error && <ErrorBox error={error} onDismiss={clearError} />}
 
       {preflight && !preflight.ready && (
         <div className="blocking">
-          <strong>Fix these first:</strong>
+          <strong>Önce bunları düzeltin:</strong>
           {preflight.blockingIssues.map((i) => (
             <p key={i}>✕ {i}</p>
           ))}
@@ -453,7 +471,7 @@ function RenderStep({ goTo }: StepProps) {
       )}
       {preflight?.ready && !running && (
         <p className="step-status ok">
-          ✓ Ready — about {String(preflight.timing.totalFormatted ?? '—')} long.
+          ✓ Hazır — video yaklaşık {String(preflight.timing.totalFormatted ?? '—')} sürecek.
         </p>
       )}
 
@@ -474,18 +492,18 @@ function RenderStep({ goTo }: StepProps) {
           onClick={() => void start(slug)}
           disabled={busy || running || !preflight?.ready}
         >
-          {busy || running ? 'Rendering…' : 'Render video'}
+          {busy || running ? 'Oluşturuluyor…' : 'Videoyu oluştur'}
         </button>
-        <button onClick={() => goTo('export')}>Open the Export tab for downloads →</button>
+        <button onClick={() => goTo('export')}>İndirmek için Video sekmesini aç →</button>
       </div>
 
       {job && !running && job.status === 'completed' && (
         <p className="step-status ok">
-          ✓ Done. Download it on the{' '}
+          ✓ Bitti. İndirmek için{' '}
           <button className="linkish" onClick={() => goTo('export')}>
-            Export tab
-          </button>
-          .
+            Videoyu oluştur
+          </button>{' '}
+          sekmesine gidin.
         </p>
       )}
     </div>

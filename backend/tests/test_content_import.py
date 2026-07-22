@@ -47,7 +47,7 @@ class TestParsing:
             parse_content_json(bad, max_bytes=1_000_000)
         error = exc_info.value
         assert error.code is ErrorCode.INVALID_JSON
-        assert "line 3" in error.message
+        assert "3. satır" in error.message
         assert ">>" in (error.details or ""), "should show the offending line"
 
     def test_schema_errors_list_every_field(self) -> None:
@@ -66,7 +66,7 @@ class TestParsing:
     def test_top_level_array_is_rejected_with_a_useful_message(self) -> None:
         with pytest.raises(AppError) as exc_info:
             parse_content_json("[]", max_bytes=1_000_000)
-        assert "object at the top level" in exc_info.value.message
+        assert "en üst düzeyinde bir nesne" in exc_info.value.message
 
     def test_oversized_file_is_rejected(self) -> None:
         with pytest.raises(AppError) as exc_info:
@@ -171,7 +171,7 @@ class TestApplyContent:
         )
 
         assert len(project.scenes) == 10, "existing work should not be deleted silently"
-        assert any("were kept" in w for w in report.warnings)
+        assert any("korundu" in w for w in report.warnings)
         assert [s.order for s in project.scenes] == list(range(10))
 
 
@@ -211,7 +211,7 @@ class TestImageMapping:
 
         assert report.images_mapped == 4
         assert report.unmapped_scenes == [4, 5, 6, 7, 8, 9]
-        assert any("6 scene(s) have no image" in w for w in report.warnings)
+        assert any("6 sahnede görsel yok" in w for w in report.warnings)
 
     def test_extra_images_are_reported_not_discarded(self, repository: ProjectRepository) -> None:
         project = repository.create("Dodo")
@@ -225,7 +225,7 @@ class TestImageMapping:
         assert report.images_mapped == 11
         assert report.intro_image == "01-opening.png"
         assert len(report.unused_images) == 2
-        assert any("not used" in w for w in report.warnings)
+        assert any("kullanılmıyor" in w for w in report.warnings)
 
     def test_intro_takes_its_own_first_image_when_there_is_a_surplus(
         self, repository: ProjectRepository
@@ -294,7 +294,7 @@ class TestImageMapping:
         report = apply_content(project, package, paths=paths)
 
         assert report.images_mapped == 0
-        assert any("No images have been uploaded" in w for w in report.warnings)
+        assert any("Henüz görsel yüklenmediği" in w for w in report.warnings)
         assert len(project.scenes) == 10, "scenes should still be created"
 
     def test_explicit_image_file_in_package_is_honoured(

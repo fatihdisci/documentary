@@ -166,9 +166,9 @@ def delete_project(slug: str, confirm: str = Query(default="")) -> None:
     if confirm != slug:
         raise ConflictError(
             ErrorCode.SCHEMA_VALIDATION,
-            "Deleting a project is permanent and needs confirmation.",
+            "Proje silme işlemi kalıcıdır ve onay gerektirir.",
             details=f"pass ?confirm={slug} to proceed",
-            suggestion=f"Repeat the request with ?confirm={slug}, or archive the project instead.",
+            suggestion=f"İsteği ?confirm={slug} ekleyerek tekrarlayın ya da projeyi arşivleyin.",
         )
     repo().delete(slug)
 
@@ -228,9 +228,9 @@ def content_example() -> JSONResponse:
     if not path.is_file():
         raise NotFoundError(
             ErrorCode.PROJECT_NOT_FOUND,
-            "The bundled example content package is missing from this installation.",
+            "Uygulamayla gelen örnek metin dosyası bulunamadı.",
             details=str(path),
-            suggestion="Reinstall, or see docs/content-schema.md for the format.",
+            suggestion="Uygulamayı yeniden kurun ya da belgelerdeki biçime bakın.",
         )
     return JSONResponse(content=__import__("json").loads(path.read_text("utf-8")))
 
@@ -274,7 +274,7 @@ async def import_content_file(
             ErrorCode.INVALID_JSON,
             f"'{file.filename}' is not valid UTF-8 text.",
             details=str(exc),
-            suggestion="Save the content file with UTF-8 encoding.",
+            suggestion="Dosyayı UTF-8 olarak kaydedin.",
         ) from exc
 
     package = parse_content_json(text, max_bytes=settings.mutable.max_json_mb * 1_048_576)
@@ -363,8 +363,8 @@ def update_scene(slug: str, scene_id: str, scene: Scene) -> ProjectResponse:
     if index is None:
         raise NotFoundError(
             ErrorCode.PROJECT_NOT_FOUND,
-            f"Scene '{scene_id}' is not in project '{slug}'.",
-            suggestion="Reload the project; the scene may have been deleted in another window.",
+            f"'{scene_id}' sahnesi '{slug}' projesinde yok.",
+            suggestion="Projeyi yeniden açın; sahne başka bir pencerede silinmiş olabilir.",
         )
     scene.id = scene_id
     scene.order = index
@@ -417,9 +417,9 @@ def reorder_scenes(slug: str, request: ReorderRequest) -> ProjectResponse:
         unknown = set(request.scene_ids) - set(by_id)
         raise ValidationError(
             ErrorCode.SCHEMA_VALIDATION,
-            "The reorder request must list every scene exactly once.",
+            "Sıralama isteğinde her sahne tam olarak bir kez yer almalı.",
             details=f"missing: {sorted(missing)}\nunknown: {sorted(unknown)}",
-            suggestion="Reload the project and try the reorder again.",
+            suggestion="Projeyi yeniden açıp sıralamayı tekrar deneyin.",
         )
 
     project.scenes = [by_id[scene_id] for scene_id in request.scene_ids]
@@ -439,8 +439,8 @@ def assign_image(slug: str, scene_id: str, request: AssignImageRequest) -> Proje
         if not target.is_file():
             raise ValidationError(
                 ErrorCode.MISSING_IMAGE,
-                f"Image '{request.image_file}' is not in this project.",
-                suggestion="Upload the image first, or choose one that is already there.",
+                f"'{request.image_file}' görseli bu projede yok.",
+                suggestion="Önce görseli yükleyin ya da mevcut görsellerden birini seçin.",
             )
     scene.image_file = request.image_file
     return ProjectResponse(project=repository.save(project))
@@ -608,7 +608,7 @@ def serve_audio(slug: str, kind: str, filename: str) -> FileResponse:
     if kind not in {"imported", "generated"}:
         raise ValidationError(
             ErrorCode.SCHEMA_VALIDATION,
-            f"Unknown audio kind '{kind}'.",
+            f"Tanınmayan ses türü: '{kind}'.",
             details="expected 'imported' or 'generated'",
         )
     directory = paths.imported_audio if kind == "imported" else paths.generated_audio
@@ -660,7 +660,7 @@ def _serve(directory: Path, filename: str) -> FileResponse:
             ErrorCode.MISSING_IMAGE,
             f"'{filename}' was not found.",
             details=str(target),
-            suggestion="Reload the project; the file may have been deleted or renamed.",
+            suggestion="Projeyi yeniden açın; dosya silinmiş ya da adı değişmiş olabilir.",
         )
     return FileResponse(target)
 
@@ -676,7 +676,7 @@ async def _read_upload(file: UploadFile, *, max_mb: int) -> bytes:
             raise ValidationError(
                 ErrorCode.FILE_TOO_LARGE,
                 f"'{file.filename}' exceeds the {max_mb} MB upload limit.",
-                suggestion=f"Compress the file, or raise the limit in Settings (currently {max_mb} MB).",
+                suggestion=f"Dosyayı küçültün ya da Ayarlar'dan sınırı yükseltin (şu an {max_mb} MB).",
             )
         chunks.append(chunk)
     return b"".join(chunks)

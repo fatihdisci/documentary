@@ -2,12 +2,25 @@
  * Shorts: cut a vertical 9:16 clip out of a finished long render.
  *
  * Nothing on this page re-renders a scene. It picks spans out of an MP4 that is
- * already finished, so the narration, music, burned-in subtitles and in-scene
- * transitions come through exactly as they were mixed.
+ * already finished, so the narration, music and in-scene transitions come
+ * through exactly as they were mixed.
+ *
+ * Captions are the one thing that can differ. A long video's subtitles are
+ * burned into a 16:9 picture, which shrinks to a third of the height on a
+ * vertical canvas — so a render that prepared a subtitle-free clean master can
+ * instead have large captions drawn on the 9:16 canvas itself. A render that did
+ * not prepare one cannot be converted after the fact, and says so here.
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import type { ShortJob, ShortPhase, ShortTimelineSection } from '@/api/shorts-types'
+import type {
+  ShortCaptionMode,
+  ShortCaptionPreset,
+  ShortJob,
+  ShortPhase,
+  ShortTimelineSection,
+} from '@/api/shorts-types'
+import { captionSupportOf } from '@/api/shorts-types'
 import { useProjectStore } from '@/store/project'
 import { useShortsStore } from '@/store/shorts'
 import { formatTimecode, frameAt, resolvePlan } from '@/lib/shortsPlan'
@@ -16,21 +29,37 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import './ShortsPage.css'
 
 const PHASE_LABEL: Record<ShortPhase, string> = {
-  'validate-source': 'Checking the source render',
-  plan: 'Preparing the cut list',
-  'cut-segments': 'Cutting the selected sections',
-  concat: 'Joining the cuts',
-  compose: 'Building the vertical frame',
-  'validate-output': 'Validating the Short',
-  publish: 'Publishing',
-  cleanup: 'Cleaning up',
+  'validate-source': 'Kaynak video kontrol ediliyor',
+  plan: 'Kesim listesi hazırlanıyor',
+  'cut-segments': 'Seçilen bölümler kesiliyor',
+  concat: 'Parçalar birleştiriliyor',
+  'build-captions': 'Altyazılar çiziliyor',
+  compose: 'Dikey görüntü hazırlanıyor',
+  'validate-output': 'Kısa video kontrol ediliyor',
+  publish: 'Kaydediliyor',
+  cleanup: 'Temizlik yapılıyor',
 }
+
+const STATUS_LABEL: Record<string, string> = {
+  queued: 'sırada',
+  running: 'çalışıyor',
+  completed: 'tamamlandı',
+  failed: 'başarısız',
+  cancelled: 'iptal edildi',
+  interrupted: 'yarıda kaldı',
+}
+
+const CAPTION_PRESETS: { id: ShortCaptionPreset; label: string; hint: string }[] = [
+  { id: 'standard', label: 'Normal', hint: 'İki satır, orta boy yazı. Güvenli seçim.' },
+  { id: 'large', label: 'Büyük', hint: 'Daha büyük yazı, biraz daha yukarıda.' },
+  { id: 'compact', label: 'Küçük', hint: 'Daha küçük yazı, görüntüye daha çok yer.' },
+]
 
 function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '—'
   const minutes = Math.floor(seconds / 60)
   const rest = Math.round(seconds % 60)
-  return minutes > 0 ? `${minutes}m ${rest}s` : `${rest}s`
+  return minutes > 0 ? `${minutes} dk ${rest} sn` : `${rest} sn`
 }
 
 function formatBytes(bytes: number): string {
@@ -40,7 +69,7 @@ function formatBytes(bytes: number): string {
 }
 
 function StatusPill({ status }: { status: ShortJob['status'] }) {
-  return <span className={`status-pill status-${status}`}>{status}</span>
+  return <span className={`status-pill status-${status}`}>{STATUS_LABEL[status] ?? status}</span>
 }
 
 /** A number input that only commits a value the backend would also accept. */
@@ -85,7 +114,7 @@ function TrimInput({
           onCommit(Math.min(Math.max(parsed, low), high))
         }}
       />
-      <span className="trim-hint">frame {frameAt(value, fps)}</span>
+      <span className="trim-hint">{frameAt(value, fps)}. kare</span>
     </label>
   )
 }
@@ -93,11 +122,12 @@ function TrimInput({
 export function ShortsPage() {
   const { project } = useProjectStore()
   const {
-    sources, selectedRenderId, timeline, selection, preflight, job, event, history,
+    sources, selectedRenderId, timeline, selection, captionMode, captionPreset,
+    preflight, job, event, history,
     error, loading, busy,
     loadSources, selectSource, toggleSection, moveSelection, removeSelection,
-    setTrim, refreshPreflight, start, cancel, retry, detach, reattachIfRunning,
-    loadHistory, remove, clearError,
+    setTrim, setCaptionMode, setCaptionPreset, refreshPreflight, start, cancel, retry,
+    detach, reattachIfRunning, loadHistory, remove, clearError,
   } = useShortsStore()
 
   const slug = project?.slug ?? null
@@ -127,8 +157,8 @@ export function ShortsPage() {
   if (!project || !slug) {
     return (
       <div className="page">
-        <h1>Shorts</h1>
-        <p className="page-subtitle">Open a project first.</p>
+        <h1>Kısa video</h1>
+        <p className="page-subtitle">Önce bir proje açın.</p>
       </div>
     )
   }
@@ -149,11 +179,14 @@ export function ShortsPage() {
   const overWarn = total > warnSeconds
   const withinBand = total >= bandLow && total <= bandHigh
   const shortClips = plan.segments.filter((segment) => segment.tooShort)
+  const captionSupport = captionSupportOf(source)
+  const nativeBlocked = captionMode !== 'source-burned-in' && !captionSupport.nativeAvailable
   const canRender =
     !!source?.usable &&
     selection.length > 0 &&
     !overMaximum &&
     shortClips.length === 0 &&
+    !nativeBlocked &&
     !running &&
     !busy
 
@@ -161,17 +194,16 @@ export function ShortsPage() {
     <div className="page shorts-page">
       <header className="page-header">
         <div>
-          <h1>Shorts</h1>
+          <h1>Kısa video</h1>
           <p className="page-subtitle">
-            Cuts a 1080×1920 vertical MP4 from a finished render — the picture centred on black
-            at its original 16:9, with the mixed audio and burned-in subtitles carried through
-            untouched.
+            Hazır videonuzdan telefona uygun dikey bir kısa video (1080×1920) keser. Görüntü
+            siyah zeminin ortasına yerleşir; ses ve sahne geçişleri olduğu gibi korunur.
           </p>
         </div>
         <div className="header-actions">
           {running ? (
             <button className="danger" onClick={() => void cancel()}>
-              Cancel Short
+              İptal et
             </button>
           ) : (
             <button
@@ -180,13 +212,15 @@ export function ShortsPage() {
               disabled={!canRender}
               title={
                 selection.length === 0
-                  ? 'Select at least one section first'
+                  ? 'Önce en az bir bölüm seçin'
                   : overMaximum
-                    ? `Over the ${maxSeconds}-second Shorts limit`
-                    : 'Build the Short'
+                    ? `${maxSeconds} saniye sınırını aşıyor`
+                    : nativeBlocked
+                      ? 'Bu video büyük altyazıyı desteklemiyor'
+                      : 'Kısa videoyu oluştur'
               }
             >
-              {busy ? 'Starting…' : 'Render Short'}
+              {busy ? 'Başlatılıyor…' : 'Kısa videoyu oluştur'}
             </button>
           )}
         </div>
@@ -197,19 +231,19 @@ export function ShortsPage() {
       {/* --- 1. source render --------------------------------------------- */}
       <section className="card">
         <div className="section-head">
-          <h2>Source render</h2>
+          <h2>Hangi videodan kesilsin?</h2>
           <button onClick={() => void loadSources(slug)} disabled={loading}>
-            {loading ? 'Refreshing…' : 'Refresh'}
+            {loading ? 'Yenileniyor…' : 'Yenile'}
           </button>
         </div>
 
         {sources.length === 0 ? (
           <p className="muted empty-note">
-            No completed render yet. Render the long video on the Export tab first — a Short is
-            always cut from a finished export.
+            Henüz hazır video yok. Önce “Videoyu oluştur” sekmesinden uzun videoyu oluşturun —
+            kısa video her zaman bitmiş bir videodan kesilir.
           </p>
         ) : (
-          <div className="source-grid" role="radiogroup" aria-label="Source render">
+          <div className="source-grid" role="radiogroup" aria-label="Kaynak video">
             {sources.map((entry) => (
               <button
                 key={entry.renderId}
@@ -240,9 +274,18 @@ export function ShortsPage() {
                     {formatBytes(entry.sizeBytes)}
                   </span>
                   <span className="source-meta">
-                    {entry.width}×{entry.height} @ {entry.fps} fps · {entry.sectionCount} sections
+                    {entry.width}×{entry.height} · {entry.fps} fps · {entry.sectionCount} bölüm
                   </span>
                   {entry.issue && <span className="source-issue">⚠ {entry.issue}</span>}
+                  <span
+                    className={`source-captions ${
+                      captionSupportOf(entry).nativeAvailable ? 'ready' : 'legacy'
+                    }`}
+                  >
+                    {captionSupportOf(entry).nativeAvailable
+                      ? '✓ Büyük altyazı kullanılabilir'
+                      : 'Sadece videodaki mevcut altyazı'}
+                  </span>
                 </span>
               </button>
             ))}
@@ -250,20 +293,113 @@ export function ShortsPage() {
         )}
       </section>
 
+      {/* --- 1b. captions --------------------------------------------------- */}
+      {source && (
+        <section className="card captions-card">
+          <div className="section-head">
+            <h2>Altyazılar</h2>
+            {captionSupport.nativeAvailable && captionSupport.cueCount > 0 && (
+              <span className="muted">Bu videoda {captionSupport.cueCount} altyazı satırı var</span>
+            )}
+          </div>
+
+          <div className="caption-modes" role="radiogroup" aria-label="Altyazılar">
+            <CaptionModeOption
+              mode="source-burned-in"
+              current={captionMode}
+              label="Videodaki altyazıyı kullan"
+              hint={
+                captionSupport.sourceHasBurnedInSubtitles
+                  ? 'Video olduğu gibi kesilir. Altyazılar geniş ekrana göre hazırlandığı için dikey videoda küçük görünür.'
+                  : 'Video olduğu gibi kesilir. Bu videoda gömülü altyazı olmadığı için kısa videoda da altyazı olmaz.'
+              }
+              disabled={running}
+              onSelect={() => setCaptionMode(slug, 'source-burned-in')}
+            />
+            <CaptionModeOption
+              mode="shorts-native"
+              current={captionMode}
+              label="Büyük altyazı"
+              hint="Altyazılar dikey ekrana yeniden çizilir: görüntünün altında, telefonda rahat okunacak büyüklükte."
+              disabled={running || !captionSupport.nativeAvailable}
+              blockedReason={captionSupport.reason}
+              onSelect={() => setCaptionMode(slug, 'shorts-native')}
+            />
+            {captionSupport.nativeAvailable && (
+              <CaptionModeOption
+                mode="off"
+                current={captionMode}
+                label="Altyazı olmasın"
+                hint="Hiç altyazı çizilmez. Sadece altyazısız kopyası olan videolarda seçilebilir."
+                disabled={running}
+                onSelect={() => setCaptionMode(slug, 'off')}
+              />
+            )}
+          </div>
+
+          {captionMode === 'shorts-native' && (
+            <div className="caption-style">
+              <div className="caption-presets" role="radiogroup" aria-label="Altyazı boyutu">
+                {CAPTION_PRESETS.map((preset) => (
+                  <label
+                    key={preset.id}
+                    className={`caption-preset ${captionPreset === preset.id ? 'selected' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="caption-preset"
+                      checked={captionPreset === preset.id}
+                      onChange={() => setCaptionPreset(slug, preset.id)}
+                      disabled={running}
+                      aria-label={`${preset.label} altyazı boyutu`}
+                    />
+                    <span className="caption-preset-label">{preset.label}</span>
+                    <span className="hint">{preset.hint}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="muted caption-note">
+                Altyazılar dikey ekranın altında, görüntünün altındaki siyah alanda durur. YouTube'un
+                oynatma çubuğu ve beğen/yorum düğmelerinin üstünü kapatmaz. En fazla iki satır olur;
+                sığmazsa yazı biraz küçülür.
+              </p>
+              {preflight?.captionCueCount != null && preflight.captionCueCount > 0 && (
+                <p className="muted caption-count">
+                  Seçtiğiniz bölümlerde {preflight.captionCueCount} altyazı satırı var.
+                </p>
+              )}
+            </div>
+          )}
+
+          {nativeBlocked && (
+            <div className="blocking caption-blocking">
+              <strong>Bu videoda büyük altyazı kullanılamıyor.</strong>
+              <p>
+                {captionSupport.reason ??
+                  'Bu videonun altyazıları görüntünün içine gömülü. Büyük altyazı kullanmak için uzun videoyu, “Kısa video için altyazısız kopya da hazırla” seçeneği açıkken yeniden oluşturun.'}
+              </p>
+              <button onClick={() => setCaptionMode(slug, 'source-burned-in')}>
+                Bunun yerine videodaki altyazıyı kullan
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* --- 2. sections --------------------------------------------------- */}
       <section className="card">
         <div className="section-head">
-          <h2>Sections</h2>
+          <h2>Hangi bölümler girsin?</h2>
           {selection.length > 0 && (
             <span className="muted">
-              {selection.length} selected · click order decides playback order
+              {selection.length} bölüm seçildi · seçme sırası, videodaki sıradır
             </span>
           )}
         </div>
 
         {!timeline ? (
           <p className="muted empty-note">
-            Select a completed render above to choose sections from it.
+            Bölüm seçmek için yukarıdan bir video seçin.
           </p>
         ) : (
           <div className="section-list">
@@ -289,7 +425,7 @@ export function ShortsPage() {
       {/* --- 3. duration and preview -------------------------------------- */}
       {selection.length > 0 && timeline && (
         <section className="card">
-          <h2>Preview</h2>
+          <h2>Önizleme</h2>
 
           <div className="duration-row">
             <div className="duration-readout">
@@ -297,7 +433,7 @@ export function ShortsPage() {
                 {total.toFixed(1)}s
               </span>
               <span className="label">
-                total · {plan.groups.length} cut{plan.groups.length === 1 ? '' : 's'}
+                toplam · {plan.groups.length} parça
               </span>
             </div>
             <div
@@ -306,7 +442,7 @@ export function ShortsPage() {
               aria-valuenow={Math.round(total)}
               aria-valuemin={0}
               aria-valuemax={Math.round(maxSeconds)}
-              aria-label="Total Short duration"
+              aria-label="Kısa video toplam süresi"
             >
               <span
                 className="band"
@@ -314,7 +450,7 @@ export function ShortsPage() {
                   left: `${(bandLow / maxSeconds) * 100}%`,
                   width: `${((bandHigh - bandLow) / maxSeconds) * 100}%`,
                 }}
-                title={`Recommended ${bandLow}–${bandHigh}s`}
+                title={`Önerilen ${bandLow}–${bandHigh} sn`}
               />
               <span className="tick warn" style={{ left: `${(warnSeconds / maxSeconds) * 100}%` }} />
               <span
@@ -323,60 +459,67 @@ export function ShortsPage() {
               />
             </div>
             <span className="muted duration-scale">
-              recommended {bandLow}–{bandHigh}s · {maxSeconds}s max
+              önerilen {bandLow}–{bandHigh} sn · en fazla {maxSeconds} sn
             </span>
           </div>
 
           {overMaximum && (
             <div className="blocking">
-              <strong>Too long to be a Short.</strong>
+              <strong>Kısa video için fazla uzun.</strong>
               <p>
-                YouTube only treats vertical or square video up to {maxSeconds / 60} minutes as a
-                Short. Deselect a section or trim the selection down.
+                YouTube yalnızca {maxSeconds / 60} dakikaya kadar olan dikey videoları kısa video
+                sayar. Bir bölümü çıkarın veya kırpın.
               </p>
             </div>
           )}
           {!overMaximum && overWarn && (
             <div className="warnings">
               <p>
-                ⚠ Over {warnSeconds} seconds. A Short longer than a minute can be blocked worldwide
-                if any music in it has an active Content ID claim. Fine when the music is yours or
-                licensed — otherwise keep it under a minute.
+                ⚠ {warnSeconds} saniyeyi aştı. Bir dakikadan uzun kısa videolar, içindeki müzik
+                telifliyse tüm dünyada engellenebilir. Müzik sizinse veya lisanslıysa sorun yok;
+                değilse bir dakikanın altında kalın.
               </p>
             </div>
           )}
           {shortClips.length > 0 && (
             <div className="blocking">
-              <strong>A clip is too short.</strong>
+              <strong>Bir parça çok kısa.</strong>
               {shortClips.map((segment) => (
                 <p key={segment.unitId}>
-                  Section {segment.number} — {segment.title} is{' '}
-                  {segment.durationSeconds.toFixed(2)}s, under the{' '}
-                  {timeline.minClipSeconds.toFixed(1)}s minimum.
+                  {segment.number}. bölüm — {segment.title}: {segment.durationSeconds.toFixed(2)} sn.
+                  En az {timeline.minClipSeconds.toFixed(1)} sn olmalı.
                 </p>
               ))}
             </div>
           )}
 
           <div className="preview-row">
-            <div className="canvas-preview" aria-label="1080×1920 output preview">
+            <div className="canvas-preview" aria-label="1080×1920 çıktı önizlemesi">
               <div className="canvas-frame">
                 <div className="canvas-fit">
                   {preflight?.previewFrames?.[0] ? (
-                    <img src={preflight.previewFrames[0].url} alt="First frame of the Short" />
+                    <img src={preflight.previewFrames[0].url} alt="Kısa videonun ilk karesi" />
                   ) : (
                     <span className="canvas-placeholder">16:9</span>
                   )}
                 </div>
+                {captionMode === 'shorts-native' && (
+                  <div className="canvas-caption-band" aria-hidden="true">
+                    <span>Altyazı burada</span>
+                  </div>
+                )}
               </div>
-              <span className="canvas-caption">1080 × 1920 · black · centred fit</span>
+              <span className="canvas-caption">
+                1080 × 1920 · siyah zemin · ortalanmış
+                {captionMode === 'shorts-native' && ' · altyazı görüntünün altında'}
+              </span>
             </div>
 
             <div className="preview-strip">
               <p className="muted preview-note">
                 {plan.groups.length === 1
-                  ? 'One continuous cut — every transition inside it is preserved exactly as rendered.'
-                  : 'Separate cuts join with hard cuts. Nothing is faded or added that the source does not already contain.'}
+                  ? 'Tek parça hâlinde kesiliyor — içindeki geçişler aynen korunuyor.'
+                  : 'Ayrı parçalar doğrudan uç uca eklenir. Videoda olmayan hiçbir efekt eklenmez.'}
               </p>
               <div className="strip">
                 {plan.groups.map((group) => {
@@ -394,9 +537,9 @@ export function ShortsPage() {
                         <span className="strip-blank" aria-hidden="true" />
                       )}
                       <span className="strip-caption">
-                        {group.numbers.join(' + ')} · {group.durationSeconds.toFixed(1)}s
+                        {group.numbers.join(' + ')} · {group.durationSeconds.toFixed(1)} sn
                         {group.preservedTransitions > 0 && (
-                          <em> · {group.preservedTransitions} transition kept</em>
+                          <em> · {group.preservedTransitions} geçiş korundu</em>
                         )}
                       </span>
                     </div>
@@ -405,8 +548,7 @@ export function ShortsPage() {
               </div>
               {preflight?.cachedShortId && (
                 <p className="cached-note">
-                  ✓ An identical Short already exists — rendering will reuse it instead of
-                  encoding again.
+                  ✓ Birebir aynısı zaten var — yeniden oluşturmak yerine mevcut dosya kullanılacak.
                 </p>
               )}
               {preflight?.blockingIssues?.map((issue) => (
@@ -426,7 +568,7 @@ export function ShortsPage() {
                 onClick={() => void refreshPreflight(slug)}
                 disabled={running}
               >
-                Refresh preview
+                Önizlemeyi yenile
               </button>
             </div>
           </div>
@@ -437,7 +579,7 @@ export function ShortsPage() {
       {running && job && (
         <section className="card render-live">
           <div className="render-head">
-            <h2>{PHASE_LABEL[live?.phase ?? job.phase] ?? 'Building the Short'}</h2>
+            <h2>{PHASE_LABEL[live?.phase ?? job.phase] ?? 'Kısa video hazırlanıyor'}</h2>
             <StatusPill status={job.status} />
           </div>
           <div className="progress-track" role="progressbar" aria-valuenow={percent}>
@@ -447,9 +589,9 @@ export function ShortsPage() {
             <span className="percent">{percent}%</span>
             <span>{live?.message ?? job.message}</span>
             <span className="spacer" />
-            <span>Elapsed {formatDuration(live?.elapsedSeconds ?? 0)}</span>
+            <span>Geçen süre {formatDuration(live?.elapsedSeconds ?? 0)}</span>
             {live?.estimatedRemainingSeconds != null && (
-              <span>~{formatDuration(live.estimatedRemainingSeconds)} left</span>
+              <span>yaklaşık {formatDuration(live.estimatedRemainingSeconds)} kaldı</span>
             )}
           </div>
         </section>
@@ -462,13 +604,13 @@ export function ShortsPage() {
             <h2>
               {job.status === 'completed'
                 ? job.cacheReused
-                  ? 'Reused an identical Short'
-                  : 'Short complete'
+                  ? 'Hazır olan kısa video kullanıldı'
+                  : 'Kısa video hazır'
                 : job.status === 'cancelled'
-                  ? 'Short cancelled'
+                  ? 'İptal edildi'
                   : job.status === 'interrupted'
-                    ? 'Short interrupted'
-                    : 'Short failed'}
+                    ? 'Yarıda kaldı'
+                    : 'Kısa video oluşturulamadı'}
             </h2>
             <StatusPill status={job.status} />
           </div>
@@ -476,10 +618,9 @@ export function ShortsPage() {
           {job.status === 'completed' && (
             <>
               <p className="muted">
-                {job.outputFile} · {job.totalDurationSeconds.toFixed(1)}s ·{' '}
-                {job.segmentCount} section{job.segmentCount === 1 ? '' : 's'} in{' '}
-                {job.groupCount} cut{job.groupCount === 1 ? '' : 's'}
-                {job.cacheReused && ' · nothing was re-encoded'}
+                {job.outputFile} · {job.totalDurationSeconds.toFixed(1)} sn ·{' '}
+                {job.segmentCount} bölüm, {job.groupCount} parça
+                {job.cacheReused && ' · yeniden işlenmedi'}
               </p>
               <div className="artifact-list">
                 {job.artifacts.map((artifact) => (
@@ -499,7 +640,7 @@ export function ShortsPage() {
                 code: job.errorCode ?? 'render_failed',
                 message: job.errorMessage,
                 details: job.errorDetails,
-                suggestion: job.errorSuggestion ?? 'Check the Short log for details.',
+                suggestion: job.errorSuggestion ?? 'Ayrıntılar için kayıt dosyasına bakın.',
                 logPath: job.logFile,
                 context: {},
               }}
@@ -520,17 +661,18 @@ export function ShortsPage() {
       {/* --- 6. history ---------------------------------------------------- */}
       {history.length > 0 && (
         <section className="card">
-          <h2>Shorts in this project</h2>
+          <h2>Bu projedeki kısa videolar</h2>
           <table className="history-table shorts-history">
             <thead>
               <tr>
-                <th scope="col">Sections</th>
-                <th scope="col">File</th>
-                <th scope="col">From</th>
-                <th scope="col">Length</th>
-                <th scope="col">Created</th>
+                <th scope="col">Bölümler</th>
+                <th scope="col">Dosya</th>
+                <th scope="col">Kaynak</th>
+                <th scope="col">Altyazı</th>
+                <th scope="col">Süre</th>
+                <th scope="col">Oluşturuldu</th>
                 <th scope="col">
-                  <span className="visually-hidden">Actions</span>
+                  <span className="visually-hidden">İşlemler</span>
                 </th>
               </tr>
             </thead>
@@ -540,23 +682,30 @@ export function ShortsPage() {
                   <td className="history-sections">{entry.sectionNumbers.join(' → ') || '—'}</td>
                   <td className="history-file">{entry.filename}</td>
                   <td className="muted">{entry.sourceVideo}</td>
-                  <td className="muted">{entry.durationSeconds.toFixed(1)}s</td>
+                  <td className="muted">
+                    {entry.captionMode === 'shorts-native'
+                      ? 'Büyük'
+                      : entry.captionMode === 'off'
+                        ? 'Yok'
+                        : 'Videodaki'}
+                  </td>
+                  <td className="muted">{entry.durationSeconds.toFixed(1)} sn</td>
                   <td className="muted">{new Date(entry.createdAt).toLocaleString()}</td>
                   <td className="history-actions">
                     <a
                       className="button-link"
                       href={entry.url}
                       download
-                      aria-label={`Download ${entry.filename}`}
+                      aria-label={`${entry.filename} dosyasını indir`}
                     >
-                      Download
+                      İndir
                     </a>
                     <button
                       className="danger"
                       onClick={() => setPendingDelete(entry.shortId)}
-                      aria-label={`Delete ${entry.filename}`}
+                      aria-label={`${entry.filename} dosyasını sil`}
                     >
-                      Delete
+                      Sil
                     </button>
                   </td>
                 </tr>
@@ -568,14 +717,14 @@ export function ShortsPage() {
 
       {pendingDelete && (
         <ConfirmDialog
-          title="Delete this Short?"
+          title="Bu kısa video silinsin mi?"
           body={
             <p>
-              Only this Short and its side-car files are removed. The long render it was cut
-              from, the project and every other Short are left alone.
+              Sadece bu kısa video ve yan dosyaları silinir. Kesildiği uzun videoya, projeye ve
+              diğer kısa videolara dokunulmaz.
             </p>
           }
-          confirmLabel="Delete Short"
+          confirmLabel="Kısa videoyu sil"
           destructive
           onConfirm={() => {
             const id = pendingDelete
@@ -586,6 +735,44 @@ export function ShortsPage() {
         />
       )}
     </div>
+  )
+}
+
+/** One caption-source choice. Disabled options say *why*, never just grey out. */
+function CaptionModeOption({
+  mode,
+  current,
+  label,
+  hint,
+  disabled,
+  blockedReason,
+  onSelect,
+}: {
+  mode: ShortCaptionMode
+  current: ShortCaptionMode
+  label: string
+  hint: string
+  disabled: boolean
+  blockedReason?: string | null
+  onSelect: () => void
+}) {
+  const selected = current === mode
+  return (
+    <label className={`caption-mode ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}>
+      <input
+        type="radio"
+        name="caption-mode"
+        checked={selected}
+        onChange={onSelect}
+        disabled={disabled}
+        aria-label={label}
+      />
+      <span className="caption-mode-label">{label}</span>
+      <span className="hint">{hint}</span>
+      {disabled && blockedReason && (
+        <span className="caption-mode-blocked">{blockedReason}</span>
+      )}
+    </label>
   )
 }
 
@@ -625,11 +812,11 @@ function SectionCard({
           type="checkbox"
           checked={selected}
           onChange={onToggle}
-          aria-label={`Include section ${section.number}, ${section.title}`}
+          aria-label={`${section.number}. bölümü ekle: ${section.title}`}
         />
         <span className="section-number">{section.number}</span>
         {order !== null && (
-          <span className="order-badge" aria-label={`Position ${order} in the Short`}>
+          <span className="order-badge" aria-label={`Kısa videodaki sırası: ${order}`}>
             {order}
           </span>
         )}
@@ -642,9 +829,9 @@ function SectionCard({
         </div>
         <div className="section-times">
           {formatTimecode(section.safeStartSeconds)} – {formatTimecode(section.safeEndSeconds)} ·{' '}
-          {section.safeDurationSeconds.toFixed(1)}s usable
+          {section.safeDurationSeconds.toFixed(1)} sn kullanılabilir
           {section.transitionDurationSeconds > 0 && (
-            <em> · {section.transitionDurationSeconds.toFixed(2)}s transition after</em>
+            <em> · sonrasında {section.transitionDurationSeconds.toFixed(2)} sn geçiş</em>
           )}
         </div>
         <div className="section-track" aria-hidden="true">
@@ -669,7 +856,7 @@ function SectionCard({
         {selected && (
           <div className="section-trim">
             <TrimInput
-              label="Start"
+              label="Başlangıç"
               value={start}
               low={section.safeStartSeconds}
               high={section.safeEndSeconds}
@@ -678,7 +865,7 @@ function SectionCard({
               onCommit={(next) => onTrim('start', next)}
             />
             <TrimInput
-              label="End"
+              label="Bitiş"
               value={end}
               low={section.safeStartSeconds}
               high={section.safeEndSeconds}
@@ -690,28 +877,27 @@ function SectionCard({
               className={`trim-length ${length < minClipSeconds ? 'bad' : ''}`}
               id={hintId}
             >
-              {length.toFixed(2)}s · trimmable between{' '}
-              {section.safeStartSeconds.toFixed(2)}s and {section.safeEndSeconds.toFixed(2)}s at{' '}
-              {fps} fps
+              {length.toFixed(2)} sn · {section.safeStartSeconds.toFixed(2)} sn ile{' '}
+              {section.safeEndSeconds.toFixed(2)} sn arasında kırpabilirsiniz
             </span>
             <div className="section-controls">
-              <button onClick={() => onMove(-1)} aria-label={`Move ${section.title} earlier`}>
+              <button onClick={() => onMove(-1)} aria-label={`${section.title} bölümünü öne al`}>
                 ↑
               </button>
-              <button onClick={() => onMove(1)} aria-label={`Move ${section.title} later`}>
+              <button onClick={() => onMove(1)} aria-label={`${section.title} bölümünü geri al`}>
                 ↓
               </button>
-              <button onClick={onRemove} aria-label={`Remove ${section.title} from the Short`}>
-                Remove
+              <button onClick={onRemove} aria-label={`${section.title} bölümünü çıkar`}>
+                Çıkar
               </button>
               <button
                 onClick={() => {
                   onTrim('start', null)
                   onTrim('end', null)
                 }}
-                aria-label={`Reset the trim on ${section.title}`}
+                aria-label={`${section.title} bölümünün kırpmasını sıfırla`}
               >
-                Reset trim
+                Kırpmayı sıfırla
               </button>
             </div>
           </div>

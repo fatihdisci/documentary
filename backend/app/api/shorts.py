@@ -140,8 +140,8 @@ def job_log(job_id: str) -> FileResponse:
     if not job.log_file:
         raise NotFoundError(
             ErrorCode.SHORT_JOB_NOT_FOUND,
-            "This Short has no log file.",
-            suggestion="Logs are written once a Short reaches the publish stage.",
+            "Bu kısa videonun kayıt dosyası yok.",
+            suggestion="Kayıt dosyası, kısa video kaydedilme aşamasına gelince oluşur.",
         )
     path = ShortsService().export_path(job.project_slug, job.log_file)
     return FileResponse(path, media_type="text/plain", filename=path.name)

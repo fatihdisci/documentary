@@ -40,7 +40,9 @@ class TextCard:
     path: Path
     width: int
     height: int
-    #: Top-left position in the output frame.
+    #: Top-left position of the *PNG* in the output frame. The image carries
+    #: ``_BLEED`` pixels of transparent margin on every side so shadow and blur
+    #: are not clipped, so this is ``_BLEED`` above and left of the visible box.
     x: int
     y: int
     text: str
@@ -48,6 +50,31 @@ class TextCard:
     @property
     def is_empty(self) -> bool:
         return self.width <= 0 or self.height <= 0
+
+    # --- the visible box, for layout assertions and logs ------------------
+    #
+    # Everything a caller reasons about ("is the caption below the picture?")
+    # is about the drawn box, not the transparent bleed around it.
+
+    @property
+    def box_x(self) -> int:
+        return self.x + _BLEED
+
+    @property
+    def box_y(self) -> int:
+        return self.y + _BLEED
+
+    @property
+    def box_width(self) -> int:
+        return max(0, self.width - 2 * _BLEED)
+
+    @property
+    def box_height(self) -> int:
+        return max(0, self.height - 2 * _BLEED)
+
+    @property
+    def box_bottom(self) -> int:
+        return self.box_y + self.box_height
 
 
 def _hex_to_rgb(value: str) -> tuple[int, int, int]:

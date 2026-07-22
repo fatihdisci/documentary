@@ -174,7 +174,7 @@ class TestMigrations:
         with pytest.raises(AppError) as exc_info:
             migrate({"schemaVersion": SCHEMA_VERSION + 5})
         assert exc_info.value.code is ErrorCode.UNSUPPORTED_SCHEMA_VERSION
-        assert "newer version" in exc_info.value.message
+        assert "daha yeni bir sürümüyle" in exc_info.value.message
 
     def test_non_integer_version_is_rejected(self) -> None:
         with pytest.raises(AppError) as exc_info:
@@ -182,16 +182,57 @@ class TestMigrations:
         assert exc_info.value.code is ErrorCode.SCHEMA_VALIDATION
 
     def test_missing_migration_step_is_reported(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # Simulate a v0 file with no registered upgrade path.
-        monkeypatch.setattr("app.models.migrations.SCHEMA_VERSION", 2)
+        # A hypothetical next version with no registered upgrade path.
+        monkeypatch.setattr("app.models.migrations.SCHEMA_VERSION", SCHEMA_VERSION + 1)
         with pytest.raises(AppError) as exc_info:
-            migrate({"schemaVersion": 1})
+            migrate({"schemaVersion": SCHEMA_VERSION})
         assert exc_info.value.code is ErrorCode.UNSUPPORTED_SCHEMA_VERSION
 
     def test_registered_migration_runs(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """The migration machinery works before we actually need a v2."""
-        monkeypatch.setattr("app.models.migrations.SCHEMA_VERSION", 2)
-        monkeypatch.setitem(MIGRATIONS, 1, lambda raw: {**raw, "addedInV2": True})
-        result = migrate({"schemaVersion": 1, "name": "x"})
-        assert result["addedInV2"] is True
-        assert result["schemaVersion"] == 2
+        """The machinery chains one registered step per version."""
+        monkeypatch.setattr("app.models.migrations.SCHEMA_VERSION", SCHEMA_VERSION + 1)
+        monkeypatch.setitem(
+            MIGRATIONS, SCHEMA_VERSION, lambda raw: {**raw, "addedInNext": True}
+        )
+        result = migrate({"schemaVersion": SCHEMA_VERSION, "name": "x"})
+        assert result["addedInNext"] is True
+        assert result["schemaVersion"] == SCHEMA_VERSION + 1
+
+
+class TestCleanMasterMigration:
+    """v1 -> v2: ``export.prepareCleanMasterForShorts``.
+
+    New projects get it on. A project made before it existed must not be signed
+    up for a second full render pass just by being opened.
+    """
+
+    def test_new_projects_prepare_a_clean_master(self) -> None:
+        assert Project().export.prepare_clean_master_for_shorts is True
+
+    def test_v1_projects_are_migrated_to_opted_out(self) -> None:
+        raw = {"schemaVersion": 1, "name": "old", "slug": "old"}
+        migrated = migrate(raw)
+        assert migrated["schemaVersion"] == SCHEMA_VERSION
+        project = Project.model_validate(migrated)
+        assert project.export.prepare_clean_master_for_shorts is False
+
+    def test_v1_export_settings_are_otherwise_untouched(self) -> None:
+        raw = {
+            "schemaVersion": 1,
+            "name": "old",
+            "export": {"quality": "standard", "keepTempFiles": True},
+        }
+        project = Project.model_validate(migrate(raw))
+        assert project.export.quality.value == "standard"
+        assert project.export.keep_temp_files is True
+        assert project.export.prepare_clean_master_for_shorts is False
+
+    def test_an_explicit_v1_opt_in_is_respected(self) -> None:
+        """A hand-edited v1 file that already asked for one keeps asking."""
+        raw = {
+            "schemaVersion": 1,
+            "name": "old",
+            "export": {"prepareCleanMasterForShorts": True},
+        }
+        project = Project.model_validate(migrate(raw))
+        assert project.export.prepare_clean_master_for_shorts is True

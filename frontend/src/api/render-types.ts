@@ -9,7 +9,8 @@ export type JobPhase =
   | 'validate' | 'verify-sources' | 'generate-tts' | 'probe-audio'
   | 'compute-timeline' | 'build-subtitles' | 'normalize-images'
   | 'render-text-cards' | 'render-scene-clips' | 'assemble' | 'mix-audio'
-  | 'encode' | 'validate-output' | 'write-artifacts' | 'cleanup'
+  | 'encode' | 'validate-output' | 'prepare-shorts-source'
+  | 'write-artifacts' | 'cleanup'
 
 export interface JobArtifact {
   kind: string

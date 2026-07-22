@@ -249,7 +249,7 @@ class TestContentImport:
         assert response.status_code == 422
         body = response.json()
         assert body["code"] == "invalid_json"
-        assert "line 1" in body["message"]
+        assert "1. satır" in body["message"]
 
     def test_content_export_round_trips(self, client: TestClient) -> None:
         slug = create_project(client)
@@ -293,7 +293,7 @@ class TestScenes:
 
         response = client.post(f"/api/projects/{slug}/scenes/reorder", json={"sceneIds": ids[:5]})
         assert response.status_code == 422
-        assert "every scene exactly once" in response.json()["message"]
+        assert "her sahne tam olarak bir kez" in response.json()["message"]
         # The real order is untouched.
         after = client.get(f"/api/projects/{slug}").json()["project"]["scenes"]
         assert [s["id"] for s in after] == ids

@@ -80,7 +80,7 @@ async def generate_for_unit(
         raise AppError(
             ErrorCode.MISSING_NARRATION,
             f"{_label(unit_id)} has no narration text.",
-            suggestion="Add narration, or disable this section so it is skipped.",
+            suggestion="Metin yazın ya da bu bölümü kapatın.",
         )
 
     # User-supplied audio is never regenerated or overwritten.
@@ -100,7 +100,7 @@ async def generate_for_unit(
         raise AppError(
             ErrorCode.MISSING_AUDIO,
             f"{_label(unit_id)} points at imported audio that is missing: {unit.audio_file}",
-            suggestion="Re-upload the audio file, or switch this scene back to generated narration.",
+            suggestion="Ses dosyasını tekrar yükleyin ya da bu sahneyi yeniden seslendirmeye alın.",
         )
 
     expected = audio_hash(
@@ -177,7 +177,7 @@ def attach_imported_audio(
     if not target.is_file():
         raise AppError(
             ErrorCode.MISSING_AUDIO,
-            f"Audio file '{relative_path}' is not in this project.",
+            f"'{relative_path}' ses dosyası bu projede yok.",
             details=str(target),
         )
     info = probe_audio(target, settings=settings or get_settings())
@@ -276,4 +276,4 @@ def _label(unit_id: str) -> str:
         return "The intro"
     if unit_id == OUTRO_ID:
         return "The outro"
-    return f"Scene {unit_id}"
+    return f"{unit_id} sahnesi"

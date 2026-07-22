@@ -113,14 +113,14 @@ class JobManager:
             if job.is_active and not _process_alive(job.pid):
                 job.status = JobStatus.INTERRUPTED
                 job.message = (
-                    "Interrupted — the application stopped while this render was running."
+                    "Yarıda kaldı — video oluşturulurken uygulama kapandı."
                 )
                 job.finished_at = job.finished_at or datetime.now(timezone.utc)
                 job.error_code = ErrorCode.RENDER_FAILED.value
-                job.error_message = "The render was interrupted before it finished."
+                job.error_message = "Video oluşturma tamamlanamadan yarıda kesildi."
                 job.error_suggestion = (
-                    "Start the render again. Cached scene clips are reused, so it will be "
-                    "much faster this time."
+                    "Yeniden başlatın. Hazır olan sahneler tekrar kullanılacağı için bu sefer "
+                    "çok daha hızlı bitecek."
                 )
                 self._persist(job)
                 interrupted += 1
@@ -209,8 +209,8 @@ class JobManager:
         if job is None:
             raise NotFoundError(
                 ErrorCode.JOB_NOT_FOUND,
-                f"No render job with id '{job_id}'.",
-                suggestion="Refresh the render history; old jobs are eventually pruned.",
+                f"'{job_id}' numaralı bir işlem bulunamadı.",
+                suggestion="Geçmişi yenileyin; eski kayıtlar bir süre sonra silinir.",
             )
         return job
 
@@ -233,9 +233,9 @@ class JobManager:
             if existing is not None:
                 raise ConflictError(
                     ErrorCode.RENDER_FAILED,
-                    f"A render of '{project_slug}' is already {existing.status.value}.",
-                    details=f"job id {existing.id}",
-                    suggestion="Wait for it to finish, or cancel it before starting another.",
+                    f"'{project_slug}' projesi için zaten bir video oluşturuluyor.",
+                    details=f"işlem numarası {existing.id}",
+                    suggestion="Bitmesini bekleyin ya da onu iptal edip yeniden başlatın.",
                 )
 
             repository = ProjectRepository(self.settings)
@@ -259,8 +259,8 @@ class JobManager:
         if job.is_terminal:
             raise ConflictError(
                 ErrorCode.RENDER_FAILED,
-                f"This render already finished with status '{job.status.value}'.",
-                suggestion="Start a new render instead.",
+                "Bu işlem zaten tamamlanmış.",
+                suggestion="Bunun yerine yeni bir video oluşturun.",
             )
 
         running = self._running.get(job_id)
@@ -269,7 +269,7 @@ class JobManager:
             logger.info("cancellation requested for running job %s", job_id)
         else:
             # Still queued: mark it now so the worker skips it.
-            self._finalize(job, JobStatus.CANCELLED, "Cancelled before it started.")
+            self._finalize(job, JobStatus.CANCELLED, "Başlamadan iptal edildi.")
         return job
 
     async def retry(self, job_id: str) -> RenderJob:
@@ -278,8 +278,8 @@ class JobManager:
         if job.is_active:
             raise ConflictError(
                 ErrorCode.RENDER_FAILED,
-                "That render is still running.",
-                suggestion="Cancel it first, or wait for it to finish.",
+                "Bu video hâlâ oluşturuluyor.",
+                suggestion="Önce iptal edin ya da bitmesini bekleyin.",
             )
         return await self.submit(job.project_slug, quality=job.quality)
 
@@ -354,7 +354,7 @@ class JobManager:
         job.status = JobStatus.RUNNING
         job.started_at = datetime.now(timezone.utc)
         job.pid = os.getpid()
-        job.message = "Starting"
+        job.message = "Başlıyor"
         self._persist(job)
         self._broadcast(running)
 
@@ -389,11 +389,11 @@ class JobManager:
             job.log_file = (
                 result.artifacts.render_log.name if result.artifacts.render_log else None
             )
-            self._finalize(job, JobStatus.COMPLETED, "Render complete.", running)
+            self._finalize(job, JobStatus.COMPLETED, "Video hazır.", running)
 
         except CancelledRender:
             logger.info("job %s cancelled", job.id)
-            self._finalize(job, JobStatus.CANCELLED, "Render cancelled.", running)
+            self._finalize(job, JobStatus.CANCELLED, "İptal edildi.", running)
 
         except AppError as exc:
             logger.warning("job %s failed: %s", job.id, exc)
@@ -408,11 +408,10 @@ class JobManager:
 
             logger.exception("job %s failed unexpectedly", job.id)
             job.error_code = ErrorCode.INTERNAL.value
-            job.error_message = f"An unexpected {type(exc).__name__} stopped the render."
+            job.error_message = "Beklenmedik bir hata video oluşturmayı durdurdu."
             job.error_details = traceback.format_exc()[-4000:]
             job.error_suggestion = (
-                "This is a bug. The technical details above and the backend log have "
-                "the full traceback."
+                "Bu bir yazılım hatası. Ayrıntılar yukarıda ve kayıt dosyasında yer alıyor."
             )
             self._finalize(job, JobStatus.FAILED, str(exc), running)
 

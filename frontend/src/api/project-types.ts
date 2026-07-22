@@ -199,6 +199,12 @@ export interface ExportSettings {
   exportNarrationAudio: boolean
   exportDescription: boolean
   keepTempFiles: boolean
+  /**
+   * Keep a subtitle-free clean master beside the export so Shorts can draw their
+   * own large captions. On for projects created since it existed; off for older
+   * ones, which the v1 -> v2 migration opted out explicitly.
+   */
+  prepareCleanMasterForShorts: boolean
 }
 
 export interface Project {

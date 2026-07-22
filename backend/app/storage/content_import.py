@@ -45,9 +45,9 @@ def parse_content_json(text: str, *, max_bytes: int) -> ContentPackage:
     if len(encoded) > max_bytes:
         raise ValidationError(
             ErrorCode.FILE_TOO_LARGE,
-            f"The content file is {len(encoded) / 1_048_576:.1f} MB, over the "
-            f"{max_bytes / 1_048_576:.0f} MB limit.",
-            suggestion="Raise the limit in Settings, or split the package.",
+            f"Dosya {len(encoded) / 1_048_576:.1f} MB; sınır "
+            f"{max_bytes / 1_048_576:.0f} MB.",
+            suggestion="Ayarlar'dan sınırı yükseltin ya da dosyayı bölün.",
         )
 
     try:
@@ -55,16 +55,16 @@ def parse_content_json(text: str, *, max_bytes: int) -> ContentPackage:
     except json.JSONDecodeError as exc:
         raise ValidationError(
             ErrorCode.INVALID_JSON,
-            f"The content file is not valid JSON: {exc.msg} (line {exc.lineno}, column {exc.colno}).",
+            f"Dosyada yazım hatası var: {exc.msg} ({exc.lineno}. satır, {exc.colno}. sütun).",
             details=_json_error_context(text, exc.lineno),
-            suggestion="Fix the syntax at the position shown above and import again.",
+            suggestion="Yukarıda gösterilen yerdeki hatayı düzeltip tekrar yükleyin.",
         ) from exc
 
     if not isinstance(raw, dict):
         raise ValidationError(
             ErrorCode.SCHEMA_VALIDATION,
-            f"The content file must contain a JSON object at the top level, not a {type(raw).__name__}.",
-            suggestion="See docs/content-schema.md, or download the example template.",
+            "Dosyanın en üst düzeyinde bir nesne olmalı; bu dosyada yok.",
+            suggestion="Örnek dosyayı indirip yapısını karşılaştırın.",
         )
 
     try:
@@ -72,10 +72,9 @@ def parse_content_json(text: str, *, max_bytes: int) -> ContentPackage:
     except PydanticValidationError as exc:
         raise ValidationError(
             ErrorCode.SCHEMA_VALIDATION,
-            f"The content package has {exc.error_count()} validation "
-            f"{'error' if exc.error_count() == 1 else 'errors'}.",
+            f"Dosyada {exc.error_count()} hata bulundu.",
             details=_format_errors(exc),
-            suggestion="Correct the fields listed above. The example template shows the expected shape.",
+            suggestion="Yukarıda listelenen alanları düzeltin. Örnek dosya beklenen yapıyı gösterir.",
         ) from exc
 
 
@@ -134,8 +133,8 @@ def apply_content(
             scene.order = len(new_scenes) + offset
         new_scenes.extend(surplus)
         report.warnings.append(
-            f"{len(surplus)} existing scene(s) beyond the package length were kept. "
-            "Delete them manually if the package is meant to replace everything."
+            f"Dosyadaki sahne sayısını aşan {len(surplus)} mevcut sahne korundu. "
+            "Her şeyin yenilenmesini istiyorsanız bunları elle silin."
         )
     elif replace_scenes and existing:
         report.scenes_removed = len(existing)
@@ -268,7 +267,7 @@ def map_images_to_scenes(project: Project, paths: ProjectPaths, *, force: bool =
     result = ImageMapping()
     images = available_images(paths)
     if not images:
-        result.warnings.append("No images have been uploaded yet, so no scenes were mapped.")
+        result.warnings.append("Henüz görsel yüklenmediği için sahnelere görsel atanmadı.")
         result.unmapped_scenes = [s.order for s in project.scenes]
         return result
 
@@ -291,8 +290,8 @@ def map_images_to_scenes(project: Project, paths: ProjectPaths, *, force: bool =
         if unit.image_file and not force:
             if unit.image_file not in images:
                 result.warnings.append(
-                    f"{_target_label(kind, unit)} refers to '{unit.image_file}', which is not in "
-                    "this project. Upload it or pick a different image."
+                    f"{_target_label(kind, unit)} '{unit.image_file}' görselini kullanıyor ama "
+                    "bu görsel projede yok. Yükleyin ya da başka bir görsel seçin."
                 )
             continue
         if cursor < len(queue):
@@ -308,12 +307,12 @@ def map_images_to_scenes(project: Project, paths: ProjectPaths, *, force: bool =
     result.unused_images = queue[cursor:]
     if result.unmapped_scenes:
         result.warnings.append(
-            f"{len(result.unmapped_scenes)} scene(s) have no image. Upload "
-            f"{len(result.unmapped_scenes)} more, or remove the extra scenes."
+            f"{len(result.unmapped_scenes)} sahnede görsel yok. {len(result.unmapped_scenes)} "
+            "görsel daha yükleyin ya da fazla sahneleri silin."
         )
     if result.unused_images:
         result.warnings.append(
-            f"{len(result.unused_images)} uploaded image(s) are not used: "
+            f"{len(result.unused_images)} görsel hiçbir sahnede kullanılmıyor: "
             f"{', '.join(result.unused_images[:5])}"
             + ("…" if len(result.unused_images) > 5 else "")
         )
@@ -322,8 +321,8 @@ def map_images_to_scenes(project: Project, paths: ProjectPaths, *, force: bool =
 
 def _target_label(kind: str, unit: Section | Scene) -> str:
     if kind == "intro":
-        return "The intro"
-    return f"Scene {unit.order + 1}"  # type: ignore[union-attr]
+        return "Giriş"
+    return f"{unit.order + 1}. sahne"  # type: ignore[union-attr]
 
 
 def _format_errors(exc: PydanticValidationError) -> str:

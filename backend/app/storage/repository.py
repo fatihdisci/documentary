@@ -132,7 +132,7 @@ class ProjectRepository:
         except OSError as exc:
             raise NotFoundError(
                 ErrorCode.PROJECT_NOT_FOUND,
-                f"Could not read project '{slug}'.",
+                f"'{slug}' projesi okunamadı.",
                 details=str(exc),
             ) from exc
 
@@ -141,10 +141,10 @@ class ProjectRepository:
         except json.JSONDecodeError as exc:
             raise ValidationError(
                 ErrorCode.INVALID_JSON,
-                f"The project file for '{slug}' is not valid JSON.",
+                f"'{slug}' projesinin dosyası bozuk.",
                 details=f"{exc}\n\nFile: {paths.project_file}",
                 suggestion=(
-                    "Restore an automatic backup from the project's backups/ folder, "
+                    "Projenin backups/ klasöründeki otomatik yedeklerden birini geri yükleyin "
                     "or fix the JSON syntax by hand."
                 ),
             ) from exc
@@ -155,9 +155,9 @@ class ProjectRepository:
         except PydanticValidationError as exc:
             raise ValidationError(
                 ErrorCode.SCHEMA_VALIDATION,
-                f"The project file for '{slug}' does not match the expected schema.",
+                f"'{slug}' projesinin dosyası beklenen biçimde değil.",
                 details=_format_pydantic_errors(exc),
-                suggestion="Restore a backup from the project's backups/ folder, or correct the listed fields.",
+                suggestion="Projenin backups/ klasöründen bir yedek geri yükleyin ya da listelenen alanları düzeltin.",
             ) from exc
 
     def save(self, project: Project, *, backup: bool = True) -> Project:
@@ -192,8 +192,8 @@ class ProjectRepository:
         if not source.is_file():
             raise NotFoundError(
                 ErrorCode.PROJECT_NOT_FOUND,
-                f"Backup '{backup_name}' does not exist for project '{slug}'.",
-                suggestion="Refresh the backup list; it may have been pruned.",
+                f"'{slug}' projesinde '{backup_name}' adlı yedek yok.",
+                suggestion="Yedek listesini yenileyin; silinmiş olabilir.",
             )
         # Back up the current state before replacing it, so restore is reversible.
         self._write_backup(paths)
@@ -211,7 +211,7 @@ class ProjectRepository:
         if paths.project_file.exists():
             raise ConflictError(
                 ErrorCode.PROJECT_EXISTS,
-                f"A project already exists at '{slug}'.",
+                f"'{slug}' adında bir proje zaten var.",
             )
         paths.ensure()
         self.save(new_project, backup=False)
@@ -314,9 +314,9 @@ class ProjectRepository:
         if not zipfile.is_zipfile(archive_path):
             raise ValidationError(
                 ErrorCode.INVALID_JSON,
-                "That file is not a project bundle (expected a .zip archive).",
+                "Bu dosya bir proje yedeği değil (.zip bekleniyordu).",
                 details=str(archive_path),
-                suggestion="Choose a bundle exported from this app.",
+                suggestion="Bu uygulamadan indirilmiş bir yedek dosyası seçin.",
             )
 
         with zipfile.ZipFile(archive_path) as archive:
@@ -324,9 +324,9 @@ class ProjectRepository:
             if PROJECT_FILE not in names:
                 raise ValidationError(
                     ErrorCode.SCHEMA_VALIDATION,
-                    "The bundle does not contain a project.json at its root.",
+                    "Yedek dosyasının içinde project.json yok.",
                     details=f"entries: {', '.join(names[:20])}",
-                    suggestion="Choose a bundle exported from this app.",
+                    suggestion="Bu uygulamadan indirilmiş bir yedek dosyası seçin.",
                 )
             raw = json.loads(archive.read(PROJECT_FILE).decode("utf-8"))
             display_name = name or str(raw.get("name", "Imported project"))
@@ -363,7 +363,7 @@ class ProjectRepository:
                 return paths
         raise NotFoundError(
             ErrorCode.PROJECT_NOT_FOUND,
-            f"No project named '{slug}' was found.",
+            f"'{slug}' adlı bir proje bulunamadı.",
             details=f"looked in: {', '.join(str(p.root) for p in candidates)}",
         )
 

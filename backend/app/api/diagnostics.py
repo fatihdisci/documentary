@@ -53,7 +53,7 @@ def _tool_checks() -> tuple[list[Check], list[str]]:
                 id="ffmpeg",
                 label="FFmpeg",
                 status="fail",
-                value="not found",
+                value="bulunamadı",
                 detail=exc.details or exc.message,
                 suggestion=exc.suggestion,
             )
@@ -71,11 +71,11 @@ def _tool_checks() -> tuple[list[Check], list[str]]:
     checks.append(
         Check(
             id="filters",
-            label="Required FFmpeg filters",
+            label="Gerekli FFmpeg özellikleri",
             status="ok" if not missing_filters else "fail",
-            value="all present" if not missing_filters else f"missing: {', '.join(missing_filters)}",
-            detail=f"{len(caps.filters)} filters detected",
-            suggestion="" if not missing_filters else "Install a complete FFmpeg build (brew install ffmpeg).",
+            value="hepsi var" if not missing_filters else f"eksik: {', '.join(missing_filters)}",
+            detail=f"{len(caps.filters)} özellik bulundu",
+            suggestion="" if not missing_filters else "Tam sürüm FFmpeg kurun (brew install ffmpeg).",
         )
     )
 
@@ -83,11 +83,11 @@ def _tool_checks() -> tuple[list[Check], list[str]]:
     checks.append(
         Check(
             id="encoders",
-            label="Required encoders",
+            label="Gerekli kodlayıcılar",
             status="ok" if not missing_encoders else "fail",
-            value="libx264 + aac present" if not missing_encoders else f"missing: {', '.join(missing_encoders)}",
-            detail=f"{len(caps.encoders)} encoders detected",
-            suggestion="" if not missing_encoders else "Install an FFmpeg build with libx264 and AAC support.",
+            value="libx264 + aac var" if not missing_encoders else f"eksik: {', '.join(missing_encoders)}",
+            detail=f"{len(caps.encoders)} kodlayıcı bulundu",
+            suggestion="" if not missing_encoders else "libx264 ve AAC destekleyen bir FFmpeg kurun.",
         )
     )
 
@@ -96,14 +96,14 @@ def _tool_checks() -> tuple[list[Check], list[str]]:
     checks.append(
         Check(
             id="text-engine",
-            label="Text rendering engine",
+            label="Yazı çizimi",
             status="ok",
-            value="Pillow (bundled fonts)",
+            value="Pillow (uygulamayla gelen yazı tipleri)",
             detail=(
-                "drawtext: " + ("available" if caps.has_drawtext else "NOT available") + " · "
-                "libass: " + ("available" if caps.has_libass else "NOT available") + ". "
-                "This app renders all text with Pillow either way, so output is identical "
-                "across machines regardless of how FFmpeg was compiled."
+                "drawtext: " + ("var" if caps.has_drawtext else "YOK") + " · "
+                "libass: " + ("var" if caps.has_libass else "YOK") + ". "
+                "Bu uygulama yazıları her hâlükârda Pillow ile çizer; bu yüzden sonuç her "
+                "bilgisayarda birebir aynı görünür."
             ),
         )
     )
@@ -111,44 +111,44 @@ def _tool_checks() -> tuple[list[Check], list[str]]:
     checks.append(
         Check(
             id="transitions",
-            label="Transitions (xfade)",
+            label="Sahne geçişleri",
             status="ok" if caps.has_xfade else "warn",
-            value="available" if caps.has_xfade else "unavailable — hard cuts only",
-            suggestion="" if caps.has_xfade else "Install a fuller FFmpeg build to enable dissolves.",
+            value="kullanılabilir" if caps.has_xfade else "yok — sahneler sert kesmeyle birleşir",
+            suggestion="" if caps.has_xfade else "Yumuşak geçişler için tam sürüm FFmpeg kurun.",
         )
     )
     checks.append(
         Check(
             id="ducking",
-            label="Music ducking (sidechaincompress)",
+            label="Konuşurken müziği kısma",
             status="ok" if caps.has_sidechain else "warn",
-            value="available" if caps.has_sidechain else "unavailable — static music level",
+            value="kullanılabilir" if caps.has_sidechain else "yok — müzik hep aynı seviyede kalır",
         )
     )
     checks.append(
         Check(
             id="loudness",
-            label="Loudness normalization (loudnorm)",
+            label="Ses seviyesi dengeleme",
             status="ok" if caps.has_loudnorm else "warn",
-            value="available" if caps.has_loudnorm else "unavailable — fixed gain",
+            value="kullanılabilir" if caps.has_loudnorm else "yok — sabit ses seviyesi",
         )
     )
     checks.append(
         Check(
             id="hwaccel",
-            label="Hardware encoder",
+            label="Ekran kartıyla hızlandırma",
             status="ok",
-            value="h264_videotoolbox available" if caps.has_videotoolbox else "software only",
-            detail="Software libx264 is always the default; hardware encoding is opt-in.",
+            value="kullanılabilir" if caps.has_videotoolbox else "yok — işlemci kullanılacak",
+            detail="Varsayılan her zaman işlemcidir; ekran kartı isteğe bağlıdır.",
         )
     )
     checks.append(
         Check(
             id="prores",
-            label="ProRes intermediate",
+            label="ProRes ara biçimi",
             status="ok",
-            value="available" if caps.has_prores else "unavailable",
-            detail="Used only as an optional intermediate codec for cached scene clips.",
+            value="kullanılabilir" if caps.has_prores else "yok",
+            detail="Yalnızca sahnelerin geçici dosyaları için isteğe bağlı bir seçenektir.",
         )
     )
     notes.extend(caps.notes())
@@ -166,9 +166,9 @@ def _writable_check(check_id: str, label: str, directory: Path) -> Check:
             id=check_id,
             label=label,
             status="fail",
-            value="not writable",
+            value="yazılamıyor",
             detail=f"{directory}: {exc}",
-            suggestion="Check permissions, or choose a different directory in Settings.",
+            suggestion="Klasör izinlerini kontrol edin ya da Ayarlar'dan başka bir klasör seçin.",
         )
     return Check(id=check_id, label=label, status="ok", value=str(directory))
 
@@ -177,19 +177,19 @@ def _disk_check(directory: Path) -> Check:
     try:
         usage = shutil.disk_usage(directory if directory.exists() else directory.parent)
     except OSError as exc:
-        return Check(id="disk", label="Free disk space", status="warn", value="unknown", detail=str(exc))
+        return Check(id="disk", label="Boş disk alanı", status="warn", value="bilinmiyor", detail=str(exc))
     free_gb = usage.free / 1024**3
     total_gb = usage.total / 1024**3
     # A 7-minute 1080p60 render with cached intermediates peaks in the low GBs.
     status: CheckStatus = "ok" if free_gb >= 10 else "warn" if free_gb >= 3 else "fail"
     return Check(
         id="disk",
-        label="Free disk space",
+        label="Boş disk alanı",
         status=status,
-        value=f"{free_gb:.1f} GB free of {total_gb:.0f} GB",
+        value=f"{total_gb:.0f} GB'ın {free_gb:.1f} GB'ı boş",
         suggestion=(
             "" if status == "ok"
-            else "Free up space before rendering; intermediates for a 7-minute video need a few GB."
+            else "Video oluşturmadan önce yer açın; 7 dakikalık bir video birkaç GB yer ister."
         ),
     )
 
@@ -208,14 +208,14 @@ def _tts_check() -> Check:
 
     return Check(
         id="tts",
-        label="Narration sources",
+        label="Seslendirme kaynakları",
         status="ok" if online else "warn",
-        value=", ".join(available) if available else "none",
+        value=", ".join(available) if available else "yok",
         detail=" · ".join(f"{name}: {status.message}" for name, status in sorted(summary.items())),
         suggestion=(
             "" if online
-            else "No online TTS provider is configured or reachable. You can still upload "
-                 "narration audio per scene and render the project completely offline."
+            else "Şu anda çevrimiçi bir seslendirme servisine ulaşılamıyor. Her sahne için "
+                 "kendi ses kaydınızı yükleyip videoyu internetsiz de oluşturabilirsiniz."
         ),
     )
 
@@ -226,17 +226,17 @@ def get_diagnostics() -> DiagnosticsReport:
     checks: list[Check] = [
         Check(
             id="backend",
-            label="Backend",
+            label="Uygulama",
             status="ok",
-            value=f"running · Python {sys.version.split()[0]}",
+            value=f"çalışıyor · Python {sys.version.split()[0]}",
             detail=f"pid {os.getpid()}",
         )
     ]
     tool_checks, notes = _tool_checks()
     checks.extend(tool_checks)
-    checks.append(_writable_check("storage", "Project storage", settings.projects_dir))
-    checks.append(_writable_check("exports", "Export directory", settings.exports_dir))
-    checks.append(_writable_check("temp", "Temporary directory", settings.temp_dir))
+    checks.append(_writable_check("storage", "Projeler klasörü", settings.projects_dir))
+    checks.append(_writable_check("exports", "Videolar klasörü", settings.exports_dir))
+    checks.append(_writable_check("temp", "Geçici dosyalar klasörü", settings.temp_dir))
     checks.append(_disk_check(settings.data_dir))
     checks.append(_tts_check())
 

@@ -105,6 +105,71 @@ Shorts run on their own queue with their own on-disk history and SSE contract,
 but share a process-wide render slot (`render/slot.py`) with the long-render
 queue, so only one CPU-heavy FFmpeg job runs at a time whichever kind it is.
 
+### Shorts captions
+
+The long video's subtitles are sized for a 1920×1080 frame. Centred on a
+1080×1920 canvas that frame becomes 1080×608 — the same captions at roughly a
+third of the height, which is unreadable on a phone. And they cannot be taken
+back out: **captions burned into an MP4 are permanent**, and OCR, inpainting,
+cropping and blur masks all destroy picture the user deliberately rendered. So
+this is built as a clean-source capability, never as subtitle removal.
+
+Each Short chooses a `captionMode`:
+
+| Mode | Source cut | Captions |
+|---|---|---|
+| `source-burned-in` *(default)* | the finished captioned export | whatever is already in the picture |
+| `shorts-native` | the render's **clean master** | drawn fresh on the 9:16 canvas |
+| `off` | the render's **clean master** | none |
+
+A request that omits `captionMode` behaves — and hashes — exactly as it did
+before the feature existed, so every Short already on disk keeps matching its own
+request.
+
+**The Shorts-ready source package.** With `export.prepareCleanMasterForShorts`
+on, a completed render also produces, in `exports/shorts-source/`:
+
+- a **clean master** — the same images, Ken Burns motion, titles, scene text,
+  watermark, scrim, fades, transitions, timing, codec profile, frame rate and
+  audio mix, with narration subtitles switched off and nothing else changed. It
+  reuses the scene-clip machinery under its own cache namespace
+  (`derived/clips/clean/`), so neither clip cache can evict the other's files.
+  When the export has no burned-in subtitles it *is* the clean master, recorded
+  as `origin: "primary-export"` and hard-linked at zero cost; otherwise a second
+  pass runs and the render takes roughly twice as long.
+- a **cue side-car** (`<clean-master>-shorts-cues.json`) — the exact
+  `Timeline.cues` that render used, with absolute times, `unitId`, lines,
+  a schema version and a content hash. Shorts never look for a casually named
+  `.srt`; the ordinary `.srt` and per-scene `.srt` exports are unchanged and
+  remain user artifacts.
+
+Both are named explicitly in the render manifest (v2, `shortsSource`), each with
+its own SHA-256, ffprobe summary, profile and binding to the render job and
+project snapshot. Before anything is cut, all of it is verified: existence, size,
+checksum, schema versions, geometry, frame rate, duration and the pairing between
+side-car and master. Any mismatch is a `short_clean_source_stale` error. A render
+with no package at all is `short_captions_unavailable`, with the actionable
+message *"This render only has burned-in captions. Re-render the long video with
+a Shorts-ready clean master to use large Shorts captions."* **There is no
+fallback path to the captioned export** — that would caption the Short twice.
+
+**Drawing.** Cues are clipped to the spans actually cut and rebased onto the
+Short's own clock: groups play in the user's chosen order, a cue straddling a
+preserved in-source transition is carried through once, a cue clipped by a trim
+keeps only its surviving part, genuinely overlapping cues from a dissolve stay
+overlapping, and slivers under 120 ms are dropped. Cards are drawn by the same
+Pillow path as every other overlay (`render/text.py`), at one type size fitted so
+every cue in the Short fits `maxLines`, and composited **after** the pad — in
+canvas coordinates, bottom-centre, in the black band below the picture, clear of
+the Shorts scrubber and the like/comment rail. Above twelve cards the track is
+pre-composited into one QT RLE alpha video first, mirroring what the long
+pipeline does for a dense scene. Caption text only ever exists as pixels in a
+PNG; nothing user-supplied reaches a filtergraph.
+
+The Short's cache key gains a `captions` block — mode, normalised style, clean
+master checksum, cue schema and cue content hash, and a renderer version — only
+in the modes where captions change the output.
+
 ### Subtitle timing
 
 Cues are placed from **measured word boundaries** whenever the TTS provider
@@ -172,6 +237,34 @@ Every failing endpoint returns a structured payload — `code`, `message`,
 `details`, `suggestion`, `logPath`, `context` — and the frontend renders all of
 them through a single `ErrorBox`: what happened, what to do, where the log is,
 and (collapsed) the technical detail.
+
+## Schema versions and compatibility
+
+Four independent versions, each with its own reader rule: accept everything you
+know, refuse only what is newer than you.
+
+| Schema | Current | Where | Migration |
+|---|---|---|---|
+| `project.json` `schemaVersion` | **2** | `models/project.py` | chained functions in `models/migrations.py` |
+| render manifest `schemaVersion` | **2** | `shorts/manifest.py` | none needed — every v2 field is optional |
+| Shorts source package `packageVersion` | 1 | `shorts/manifest.py` | — |
+| cue side-car `schemaVersion` | 1 | `shorts/cues.py` | — |
+
+**project v1 → v2** added `export.prepareCleanMasterForShorts`. New projects
+default it **on**: large Shorts captions are the point of the Shorts tab, the
+option has to be set *before* a render, and a render that did not prepare a clean
+master can never gain one afterwards — so defaulting it off would block nearly
+every first Short on a re-render. But it costs a second full pass whenever
+subtitles are burned in, so the migration writes it **off** for projects created
+before it existed. Opening an old project never signs it up for extra work; the
+Export tab states the cost either way.
+
+**Render manifest v1 → v2** added the optional `shortsSource` package and
+`sourceHasBurnedInSubtitles`. There is no migration and none is needed: a v1
+manifest validates unchanged, still lists as a Shorts source, still cuts legacy
+Shorts exactly as before, and simply reports that native captions are
+unavailable. Old render history keeps parsing. Only a manifest from a *newer*
+build is refused, as `unsupported_schema_version`.
 
 ## Testing
 

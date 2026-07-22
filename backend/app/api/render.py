@@ -56,15 +56,15 @@ def preflight(slug: str) -> PreflightResponse:
     warnings: list[str] = []
 
     if not project.active_scenes:
-        blocking.append("This project has no enabled scenes.")
+        blocking.append("Bu projede açık hiç sahne yok.")
 
     for index, scene in enumerate(project.active_scenes, start=1):
         if not scene.image_file:
-            blocking.append(f"Scene {index} has no image.")
+            blocking.append(f"{index}. sahnede görsel yok.")
         if scene.narration.strip() and not scene.audio_file:
-            blocking.append(f"Scene {index} has narration but no audio yet.")
+            blocking.append(f"{index}. sahnenin metni var ama sesi henüz yok.")
         if not scene.narration.strip():
-            warnings.append(f"Scene {index} has no narration; it will be held silently.")
+            warnings.append(f"{index}. sahnede metin yok; sessiz olarak ekranda kalacak.")
 
     timing: dict = {}
     disk: dict = {}
@@ -89,8 +89,8 @@ def preflight(slug: str) -> PreflightResponse:
             disk["sufficient"] = free_mb >= needed
             if not disk["sufficient"]:
                 blocking.append(
-                    f"Not enough disk space: about {disk['totalMb'] / 1024:.1f} GB is "
-                    f"needed but only {free_mb / 1024:.1f} GB is free."
+                    f"Diskte yeterli yer yok: yaklaşık {disk['totalMb'] / 1024:.1f} GB "
+                    f"gerekiyor ama {free_mb / 1024:.1f} GB boş yer var."
                 )
         except OSError:
             disk["freeMb"] = -1.0
@@ -146,8 +146,8 @@ def download_export(slug: str, filename: str) -> FileResponse:
         else:
             raise NotFoundError(
                 ErrorCode.MISSING_IMAGE,
-                f"'{filename}' is not in this project's exports.",
-                suggestion="Refresh the render history; the file may have been deleted.",
+                f"'{filename}' bu projenin videoları arasında yok.",
+                suggestion="Geçmişi yenileyin; dosya silinmiş olabilir.",
             )
     return FileResponse(target, filename=target.name)
 
@@ -210,8 +210,8 @@ def job_log(job_id: str) -> FileResponse:
     if not job.log_file:
         raise NotFoundError(
             ErrorCode.JOB_NOT_FOUND,
-            "This render has no log file.",
-            suggestion="Logs are written when a render reaches the export stage.",
+            "Bu işlemin kayıt dosyası yok.",
+            suggestion="Kayıt dosyası, video yazma aşamasına gelindiğinde oluşur.",
         )
     repository = repo()
     paths = repository.paths_for(job.project_slug)
@@ -219,7 +219,7 @@ def job_log(job_id: str) -> FileResponse:
     if not target.is_file():
         raise NotFoundError(
             ErrorCode.JOB_NOT_FOUND,
-            f"The log file '{job.log_file}' is no longer on disk.",
+            f"'{job.log_file}' kayıt dosyası artık diskte yok.",
         )
     return FileResponse(target, media_type="text/plain", filename=target.name)
 

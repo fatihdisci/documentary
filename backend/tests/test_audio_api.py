@@ -149,7 +149,7 @@ class TestOfflineEndToEnd:
         response = client.get(f"/api/projects/{slug}/audio/subtitles.srt")
         assert response.status_code == 422
         body = response.json()
-        assert "narration audio" in body["suggestion"]
+        assert "seslendirin" in body["suggestion"]
 
     def test_generating_with_the_imported_provider_says_what_to_upload(
         self, client: TestClient
@@ -162,7 +162,7 @@ class TestOfflineEndToEnd:
         response = client.post(f"/api/projects/{slug}/audio/generate", json={})
         assert response.status_code == 400
         assert response.json()["code"] == "missing_audio"
-        assert "upload" in response.json()["suggestion"].lower()
+        assert "yükleyin" in response.json()["suggestion"].lower()
 
 
 @requires_ffmpeg

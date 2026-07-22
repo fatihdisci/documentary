@@ -35,32 +35,32 @@ type Route =
   | 'diagnostics'
 
 const NAV: { id: Route; label: string; icon: string; needsProject: boolean; milestone: string }[] = [
-  { id: 'projects', label: 'Projects', icon: '▤', needsProject: false, milestone: '' },
-  { id: 'guided', label: 'Guided setup', icon: '✦', needsProject: true, milestone: '' },
-  { id: 'content', label: 'Content', icon: '✎', needsProject: true, milestone: '' },
-  { id: 'scenes', label: 'Scenes', icon: '▦', needsProject: true, milestone: '' },
-  { id: 'audio', label: 'Audio', icon: '♪', needsProject: true, milestone: '' },
-  { id: 'music', label: 'Music', icon: '♬', needsProject: true, milestone: '' },
-  { id: 'style', label: 'Style', icon: '◐', needsProject: true, milestone: '' },
-  { id: 'export', label: 'Export', icon: '↑', needsProject: true, milestone: '' },
-  { id: 'shorts', label: 'Shorts', icon: '▯', needsProject: true, milestone: '' },
-  { id: 'settings', label: 'Settings', icon: '⚙', needsProject: false, milestone: '' },
-  { id: 'diagnostics', label: 'Diagnostics', icon: '✚', needsProject: false, milestone: '' },
+  { id: 'projects', label: 'Projeler', icon: '▤', needsProject: false, milestone: '' },
+  { id: 'guided', label: 'Kolay kurulum', icon: '✦', needsProject: true, milestone: '' },
+  { id: 'content', label: 'Metinler', icon: '✎', needsProject: true, milestone: '' },
+  { id: 'scenes', label: 'Sahneler', icon: '▦', needsProject: true, milestone: '' },
+  { id: 'audio', label: 'Seslendirme', icon: '♪', needsProject: true, milestone: '' },
+  { id: 'music', label: 'Müzik', icon: '♬', needsProject: true, milestone: '' },
+  { id: 'style', label: 'Görünüm', icon: '◐', needsProject: true, milestone: '' },
+  { id: 'export', label: 'Videoyu oluştur', icon: '↑', needsProject: true, milestone: '' },
+  { id: 'shorts', label: 'Kısa video', icon: '▯', needsProject: true, milestone: '' },
+  { id: 'settings', label: 'Ayarlar', icon: '⚙', needsProject: false, milestone: '' },
+  { id: 'diagnostics', label: 'Sistem kontrolü', icon: '✚', needsProject: false, milestone: '' },
 ]
 
 const SAVE_LABEL: Record<string, string> = {
   idle: '',
-  dirty: 'Unsaved changes',
-  saving: 'Saving…',
-  saved: 'All changes saved',
-  error: 'Save failed — will retry',
+  dirty: 'Kaydedilmedi',
+  saving: 'Kaydediliyor…',
+  saved: 'Kaydedildi',
+  error: 'Kaydedilemedi — tekrar denenecek',
 }
 
 function ComingSoon({ label, milestone }: { label: string; milestone: string }) {
   return (
     <div className="page">
       <h1>{label}</h1>
-      <p className="page-subtitle">This section is built in {milestone}.</p>
+      <p className="page-subtitle">Bu bölüm henüz hazır değil ({milestone}).</p>
     </div>
   )
 }
@@ -103,7 +103,7 @@ export default function App() {
       return (
         <div className="page">
           <h1>{current.label}</h1>
-          <p className="page-subtitle">Open a project from the Projects tab first.</p>
+          <p className="page-subtitle">Önce Projeler sekmesinden bir proje açın.</p>
         </div>
       )
     }
@@ -140,7 +140,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">EVB</span>
-          <span className="brand-name">Extinct Video Builder</span>
+          <span className="brand-name">Belgesel Video Stüdyosu</span>
         </div>
         <nav>
           {NAV.map((item) => (
@@ -172,7 +172,7 @@ export default function App() {
                 )}
               </>
             ) : (
-              'No project open'
+              'Açık proje yok'
             )}
           </span>
           <div className="topbar-actions">
@@ -180,7 +180,7 @@ export default function App() {
               <>
                 <span className={`save-status save-${saveStatus}`}>{SAVE_LABEL[saveStatus]}</span>
                 <button onClick={() => void save()} disabled={saveStatus === 'saving'}>
-                  Save
+                  Kaydet
                 </button>
                 <button
                   onClick={() => {
@@ -190,11 +190,11 @@ export default function App() {
                     })
                   }}
                 >
-                  Close
+                  Kapat
                 </button>
               </>
             )}
-            <button onClick={toggle} title="Toggle light / dark theme" aria-label="Toggle theme">
+            <button onClick={toggle} title="Açık / koyu tema" aria-label="Temayı değiştir">
               {theme === 'dark' ? '☀' : '☾'}
             </button>
           </div>

@@ -137,7 +137,7 @@ class TestSources:
 
         source = client.get(f"/api/projects/{slug}/shorts/sources").json()[0]
         assert source["usable"] is False
-        assert "no longer on disk" in source["issue"]
+        assert "artık diskte yok" in source["issue"]
 
     def test_a_changed_export_is_listed_as_unusable(
         self, client: TestClient, settings
@@ -148,7 +148,7 @@ class TestSources:
 
         source = client.get(f"/api/projects/{slug}/shorts/sources").json()[0]
         assert source["usable"] is False
-        assert "changed" in source["issue"]
+        assert "değişmiş" in source["issue"]
 
     def test_unknown_source_id_is_a_structured_404(
         self, client: TestClient, settings
@@ -468,7 +468,7 @@ class TestPreflightErrors:
             json={"sourceRenderId": "render0001", "segments": [{"unitId": "scene-1"}]},
         ).json()
         assert body["ready"] is False
-        assert any("no longer" in issue for issue in body["blockingIssues"])
+        assert any("artık bu projenin klasöründe yok" in issue for issue in body["blockingIssues"])
 
     def test_an_unreadable_mp4_blocks_rather_than_500s(
         self, client: TestClient, settings
@@ -484,7 +484,132 @@ class TestPreflightErrors:
         assert response.status_code == 200
         body = response.json()
         assert body["ready"] is False
-        assert any("could not be read by FFmpeg" in issue for issue in body["blockingIssues"])
+        assert any("açılamadı" in issue for issue in body["blockingIssues"])
+
+    def test_asking_for_large_captions_on_a_legacy_render_is_a_422(
+        self, client: TestClient, settings
+    ) -> None:  # noqa: ANN001
+        """The API refuses before a job exists, with something to act on."""
+        slug, _ = make_project(settings)
+        add_source(settings, slug)
+
+        response = client.post(
+            f"/api/projects/{slug}/shorts",
+            json={
+                "sourceRenderId": "render0001",
+                "segments": [{"unitId": "scene-2"}],
+                "captionMode": "shorts-native",
+            },
+        )
+
+        assert response.status_code == 422
+        body = response.json()
+        assert body["code"] == "short_captions_unavailable"
+        assert "yeniden oluşturun" in body["message"]
+        assert body["suggestion"]
+
+    def test_the_same_render_is_still_accepted_for_a_legacy_short(
+        self, client: TestClient, settings
+    ) -> None:  # noqa: ANN001
+        """Refusing native captions must not take legacy Shorts away."""
+        slug, _ = make_project(settings)
+        add_source(settings, slug)
+
+        response = client.post(
+            f"/api/projects/{slug}/shorts",
+            json={"sourceRenderId": "render0001", "segments": [{"unitId": "scene-2"}]},
+        )
+
+        assert response.status_code == 202
+        assert response.json()["request"]["captionMode"] == "source-burned-in"
+
+    def test_a_request_with_no_caption_fields_is_accepted_unchanged(
+        self, client: TestClient, settings
+    ) -> None:  # noqa: ANN001
+        """The pre-captions wire contract still validates and still plans."""
+        slug, _ = make_project(settings)
+        add_source(settings, slug)
+
+        response = client.post(
+            f"/api/projects/{slug}/shorts",
+            json={
+                "sourceRenderId": "render0001",
+                "segments": [{"unitId": "scene-1", "startSeconds": None, "endSeconds": None}],
+            },
+        )
+
+        assert response.status_code == 202
+        body = response.json()
+        assert body["cacheKey"]
+        assert body["request"]["captionStyle"] is None
+
+    def test_preflight_echoes_the_caption_capability_even_when_blocked(
+        self, client: TestClient, settings
+    ) -> None:  # noqa: ANN001
+        """The page needs to know *why* to disable the option, not just that."""
+        slug, _ = make_project(settings)
+        add_source(settings, slug)
+
+        body = client.post(
+            f"/api/projects/{slug}/shorts/preflight",
+            json={
+                "sourceRenderId": "render0001",
+                "segments": [{"unitId": "scene-2"}],
+                "captionMode": "shorts-native",
+            },
+        ).json()
+
+        assert body["captionMode"] == "shorts-native"
+        assert body["captionSupport"]["nativeAvailable"] is False
+        assert "altyazısız kopya" in body["captionSupport"]["reason"]
+
+    def test_an_unknown_caption_mode_is_a_422_not_a_silent_default(
+        self, client: TestClient, settings
+    ) -> None:  # noqa: ANN001
+        slug, _ = make_project(settings)
+        add_source(settings, slug)
+
+        response = client.post(
+            f"/api/projects/{slug}/shorts/preflight",
+            json={
+                "sourceRenderId": "render0001",
+                "segments": [{"unitId": "scene-1"}],
+                "captionMode": "remove-the-burned-in-ones",
+            },
+        )
+        assert response.status_code == 422
+
+    def test_a_caption_style_outside_its_bounds_is_refused(
+        self, client: TestClient, settings
+    ) -> None:  # noqa: ANN001
+        """Style is validated data, never free-form text bound for a filter."""
+        slug, _ = make_project(settings)
+        add_source(settings, slug)
+
+        response = client.post(
+            f"/api/projects/{slug}/shorts/preflight",
+            json={
+                "sourceRenderId": "render0001",
+                "segments": [{"unitId": "scene-1"}],
+                "captionMode": "shorts-native",
+                "captionStyle": {"preset": "standard", "color": "white'; drawtext=x"},
+            },
+        )
+        assert response.status_code == 422
+
+    def test_the_source_list_reports_caption_capability(
+        self, client: TestClient, settings
+    ) -> None:  # noqa: ANN001
+        slug, _ = make_project(settings)
+        add_source(settings, slug)
+
+        body = client.get(f"/api/projects/{slug}/shorts/sources").json()
+
+        assert len(body) == 1
+        captions = body[0]["captions"]
+        assert captions["nativeAvailable"] is False
+        assert captions["sourceHasBurnedInSubtitles"] is True
+        assert "altyazısız kopya" in captions["reason"]
 
     def test_creating_a_short_with_an_invalid_trim_is_a_422(
         self, client: TestClient, settings

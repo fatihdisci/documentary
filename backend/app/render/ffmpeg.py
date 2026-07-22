@@ -135,29 +135,28 @@ class Capabilities:
         out: list[str] = []
         if not self.has_drawtext:
             out.append(
-                "This FFmpeg build has no 'drawtext' filter (compiled without libfreetype). "
-                "That is fine: all text is rendered by Pillow into transparent PNGs and "
-                "composited with 'overlay', which looks identical on every machine."
+                "Bu FFmpeg sürümünde 'drawtext' özelliği yok. Sorun değil: bu uygulama "
+                "bütün yazıları kendisi çizer, böylece sonuç her bilgisayarda aynı görünür."
             )
         if not self.has_libass:
             out.append(
-                "No 'subtitles'/'ass' filter (compiled without libass). Burned-in subtitles "
-                "use the same Pillow overlay path. External .srt export is unaffected."
+                "Bu FFmpeg sürümünde 'subtitles' özelliği yok. Videoya gömülen altyazılar "
+                "yine uygulamanın kendi çizimiyle yapılır. Ayrı .srt dosyası bundan etkilenmez."
             )
         if not self.has_xfade:
             out.append(
-                "No 'xfade' filter — transitions will fall back to hard cuts. Install a "
-                "fuller FFmpeg build to get dissolves."
+                "'xfade' özelliği yok — sahne geçişleri sert kesme olarak yapılacak. "
+                "Yumuşak geçişler için tam sürüm FFmpeg kurun."
             )
         if not self.has_sidechain:
             out.append(
-                "No 'sidechaincompress' filter — music ducking falls back to a fixed lower "
-                "music level under narration."
+                "'sidechaincompress' özelliği yok — konuşma sırasında müzik otomatik "
+                "kısılmak yerine sabit ve daha düşük bir seviyede kalacak."
             )
         if not self.has_loudnorm:
             out.append(
-                "No 'loudnorm' filter — output loudness is set with a fixed gain instead of "
-                "EBU R128 normalization."
+                "'loudnorm' özelliği yok — ses seviyesi otomatik dengelenmek yerine sabit "
+                "bir değerle ayarlanacak."
             )
         return out
 
@@ -217,7 +216,7 @@ class FFmpegRunner:
             raise AppError(
                 ErrorCode.MISSING_IMAGE if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
                 else ErrorCode.MISSING_AUDIO,
-                f"File not found: {path.name}",
+                f"Dosya bulunamadı: {path.name}",
                 details=str(path),
             )
         args = [
@@ -257,7 +256,7 @@ class FFmpegRunner:
         except FileNotFoundError as exc:
             raise EnvironmentError_(
                 ErrorCode.FFMPEG_NOT_FOUND,
-                f"Could not execute '{args[0]}'.",
+                f"'{args[0]}' çalıştırılamadı.",
                 details=str(exc),
             ) from exc
         except subprocess.TimeoutExpired as exc:
@@ -297,7 +296,7 @@ class FFmpegRunner:
         except FileNotFoundError as exc:
             raise EnvironmentError_(
                 ErrorCode.FFMPEG_NOT_FOUND,
-                f"Could not execute '{arg_list[0]}'.",
+                f"'{arg_list[0]}' çalıştırılamadı.",
                 details=str(exc),
             ) from exc
 

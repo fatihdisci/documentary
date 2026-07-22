@@ -74,6 +74,13 @@ class ErrorCode(str, Enum):
     SHORT_TOO_LONG = "short_too_long"
     SHORT_JOB_NOT_FOUND = "short_job_not_found"
     SHORT_NOT_FOUND = "short_not_found"
+    #: The render has no Shorts-ready clean master, so its captions exist only as
+    #: burned-in pixels and cannot be replaced with large Shorts captions.
+    SHORT_CAPTIONS_UNAVAILABLE = "short_captions_unavailable"
+    #: A clean master or its caption data is missing, altered or mismatched.
+    #: Deliberately distinct from ``stale_render``: the *normal* export may be
+    #: perfectly fine, and only the Shorts-captioned path is blocked.
+    SHORT_CLEAN_SOURCE_STALE = "short_clean_source_stale"
 
     # Generic fallback (still requires a real message + fix)
     INTERNAL = "internal"
@@ -83,111 +90,125 @@ class ErrorCode(str, Enum):
 #: more specific, but there is always a non-empty suggestion.
 _DEFAULT_FIXES: dict[ErrorCode, str] = {
     ErrorCode.FFMPEG_NOT_FOUND: (
-        "Install FFmpeg (`brew install ffmpeg`) or set an explicit path in "
-        "Settings → FFmpeg path."
+        "FFmpeg kurulu değil. Terminalden `brew install ffmpeg` ile kurun ya da "
+        "Ayarlar → Video motoru bölümünde konumunu yazın."
     ),
     ErrorCode.FFPROBE_NOT_FOUND: (
-        "ffprobe ships with FFmpeg. Install FFmpeg or set the ffprobe path in Settings."
+        "ffprobe, FFmpeg ile birlikte gelir. FFmpeg'i kurun ya da Ayarlar'da konumunu yazın."
     ),
     ErrorCode.FFMPEG_FAILED: (
-        "Open the render log for the exact FFmpeg stderr. If it mentions a missing "
-        "filter, check Diagnostics for your build's capabilities."
+        "Ayrıntılar için kayıt dosyasına bakın. Eksik bir özellikten söz ediyorsa "
+        "Sistem kontrolü sayfasından FFmpeg'in neleri desteklediğini görebilirsiniz."
     ),
     ErrorCode.FFMPEG_CAPABILITY_MISSING: (
-        "Your FFmpeg build lacks a required filter. Check Diagnostics to see which "
-        "capabilities were detected."
+        "Bilgisayarınızdaki FFmpeg sürümünde gereken bir özellik yok. Sistem kontrolü "
+        "sayfasından hangi özelliklerin bulunduğunu görebilirsiniz."
     ),
     ErrorCode.FONT_UNAVAILABLE: (
-        "Pick a different font in Style settings, or restore the bundled fonts in "
-        "backend/assets/fonts."
+        "Görünüm ayarlarından başka bir yazı tipi seçin."
     ),
-    ErrorCode.PROJECT_NOT_FOUND: "Reload the project list; the project may have been moved or deleted.",
-    ErrorCode.PROJECT_EXISTS: "Choose a different project name.",
+    ErrorCode.PROJECT_NOT_FOUND: "Proje listesini yenileyin; proje taşınmış ya da silinmiş olabilir.",
+    ErrorCode.PROJECT_EXISTS: "Başka bir proje adı seçin.",
     ErrorCode.PATH_TRAVERSAL: (
-        "This file path points outside the project folder and was rejected. Re-upload "
-        "the file through the app instead of referencing it by path."
+        "Bu dosya yolu proje klasörünün dışını gösteriyor ve kabul edilmedi. Dosyayı "
+        "uygulama üzerinden yeniden yükleyin."
     ),
     ErrorCode.PERMISSION_DENIED: (
-        "Check folder permissions for the storage directory configured in Settings."
+        "Ayarlar'da tanımlı klasörün yazma izinlerini kontrol edin."
     ),
     ErrorCode.INSUFFICIENT_DISK_SPACE: (
-        "Free up disk space, lower the export quality, or point the temporary "
-        "directory at a larger volume in Settings."
+        "Diskte yer açın, video kalitesini düşürün ya da Ayarlar'dan geçici dosya "
+        "klasörünü daha geniş bir diske taşıyın."
     ),
     ErrorCode.EXPORT_EXISTS: (
-        "Exports are auto-versioned. If you see this, the versioning counter could not "
-        "find a free filename — remove old exports or rename the project."
+        "Videolar kendiliğinden numaralanır. Bu hatayı görüyorsanız boş bir dosya adı "
+        "bulunamamış demektir — eski videoları silin ya da projeyi yeniden adlandırın."
     ),
-    ErrorCode.FILE_TOO_LARGE: "Reduce the file size or raise the upload limit in Settings.",
-    ErrorCode.UNSUPPORTED_IMAGE: "Use PNG, JPEG or WebP.",
-    ErrorCode.CORRUPT_IMAGE: "The file could not be decoded. Re-export it and upload again.",
+    ErrorCode.FILE_TOO_LARGE: "Dosyayı küçültün ya da Ayarlar'dan yükleme sınırını yükseltin.",
+    ErrorCode.UNSUPPORTED_IMAGE: "PNG, JPEG veya WebP kullanın.",
+    ErrorCode.CORRUPT_IMAGE: "Dosya açılamadı. Görseli yeniden kaydedip tekrar yükleyin.",
     ErrorCode.IMAGE_TOO_SMALL: (
-        "Use an image at least 1280x720. Smaller images visibly soften once pan and "
-        "zoom is applied."
+        "En az 1280x720 boyutunda bir görsel kullanın. Daha küçük görseller, yakınlaşma "
+        "hareketi uygulanınca gözle görülür şekilde bulanıklaşır."
     ),
-    ErrorCode.MISSING_IMAGE: "Upload or re-link an image for this scene.",
-    ErrorCode.UNSUPPORTED_AUDIO: "Use WAV, MP3 or M4A.",
-    ErrorCode.CORRUPT_AUDIO: "The audio could not be decoded by FFmpeg. Re-export and upload again.",
-    ErrorCode.INVALID_JSON: "Fix the JSON syntax. The position of the parse error is in the details.",
-    ErrorCode.SCHEMA_VALIDATION: "Correct the fields listed in the details and import again.",
+    ErrorCode.MISSING_IMAGE: "Bu sahne için bir görsel yükleyin ya da başka bir görsel seçin.",
+    ErrorCode.UNSUPPORTED_AUDIO: "WAV, MP3 veya M4A kullanın.",
+    ErrorCode.CORRUPT_AUDIO: "Ses dosyası açılamadı. Yeniden kaydedip tekrar yükleyin.",
+    ErrorCode.INVALID_JSON: "Dosyadaki yazım hatasını düzeltin. Hatanın yeri ayrıntılarda yazıyor.",
+    ErrorCode.SCHEMA_VALIDATION: "Ayrıntılarda yazan alanları düzeltip yeniden yükleyin.",
     ErrorCode.UNSUPPORTED_SCHEMA_VERSION: (
-        "This file was written by a newer version of the app. Upgrade, or export the "
-        "project again from the newer version using an older schema."
+        "Bu dosya uygulamanın daha yeni bir sürümüyle oluşturulmuş. Uygulamayı güncelleyin."
     ),
     ErrorCode.TTS_PROVIDER_UNAVAILABLE: (
-        "Check your internet connection, or switch to the 'imported' provider and "
-        "upload narration audio per scene — the app renders fully offline that way."
+        "İnternet bağlantınızı kontrol edin. Ya da ses kaynağını “kendi kayıtlarım” yapıp "
+        "her sahne için hazır ses dosyası yükleyin — böylece internet gerekmez."
     ),
-    ErrorCode.TTS_TIMEOUT: "Retry. If it keeps timing out, switch provider or import audio manually.",
-    ErrorCode.TTS_FAILED: "See the details for the provider's response, then retry the affected scenes.",
-    ErrorCode.TTS_INVALID_API_KEY: "Re-enter the API key in Settings → TTS.",
+    ErrorCode.TTS_TIMEOUT: (
+        "Tekrar deneyin. Sürekli oluyorsa başka bir ses kaynağı seçin ya da kendi ses "
+        "kayıtlarınızı yükleyin."
+    ),
+    ErrorCode.TTS_FAILED: (
+        "Servisin verdiği yanıt ayrıntılarda yazıyor. Sonra ilgili sahneleri tekrar seslendirin."
+    ),
+    ErrorCode.TTS_INVALID_API_KEY: "Ayarlar → Servis anahtarları bölümünden anahtarı yeniden girin.",
     ErrorCode.TTS_QUOTA_EXCEEDED: (
-        "Wait for your quota to reset, switch to Edge TTS (free), or import audio."
+        "Kotanızın yenilenmesini bekleyin, ücretsiz olan Edge'e geçin ya da kendi ses "
+        "kayıtlarınızı yükleyin."
     ),
-    ErrorCode.MISSING_NARRATION: "Add narration text to this scene, or disable the scene.",
+    ErrorCode.MISSING_NARRATION: "Bu sahneye konuşma metni yazın ya da sahneyi kapatın.",
     ErrorCode.MISSING_AUDIO: (
-        "Generate TTS for this scene or upload an audio file before rendering."
+        "Video oluşturmadan önce bu sahneyi seslendirin ya da bir ses dosyası yükleyin."
     ),
-    ErrorCode.INVALID_DURATION: "Adjust the scene duration or switch the duration mode.",
+    ErrorCode.INVALID_DURATION: "Sahne süresini değiştirin ya da süre belirleme yöntemini değiştirin.",
     ErrorCode.INVALID_TRANSITION: (
-        "Shorten the transition, or lengthen the scenes it sits between. A transition "
-        "cannot exceed 40% of its shorter neighbour."
+        "Geçişi kısaltın ya da iki yanındaki sahneleri uzatın. Bir geçiş, kısa olan "
+        "komşusunun %40'ından uzun olamaz."
     ),
-    ErrorCode.RENDER_CANCELLED: "Start a new render when ready.",
-    ErrorCode.RENDER_FAILED: "Open the render log for the failing stage, fix the cause, then retry.",
+    ErrorCode.RENDER_CANCELLED: "Hazır olduğunuzda yeniden başlatabilirsiniz.",
+    ErrorCode.RENDER_FAILED: (
+        "Kayıt dosyasında hangi aşamada durduğu yazıyor. Sebebini giderip tekrar deneyin."
+    ),
     ErrorCode.OUTPUT_VALIDATION_FAILED: (
-        "FFmpeg finished but the output failed verification. The details list every "
-        "assertion and its actual value. Retry, and report this if it repeats."
+        "Video oluştu ama kontrolden geçemedi. Nelerin beklendiği ve ne bulunduğu "
+        "ayrıntılarda yazıyor. Tekrar deneyin; yine olursa bunu bildirin."
     ),
-    ErrorCode.JOB_NOT_FOUND: "The job list may be stale. Refresh the render history.",
+    ErrorCode.JOB_NOT_FOUND: "Liste güncel olmayabilir. Geçmişi yenileyin.",
     ErrorCode.SHORT_SOURCE_NOT_READY: (
-        "Shorts are cut from a finished video. Pick a render whose status is 'completed', "
-        "or render the long video first."
+        "Kısa videolar bitmiş bir videodan kesilir. Tamamlanmış bir video seçin ya da "
+        "önce uzun videoyu oluşturun."
     ),
     ErrorCode.SHORT_MANIFEST_MISSING: (
-        "This export predates the Shorts feature, so it has no section timeline. Re-render "
-        "the long video once; the new export carries a manifest and can be used for Shorts."
+        "Bu video, kısa video özelliği eklenmeden önce oluşturulmuş; bölüm bilgisi yok. "
+        "Uzun videoyu bir kez yeniden oluşturun, sonra kısa video kesebilirsiniz."
     ),
     ErrorCode.STALE_RENDER: (
-        "The exported video no longer matches the render it was recorded from. Re-render the "
-        "long video, then build the Short from the new export."
+        "Video dosyası, kaydedildiği hâlinden farklı. Uzun videoyu yeniden oluşturun ve "
+        "kısa videoyu yeni dosyadan kesin."
     ),
     ErrorCode.SHORT_INVALID_SELECTION: (
-        "Select at least one section from the source render's timeline, and only sections that "
-        "the selected render actually contains."
+        "En az bir bölüm seçin ve yalnızca seçtiğiniz videoda gerçekten bulunan bölümleri seçin."
     ),
     ErrorCode.SHORT_INVALID_TRIM: (
-        "Keep each trim inside the section's safe range, with the start before the end."
+        "Kırpmayı bölümün izin verilen aralığında tutun; başlangıç bitişten önce olmalı."
     ),
     ErrorCode.SHORT_TOO_LONG: (
-        "YouTube only treats videos up to three minutes as Shorts. Deselect a section or "
-        "trim the selection down."
+        "YouTube yalnızca üç dakikaya kadar olan videoları kısa video sayar. Bir bölümü "
+        "çıkarın ya da seçiminizi kısaltın."
     ),
-    ErrorCode.SHORT_JOB_NOT_FOUND: "The Shorts history may be stale. Reload the Shorts tab.",
+    ErrorCode.SHORT_JOB_NOT_FOUND: "Liste güncel olmayabilir. Kısa video sekmesini yenileyin.",
     ErrorCode.SHORT_NOT_FOUND: (
-        "That Short is no longer on disk. Reload the Shorts tab to refresh the list."
+        "Bu kısa video artık diskte yok. Listeyi yenilemek için sekmeyi tekrar açın."
     ),
-    ErrorCode.INTERNAL: "Check the backend log for the traceback.",
+    ErrorCode.SHORT_CAPTIONS_UNAVAILABLE: (
+        "Bu videonun altyazıları görüntünün içine gömülü. Büyük altyazı kullanmak için uzun "
+        "videoyu, altyazısız kopya hazırlama seçeneği açıkken yeniden oluşturun. Ya da bu "
+        "kısa videoyu videodaki mevcut altyazıyla oluşturun."
+    ),
+    ErrorCode.SHORT_CLEAN_SOURCE_STALE: (
+        "Altyazısız kopya ya da altyazı verisi, ait olduğu videoyla artık uyuşmuyor. Uzun "
+        "videoyu yeniden oluşturun ve kısa videoyu yeni dosyadan kesin."
+    ),
+    ErrorCode.INTERNAL: "Ayrıntılı bilgi için arka uç kayıt dosyasına bakın.",
 }
 
 

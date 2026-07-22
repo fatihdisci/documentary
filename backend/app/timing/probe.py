@@ -82,9 +82,9 @@ def probe_audio(path: Path, *, settings: Settings | None = None) -> AudioInfo:
     if not streams:
         raise ValidationError(
             ErrorCode.CORRUPT_AUDIO,
-            f"'{path.name}' contains no audio stream.",
-            details=f"streams found: {[s.get('codec_type') for s in data.get('streams', [])]}",
-            suggestion="Check the file plays elsewhere, then re-export it as WAV or MP3.",
+            f"'{path.name}' içinde ses yok.",
+            details=f"bulunan kanallar: {[s.get('codec_type') for s in data.get('streams', [])]}",
+            suggestion="Dosyanın başka bir oynatıcıda çaldığını doğrulayın, sonra WAV ya da MP3 olarak yeniden kaydedin.",
         )
 
     stream = streams[0]
@@ -92,9 +92,9 @@ def probe_audio(path: Path, *, settings: Settings | None = None) -> AudioInfo:
     if duration <= 0:
         raise ValidationError(
             ErrorCode.CORRUPT_AUDIO,
-            f"'{path.name}' reports a duration of zero.",
-            details=f"format={data.get('format', {})}",
-            suggestion="The file is likely truncated. Re-export it and try again.",
+            f"'{path.name}' süresi sıfır görünüyor.",
+            details=f"biçim={data.get('format', {})}",
+            suggestion="Dosya büyük ihtimalle eksik. Yeniden kaydedip tekrar deneyin.",
         )
 
     return AudioInfo(

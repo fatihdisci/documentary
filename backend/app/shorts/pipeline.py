@@ -2,24 +2,38 @@
 
 Small on purpose. The long pipeline renders a documentary from images, narration
 and music; this one does not render anything — it *cuts*. The finished MP4
-already contains the mixed narration, the music, the burned-in subtitles and the
-in-scene transitions, so the only jobs here are to take the right spans out of
-it, lay the 16:9 picture on a vertical black canvas, and prove the result.
+already contains the mixed narration, the music and the in-scene transitions, so
+the only jobs here are to take the right spans out of it, lay the 16:9 picture on
+a vertical black canvas, and prove the result.
 
 Stages:
 
   1. verify the source still matches its manifest
   2. cut each contiguous group (frame-accurate, cached)
   3. concatenate the cuts in the user's order
-  4. compose onto the 1080x1920 canvas
-  5. validate the output with ffprobe
-  6. publish atomically into ``exports/shorts/``
-  7. clean up
+  4. build the caption track, in ``shorts-native`` mode only
+  5. compose onto the 1080x1920 canvas
+  6. validate the output with ffprobe
+  7. publish atomically into ``exports/shorts/``
+  8. clean up
+
+**Which source is cut** is the one thing caption mode changes:
+
+* ``source-burned-in`` — the historical path, unchanged. Cut the finished
+  captioned export; the small burned-in captions come through with the picture.
+* ``shorts-native`` / ``off`` — cut the render's verified clean master instead,
+  which carries identical picture and identical audio and no burned-in captions.
+  In native mode the render's own cue data is rebased onto the Short's timeline
+  and drawn large, on the vertical canvas, *after* the 16:9 picture is placed.
+
+There is no third possibility. A render without a verified clean master is
+rejected in preflight with an actionable message; it is never silently cut from
+the captioned export, because that would caption the Short twice.
 
 Two rules inherited from ``render/ffmpeg.py`` hold throughout: commands are
 argument lists, never shell strings, and no user-supplied text ever reaches a
-filtergraph. Every number in the graph below is computed here from validated
-integers.
+filtergraph. Caption text exists only as pixels in a Pillow-drawn PNG. Every
+number in the graphs below is computed here from validated integers.
 """
 
 from __future__ import annotations
@@ -42,9 +56,24 @@ from app.shorts.encode import (
     segment_cache_name,
     short_video_args,
 )
-from app.shorts.manifest import RenderManifest, verify_source
+from app.shorts.captions import (
+    CaptionTrack,
+    build_caption_track,
+    overlay_steps,
+    track_digest,
+)
+from app.shorts.cues import CueSidecar, RebasedCue, rebase_cues
+from app.shorts.manifest import (
+    RenderManifest,
+    ShortsSourcePackage,
+    verify_clean_master,
+    verify_source,
+)
 from app.shorts.models import (
     ShortArtifact,
+    ShortCaptionMode,
+    ShortCaptionProvenance,
+    ShortCaptionStyle,
     ShortGroupPlan,
     ShortManifest,
     ShortPhase,
@@ -62,9 +91,10 @@ ProgressCallback = Callable[[ShortPhase, float, str], None]
 PHASE_WEIGHTS: dict[ShortPhase, float] = {
     ShortPhase.VALIDATE_SOURCE: 0.08,
     ShortPhase.PLAN: 0.02,
-    ShortPhase.CUT_SEGMENTS: 0.38,
+    ShortPhase.CUT_SEGMENTS: 0.36,
     ShortPhase.CONCAT: 0.07,
-    ShortPhase.COMPOSE: 0.32,
+    ShortPhase.BUILD_CAPTIONS: 0.04,
+    ShortPhase.COMPOSE: 0.30,
     ShortPhase.VALIDATE_OUTPUT: 0.08,
     ShortPhase.PUBLISH: 0.03,
     ShortPhase.CLEANUP: 0.02,
@@ -108,6 +138,8 @@ class ShortsPipeline:
         on_progress: ProgressCallback | None = None,
         cancel_event: asyncio.Event | None = None,
         job_id: str = "",
+        clean_master: Path | None = None,
+        cue_sidecar: CueSidecar | None = None,
     ) -> None:
         self.paths = paths
         self.manifest = manifest
@@ -121,14 +153,43 @@ class ShortsPipeline:
 
         self.layout = request.layout
         self.fps = manifest.profile.fps
-        #: Resolved once: every later comparison and FFmpeg argument uses it.
-        self.source_video = safe_join(paths.exports, manifest.source.filename)
+        self.caption_mode = request.caption_mode
+        self.caption_style: ShortCaptionStyle = request.resolved_caption_style()
+
+        #: The verified clean master and its cue data, resolved and checked by
+        #: the caller before the job was ever queued. Both are required for any
+        #: mode that does not cut the captioned export, and the constructor
+        #: refuses the combination rather than degrading to the wrong source.
+        self.clean_master = clean_master
+        self.cue_sidecar = cue_sidecar
+        if self.caption_mode.needs_clean_master and clean_master is None:
+            raise RenderError(
+                ErrorCode.SHORT_CAPTIONS_UNAVAILABLE,
+                "Bu videonun altyazıları görüntünün içine gömülü. Büyük altyazı kullanmak "
+                "için uzun videoyu, altyazısız kopya hazırlama seçeneği açıkken yeniden "
+                "oluşturun.",
+                details=f"'{self.caption_mode.value}' modu doğrulanmış bir altyazısız kopya ister",
+            )
+
+        #: The file this Short is actually cut from. Resolved once: every later
+        #: comparison, cache path and FFmpeg argument uses it.
+        self.export_video = safe_join(paths.exports, manifest.source.filename)
+        self.source_video = clean_master if clean_master is not None else self.export_video
+        #: Checksum of whatever ``source_video`` is, for the cut cache.
+        self.source_sha256 = (
+            manifest.shorts_source.clean_master.sha256
+            if clean_master is not None and manifest.shorts_source is not None
+            else manifest.source.sha256
+        )
+
         self.log: list[str] = []
         self.warnings: list[str] = list(plan.warnings)
         self._completed_weight = 0.0
         self._last_reported = 0.0
         self._reused = 0
         self._cut = 0
+        self._captions: CaptionTrack = CaptionTrack()
+        self._rebased: list[RebasedCue] = []
 
     # --- plumbing ---------------------------------------------------------
 
@@ -176,18 +237,28 @@ class ShortsPipeline:
 
         try:
             # 1. The source must still be exactly the file the manifest describes.
-            self._emit(ShortPhase.VALIDATE_SOURCE, 0.0, "Checking the source render")
-            verify_source(self.manifest, self.source_video, settings=self.settings)
+            #    For a captioned cut that is the export itself; for a native one
+            #    it is the clean master, which the caller verified in full before
+            #    queueing and which is re-checked here against the same manifest.
+            self._emit(ShortPhase.VALIDATE_SOURCE, 0.0, "Kaynak video kontrol ediliyor")
+            if self.clean_master is None:
+                verify_source(self.manifest, self.source_video, settings=self.settings)
+            else:
+                verify_clean_master(
+                    self.manifest, self.source_video, settings=self.settings
+                )
             self._record(
-                f"[source] {self.manifest.source.filename} "
+                f"[source] {self.source_video.name} "
                 f"{self.manifest.source.width}x{self.manifest.source.height} "
-                f"@{self.fps}fps, sha256 ok"
+                f"@{self.fps}fps, sha256 ok "
+                f"({'clean master' if self.clean_master else 'captioned export'})"
             )
+            self._record(f"[captions] mode {self.caption_mode.value}")
             self._finish_phase(ShortPhase.VALIDATE_SOURCE)
 
             # 2. Log the plan. It was computed and validated before the job was
             #    ever queued; nothing here recomputes a boundary.
-            self._emit(ShortPhase.PLAN, 0.0, "Preparing the cut list")
+            self._emit(ShortPhase.PLAN, 0.0, "Kesim listesi hazırlanıyor")
             for group in self.plan.groups:
                 self._record(
                     f"[cut {group.index}] sections {group.numbers} "
@@ -199,13 +270,18 @@ class ShortsPipeline:
 
             joined = await self._materialize(work)
 
-            # 4. Lay the horizontal picture on the vertical canvas.
+            # 4. Captions, in native mode only.
+            await self._build_captions(work)
+            self._finish_phase(ShortPhase.BUILD_CAPTIONS)
+
+            # 5. Lay the horizontal picture on the vertical canvas, then draw the
+            #    captions over it — on the canvas, not inside the picture.
             output = work / "short.mp4"
             await self._compose(joined, output)
             self._finish_phase(ShortPhase.COMPOSE)
 
             # 5. Prove it.
-            self._emit(ShortPhase.VALIDATE_OUTPUT, 0.0, "Validating the Short")
+            self._emit(ShortPhase.VALIDATE_OUTPUT, 0.0, "Kısa video kontrol ediliyor")
             validation = validate_short(
                 output,
                 expected_width=self.layout.width,
@@ -220,22 +296,22 @@ class ShortsPipeline:
             if not validation.passed:
                 raise RenderError(
                     ErrorCode.OUTPUT_VALIDATION_FAILED,
-                    "FFmpeg finished, but the Short failed validation and was not published.",
+                    "Kısa video oluştu ama kontrolden geçemedi ve kaydedilmedi.",
                     details=validation.format_failures(),
                     suggestion=(
-                        "The partial file was discarded rather than listed as complete. "
-                        "Retry; if it repeats, the details above name every assertion."
+                        "Yarım dosya tamamlanmış gibi listelenmedi, silindi. Tekrar deneyin; "
+                        "yine olursa yukarıdaki ayrıntılarda hangi kontrolün kaldığı yazıyor."
                     ),
                 )
             self.warnings.extend(validation.warnings)
             self._finish_phase(ShortPhase.VALIDATE_OUTPUT)
 
             # 6. Publish atomically.
-            self._emit(ShortPhase.PUBLISH, 0.0, "Publishing the Short")
+            self._emit(ShortPhase.PUBLISH, 0.0, "Kısa video kaydediliyor")
             artifacts, short_manifest = self._publish(output, validation)
             self._finish_phase(ShortPhase.PUBLISH)
 
-            self._emit(ShortPhase.CLEANUP, 0.0, "Cleaning up")
+            self._emit(ShortPhase.CLEANUP, 0.0, "Temizlik yapılıyor")
             self._finish_phase(ShortPhase.CLEANUP)
 
             return ShortsResult(
@@ -293,7 +369,7 @@ class ShortsPipeline:
             self._record(f"[cut {group.index}] reused cached segment {target.name}")
             self._emit(
                 ShortPhase.CUT_SEGMENTS, (position + 1) / total,
-                f"Reused cut {position + 1} of {total}",
+                f"Hazır parça kullanıldı: {position + 1} / {total}",
             )
             return target
 
@@ -331,10 +407,12 @@ class ShortsPipeline:
             self._emit(
                 ShortPhase.CUT_SEGMENTS,
                 (position + fraction) / total,
-                f"Cutting {position + 1} of {total}",
+                f"Kesiliyor: {position + 1} / {total}",
             )
 
-        self._emit(ShortPhase.CUT_SEGMENTS, position / total, f"Cutting {position + 1} of {total}")
+        self._emit(
+            ShortPhase.CUT_SEGMENTS, position / total, f"Kesiliyor: {position + 1} / {total}"
+        )
         await self.runner.run(
             args,
             stage=f"short-cut-{group.index}",
@@ -349,7 +427,7 @@ class ShortsPipeline:
 
     async def _concat(self, segments: list[Path], work: Path) -> Path:
         """Join the cuts in selection order, copying streams where possible."""
-        self._emit(ShortPhase.CONCAT, 0.0, "Joining the cuts")
+        self._emit(ShortPhase.CONCAT, 0.0, "Parçalar birleştiriliyor")
         joined = work / "joined.mp4"
         listing = work / "concat.txt"
         listing.write_text(
@@ -379,9 +457,8 @@ class ShortsPipeline:
             logger.warning("concat copy failed, re-encoding instead: %s", exc.message)
             self._record("[concat] stream-copy join failed; falling back to a re-encode")
             self.warnings.append(
-                "The cuts could not be joined by copying streams, so they were re-encoded. "
-                "The result is identical in content, just one generation further from the "
-                "source."
+                "Parçalar doğrudan birleştirilemediği için yeniden kaydedildi. İçerik birebir "
+                "aynı; sadece kaynaktan bir adım daha uzak."
             )
 
         joined.unlink(missing_ok=True)
@@ -403,15 +480,138 @@ class ShortsPipeline:
             stage="short-concat-reencode",
             expected_duration=self.plan.total_duration_seconds,
             on_progress=lambda fraction: self._emit(
-                ShortPhase.CONCAT, fraction, "Joining the cuts"
+                ShortPhase.CONCAT, fraction, "Parçalar birleştiriliyor"
             ),
             log_sink=self._record,
             cancel_event=self.cancel_event,
         )
         return joined
 
+    async def _build_captions(self, work: Path) -> None:
+        """Rebase the render's cues onto this Short and draw them.
+
+        Only ``shorts-native`` reaches the drawing. ``off`` deliberately does
+        nothing: it already cut the clean master, which has no captions in it.
+        """
+        if self.caption_mode is not ShortCaptionMode.SHORTS_NATIVE:
+            return
+        self._check_cancelled()
+        assert self.cue_sidecar is not None  # guaranteed by the constructor
+
+        self._emit(ShortPhase.BUILD_CAPTIONS, 0.0, "Altyazılar hazırlanıyor")
+        self._rebased = rebase_cues(self.cue_sidecar.cues, self.plan.groups)
+        self._record(
+            f"[captions] {len(self.cue_sidecar.cues)} source cue(s) -> "
+            f"{len(self._rebased)} after clipping to {len(self.plan.groups)} cut(s)"
+        )
+        if not self._rebased:
+            self.warnings.append(
+                "Seçtiğiniz bölümlerin hiçbirinde konuşma yok, bu yüzden kısa videoda "
+                "altyazı yok. Görüntü ve ses bundan etkilenmedi."
+            )
+            return
+
+        self._captions = build_caption_track(
+            self._rebased,
+            self.caption_style,
+            canvas_width=self.layout.width,
+            canvas_height=self.layout.height,
+            output_dir=self.paths.shorts_cache / "caption-cards",
+        )
+        if self._captions.is_empty:
+            return
+
+        first = self._captions.cards[0].card
+        self._record(
+            f"[captions] {len(self._captions.cards)} card(s) at "
+            f"{self._captions.fitted_font_size}px, bottom inset "
+            f"{self.caption_style.safe_bottom_inset}px, first card box "
+            f"{first.box_width}x{first.box_height} at ({first.box_x},{first.box_y})"
+        )
+
+        self._emit(ShortPhase.BUILD_CAPTIONS, 0.4, "Altyazılar çiziliyor")
+        if self._captions.should_precompose:
+            # A dense track would otherwise mean one FFmpeg input and two filter
+            # steps per cue in the compose graph. Bake them into a single
+            # transparent video instead, exactly as the long pipeline does for a
+            # scene with many cues.
+            self._captions.precomposed = await self._precompose_captions(work)
+            self._record(
+                f"[captions] pre-composited into {self._captions.precomposed.name}"
+            )
+
+    async def _precompose_captions(self, work: Path) -> Path:
+        """Bake every caption card into one transparent QT RLE track."""
+        digest = track_digest(
+            self._captions,
+            canvas_width=self.layout.width,
+            canvas_height=self.layout.height,
+        )
+        cache = self.paths.shorts_cache / "caption-tracks"
+        cache.mkdir(parents=True, exist_ok=True)
+        target = cache / f"captions-{digest}.mov"
+        if target.is_file() and target.stat().st_size > 1_000:
+            return target
+
+        total = self.plan.total_duration_seconds
+        inputs: list[str] = [
+            "-f", "lavfi", "-t", f"{total:.4f}",
+            "-i",
+            f"color=c=black@0.0:s={self.layout.width}x{self.layout.height}:"
+            f"r={self.fps},format=rgba",
+        ]
+        next_index = 1
+
+        def add_input(path: Path) -> int:
+            nonlocal next_index
+            inputs.extend(["-loop", "1", "-t", f"{total:.4f}", "-i", str(path)])
+            used = next_index
+            next_index += 1
+            return used
+
+        steps, current = overlay_steps(
+            self._captions,
+            style=self.caption_style,
+            current="0:v",
+            add_input=add_input,
+            duration=total,
+        )
+        steps.append(f"[{current}]format=rgba[out]")
+
+        partial = work / f"captions-{digest}.partial.mov"
+        partial.unlink(missing_ok=True)
+        args = [
+            self.settings.require_tool("ffmpeg"),
+            "-hide_banner", "-nostdin", "-y", *progress_args(),
+            *inputs,
+            "-filter_complex", ";".join(steps),
+            "-map", "[out]",
+            *base_output_args(fps=self.fps),
+            "-t", f"{total:.4f}",
+            # QT RLE keeps the alpha channel, which H.264 cannot carry.
+            "-c:v", "qtrle",
+            str(partial),
+        ]
+        await self.runner.run(
+            args,
+            stage="short-captions",
+            expected_duration=total,
+            on_progress=lambda fraction: self._emit(
+                ShortPhase.BUILD_CAPTIONS, 0.4 + 0.6 * fraction, "Altyazılar çiziliyor"
+            ),
+            log_sink=self._record,
+            cancel_event=self.cancel_event,
+        )
+        os.replace(partial, target)
+        return target
+
     async def _compose(self, source: Path, output: Path) -> None:
-        """Place the horizontal picture centred on the vertical canvas."""
+        """Place the horizontal picture centred on the vertical canvas.
+
+        Captions go on **after** the pad, in canvas coordinates, so they keep the
+        size they were designed at instead of being scaled down with the 16:9
+        picture — which is the entire point of the feature.
+        """
         self._check_cancelled()
         geometry = fit_geometry(
             self.manifest.source.width,
@@ -427,30 +627,68 @@ class ShortsPipeline:
             f"({geometry.offset_x},{geometry.offset_y}), background {colour}"
         )
 
+        # Inputs are collected separately from output options on purpose: a bare
+        # "-t" is an input option when it precedes an "-i" and an output option
+        # when it follows the last one, so appending caption inputs into a list
+        # that already carried the output's duration would silently retarget it.
+        total = self.plan.total_duration_seconds
+        single_pass = source == self.source_video
+        inputs: list[str] = []
+        if single_pass:
+            inputs += ["-ss", f"{self.plan.groups[0].start_seconds:.6f}"]
+        inputs += ["-i", str(source)]
+
         # Every value below is an integer this module computed, or a hex colour
         # matched against _HEX_COLOUR. No user text is interpolated.
-        graph = (
+        steps = [
             f"[0:v]scale={geometry.inner_width}:{geometry.inner_height}:flags=bicubic,"
             f"setsar=1,"
             f"pad={self.layout.width}:{self.layout.height}:"
             f"{geometry.offset_x}:{geometry.offset_y}:color={colour},"
-            f"format=yuv420p,fps={self.fps}[v]"
-        )
+            f"fps={self.fps},format=rgba[canvas]"
+        ]
+        current = "canvas"
+        next_index = 1
+
+        def add_input(path: Path) -> int:
+            nonlocal next_index
+            inputs.extend(["-loop", "1", "-t", f"{total:.4f}", "-i", str(path)])
+            used = next_index
+            next_index += 1
+            return used
+
+        if self._captions.precomposed is not None:
+            inputs.extend(["-i", str(self._captions.precomposed)])
+            index = next_index
+            next_index += 1
+            steps.append(f"[{index}:v]format=rgba[captions]")
+            steps.append(f"[{current}][captions]overlay=0:0[captioned]")
+            current = "captioned"
+        elif self._captions.cards:
+            caption_steps, current = overlay_steps(
+                self._captions,
+                style=self.caption_style,
+                current=current,
+                add_input=add_input,
+                duration=total,
+            )
+            steps.extend(caption_steps)
+
+        steps.append(f"[{current}]format=yuv420p[v]")
 
         args = [
             self.settings.require_tool("ffmpeg"),
             "-hide_banner", "-nostdin", "-y", *progress_args(),
+            *inputs,
         ]
-        single_pass = source == self.source_video
-        if single_pass:
-            group = self.plan.groups[0]
-            args += ["-ss", f"{group.start_seconds:.6f}"]
-        args += ["-i", str(source)]
         if single_pass:
             args += ["-t", f"{self.plan.groups[0].duration_seconds:.6f}"]
-
+        elif next_index > 1:
+            # Looped caption stills never end, so a multi-cut compose needs the
+            # duration stated explicitly once anything else is an input.
+            args += ["-t", f"{total:.6f}"]
         args += [
-            "-filter_complex", graph,
+            "-filter_complex", ";".join(steps),
             "-map", "[v]", "-map", "0:a:0",
             *base_output_args(fps=self.fps),
             *short_video_args(),
@@ -459,13 +697,13 @@ class ShortsPipeline:
             str(output),
         ]
 
-        self._emit(ShortPhase.COMPOSE, 0.0, "Building the vertical frame")
+        self._emit(ShortPhase.COMPOSE, 0.0, "Dikey görüntü hazırlanıyor")
         await self.runner.run(
             args,
             stage="short-compose",
             expected_duration=self.plan.total_duration_seconds,
             on_progress=lambda fraction: self._emit(
-                ShortPhase.COMPOSE, fraction, f"Building the vertical frame — {fraction * 100:.0f}%"
+                ShortPhase.COMPOSE, fraction, f"Dikey görüntü hazırlanıyor — %{fraction * 100:.0f}"
             ),
             log_sink=self._record,
             cancel_event=self.cancel_event,
@@ -496,6 +734,13 @@ class ShortsPipeline:
             duration_seconds=self.plan.total_duration_seconds,
             size_bytes=validation.size_bytes,
             sha256=validation.checksum,
+            caption_mode=self.caption_mode,
+            caption_style=(
+                self.caption_style
+                if self.caption_mode is ShortCaptionMode.SHORTS_NATIVE
+                else None
+            ),
+            captions=self._provenance(),
             plan=self.plan,
             request=self.request,
             validation=validation.to_dict(),
@@ -519,10 +764,38 @@ class ShortsPipeline:
 
     # --- helpers ----------------------------------------------------------
 
+    def _provenance(self) -> ShortCaptionProvenance:
+        """A compact record of where this Short's captions came from."""
+        package: ShortsSourcePackage | None = (
+            self.manifest.shorts_source if self.clean_master is not None else None
+        )
+        return ShortCaptionProvenance(
+            mode=self.caption_mode,
+            source_cue_count=len(self.cue_sidecar.cues) if self.cue_sidecar else 0,
+            rendered_cue_count=len(self._captions.cards),
+            fitted_font_size=self._captions.fitted_font_size,
+            font_family=self.caption_style.font_family,
+            safe_bottom_inset=self.caption_style.safe_bottom_inset,
+            clean_master=package.clean_master.filename if package else None,
+            clean_master_sha256=package.clean_master.sha256 if package else None,
+            clean_master_origin=package.origin if package else None,
+            cue_sidecar=package.cue_sidecar.filename if package else None,
+            cue_sidecar_sha256=package.cue_sidecar.sha256 if package else None,
+            cue_content_hash=package.cue_sidecar.content_hash if package else None,
+            cue_schema_version=package.cue_sidecar.schema_version if package else None,
+            cue_timing_source=package.cue_sidecar.timing_source if package else None,
+            precomposed=self._captions.precomposed is not None,
+        )
+
     def _segment_path(self, group: ShortGroupPlan) -> Path:
-        """Content-addressed cache path for one cut."""
+        """Content-addressed cache path for one cut.
+
+        Keyed on the checksum of the file the cut came out of, so a cut of the
+        captioned export and the same span of the clean master can never be
+        confused for each other.
+        """
         name = segment_cache_name(
-            self.manifest.source.sha256,
+            self.source_sha256,
             group.start_seconds,
             group.end_seconds,
             self.fps,
@@ -582,8 +855,8 @@ def _ffmpeg_colour(value: str) -> str:
     if not _HEX_COLOUR.match(value):
         raise RenderError(
             ErrorCode.SHORT_INVALID_SELECTION,
-            "The background colour is not a valid hex value.",
-            details=f"got {value!r}, expected #RRGGBB",
+            "Arka plan rengi geçerli değil.",
+            details=f"gelen {value!r}, beklenen #RRGGBB",
         )
     return f"0x{value[1:].upper()}"
 

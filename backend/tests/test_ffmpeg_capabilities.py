@@ -85,7 +85,7 @@ class TestCapabilityLogic:
         caps = make_caps(set(REQUIRED_FILTERS), set(REQUIRED_ENCODERS))
         notes = " ".join(caps.notes())
         assert "drawtext" in notes
-        assert "Pillow" in notes
+        assert "yazıları kendisi çizer" in notes
         assert "xfade" in notes
         assert "sidechaincompress" in notes
         assert "loudnorm" in notes

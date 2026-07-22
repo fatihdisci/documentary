@@ -77,7 +77,7 @@ def _label_for(project: Project, unit_id: str) -> str:
     scene = project.scene_by_id(unit_id)
     if scene is None:
         return unit_id
-    return scene.title or f"Scene {scene.order + 1}"
+    return scene.title or f"{scene.order + 1}. sahne"
 
 
 def _audio_url(slug: str, relative: str) -> str:
@@ -129,8 +129,8 @@ def preview_file(name: str) -> object:
     if not target.is_file():
         raise NotFoundError(
             ErrorCode.MISSING_AUDIO,
-            "That voice preview is no longer available.",
-            suggestion="Generate the preview again.",
+            "Bu ses örneği artık mevcut değil.",
+            suggestion="Örneği yeniden oluşturun.",
         )
     return FileResponse(target, media_type="audio/mpeg")
 
@@ -150,9 +150,9 @@ async def generate_narration(slug: str, request: GenerateRequest) -> GenerateRes
         if missing:
             raise ValidationError(
                 ErrorCode.SCHEMA_VALIDATION,
-                f"Unknown section(s): {', '.join(missing)}",
+                f"Tanınmayan bölüm(ler): {', '.join(missing)}",
                 details=f"available: {', '.join(unit_map)}",
-                suggestion="Reload the project; these sections may have been deleted.",
+                suggestion="Projeyi yeniden açın; bu bölümler silinmiş olabilir.",
             )
         targets = [(uid, unit_map[uid]) for uid in request.unit_ids]
     elif request.force:
@@ -224,7 +224,7 @@ async def import_audio(slug: str, unit_id: str, file: UploadFile = File(...)) ->
     if unit is None:
         raise NotFoundError(
             ErrorCode.PROJECT_NOT_FOUND,
-            f"Section '{unit_id}' is not in this project.",
+            f"'{unit_id}' bölümü bu projede yok.",
         )
 
     settings = get_settings()
@@ -294,9 +294,9 @@ def get_subtitles(slug: str) -> PlainTextResponse:
     if not timeline.cues:
         raise ValidationError(
             ErrorCode.MISSING_AUDIO,
-            "No subtitles can be generated yet.",
+            "Henüz altyazı oluşturulamıyor.",
             details="subtitle timing requires measured narration audio",
-            suggestion="Generate or import narration audio first, then try again.",
+            suggestion="Önce metinleri seslendirin ya da ses dosyası yükleyin.",
         )
     return PlainTextResponse(render_srt(timeline.cues), media_type="application/x-subrip")
 
@@ -309,7 +309,7 @@ def get_scene_subtitles(slug: str, unit_id: str) -> PlainTextResponse:
     if not cues:
         raise NotFoundError(
             ErrorCode.MISSING_AUDIO,
-            f"No subtitles exist for section '{unit_id}'.",
-            suggestion="Generate narration audio for this section first.",
+            f"'{unit_id}' bölümü için altyazı yok.",
+            suggestion="Önce bu bölümü seslendirin.",
         )
     return PlainTextResponse(render_srt(cues), media_type="application/x-subrip")

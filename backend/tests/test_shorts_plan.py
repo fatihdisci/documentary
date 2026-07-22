@@ -154,7 +154,7 @@ class TestValidation:
                 request_for("scene-2", trims={"scene-2": (scene.start_seconds, None)}),
             )
         assert exc.value.code is ErrorCode.SHORT_INVALID_TRIM
-        assert "transitions" in (exc.value.details or "")
+        assert "geçişlerdir" in (exc.value.details or "")
 
     def test_trim_past_the_safe_end_is_rejected(self, manifest) -> None:  # noqa: ANN001
         scene = manifest.entry("scene-2")
@@ -210,12 +210,12 @@ class TestWarnings:
         built = make_manifest(tmp_path / "m.mp4", entries=entries, total=total)
         plan = build_plan(built, request_for("scene-1", "scene-2", "scene-3", "scene-4"))
         assert plan.total_duration_seconds > 60
-        assert any("Content ID" in w for w in plan.warnings)
+        assert any("telifliyse" in w for w in plan.warnings)
 
     def test_a_short_selection_warns_it_is_under_the_band(self, manifest) -> None:  # noqa: ANN001
         plan = build_plan(manifest, request_for("scene-2"))
         assert plan.total_duration_seconds < 25
-        assert any("recommended band" in w for w in plan.warnings)
+        assert any("Önerilen aralık" in w for w in plan.warnings)
 
     def test_no_content_id_warning_under_a_minute(self, manifest) -> None:  # noqa: ANN001
         plan = build_plan(manifest, request_for("scene-1", "scene-2", "scene-3"))

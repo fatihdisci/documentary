@@ -26,6 +26,7 @@ import json
 import logging
 
 from app.errors import ErrorCode, ValidationError
+from app.shorts.captions import CAPTION_RENDERER_VERSION
 from app.shorts.encode import encoder_fingerprint
 from app.shorts.manifest import ManifestEntry, RenderManifest
 from app.shorts.models import (
@@ -33,12 +34,15 @@ from app.shorts.models import (
     MIN_CLIP_SECONDS,
     RECOMMENDED_MAX_SECONDS,
     RECOMMENDED_MIN_SECONDS,
+    ShortCaptionMode,
+    ShortCaptionStyle,
     ShortGroupPlan,
     ShortLayout,
     ShortPlan,
     ShortRequest,
     ShortSegmentPlan,
     ShortSegmentRequest,
+    resolve_caption_style,
 )
 
 logger = logging.getLogger("evb.shorts.plan")
@@ -57,11 +61,11 @@ def build_plan(manifest: RenderManifest, request: ShortRequest) -> ShortPlan:
     if total > MAX_SHORT_SECONDS + EPSILON:
         raise ValidationError(
             ErrorCode.SHORT_TOO_LONG,
-            f"This selection is {total:.1f} seconds long, over the "
-            f"{MAX_SHORT_SECONDS:.0f}-second limit for a YouTube Short.",
+            f"Seçiminiz {total:.1f} saniye. YouTube kısa videoları için sınır "
+            f"{MAX_SHORT_SECONDS:.0f} saniye.",
             details=(
-                f"{len(segments)} section(s) selected, "
-                f"{len(groups)} cut(s), total {total:.3f}s"
+                f"{len(segments)} bölüm seçildi, "
+                f"{len(groups)} parça, toplam {total:.3f} sn"
             ),
         )
 
@@ -72,7 +76,13 @@ def build_plan(manifest: RenderManifest, request: ShortRequest) -> ShortPlan:
         total_duration_seconds=total,
         warnings=warnings,
     )
-    plan.cache_key = cache_key(manifest, plan, request.layout)
+    plan.cache_key = cache_key(
+        manifest,
+        plan,
+        request.layout,
+        caption_mode=request.caption_mode,
+        caption_style=request.resolved_caption_style(),
+    )
     return plan
 
 
@@ -82,8 +92,8 @@ def _resolve_segments(
     if not requested:
         raise ValidationError(
             ErrorCode.SHORT_INVALID_SELECTION,
-            "Select at least one section to build a Short from.",
-            details="the request contained no sections",
+            "Kısa video için en az bir bölüm seçin.",
+            details="hiç bölüm seçilmemiş",
         )
 
     seen: set[str] = set()
@@ -94,9 +104,9 @@ def _resolve_segments(
         if entry is None:
             raise ValidationError(
                 ErrorCode.SHORT_INVALID_SELECTION,
-                f"Section '{item.unit_id}' is not part of the selected render.",
+                f"'{item.unit_id}' bölümü seçtiğiniz videoda yok.",
                 details=(
-                    "sections in this render: "
+                    "bu videodaki bölümler: "
                     + ", ".join(f"{e.number} ({e.unit_id})" for e in manifest.entries)
                 ),
                 unit_id=item.unit_id,
@@ -104,9 +114,9 @@ def _resolve_segments(
         if item.unit_id in seen:
             raise ValidationError(
                 ErrorCode.SHORT_INVALID_SELECTION,
-                f"Section {entry.number} — {entry.title} was selected twice.",
-                details=f"position {position + 1} repeats '{item.unit_id}'",
-                suggestion="Remove the duplicate. Each section can appear once per Short.",
+                f"{entry.number}. bölüm — {entry.title} iki kez seçilmiş.",
+                details=f"{position + 1}. sırada '{item.unit_id}' tekrar ediyor",
+                suggestion="Tekrarı kaldırın. Her bölüm bir kısa videoda bir kez yer alabilir.",
                 unit_id=item.unit_id,
             )
         seen.add(item.unit_id)
@@ -119,7 +129,7 @@ def _resolve_one(entry: ManifestEntry, item: ShortSegmentRequest) -> ShortSegmen
     """Apply the requested trim, refusing anything outside the safe range."""
     safe_start = entry.safe_start_seconds
     safe_end = entry.safe_end_seconds
-    label = f"Section {entry.number} — {entry.title}"
+    label = f"{entry.number}. bölüm — {entry.title}"
 
     start = safe_start if item.start_seconds is None else float(item.start_seconds)
     end = safe_end if item.end_seconds is None else float(item.end_seconds)
@@ -127,12 +137,12 @@ def _resolve_one(entry: ManifestEntry, item: ShortSegmentRequest) -> ShortSegmen
     if start < safe_start - EPSILON or end > safe_end + EPSILON:
         raise ValidationError(
             ErrorCode.SHORT_INVALID_TRIM,
-            f"{label} can only be trimmed between {safe_start:.2f}s and {safe_end:.2f}s.",
+            f"{label} yalnızca {safe_start:.2f} sn ile {safe_end:.2f} sn arasında kırpılabilir.",
             details=(
-                f"requested {start:.3f}s to {end:.3f}s\n"
-                f"safe range {safe_start:.3f}s to {safe_end:.3f}s\n"
-                "the excluded margins are the transitions this section shares with its "
-                "neighbours; cutting inside one would duplicate frames"
+                f"istenen: {start:.3f} sn – {end:.3f} sn\n"
+                f"izin verilen: {safe_start:.3f} sn – {safe_end:.3f} sn\n"
+                "dışarıda bırakılan kısımlar, bu bölümün komşularıyla paylaştığı geçişlerdir; "
+                "oradan kesmek görüntüde tekrara yol açar"
             ),
             unit_id=entry.unit_id,
         )
@@ -145,12 +155,13 @@ def _resolve_one(entry: ManifestEntry, item: ShortSegmentRequest) -> ShortSegmen
     if end - start < MIN_CLIP_SECONDS - EPSILON:
         raise ValidationError(
             ErrorCode.SHORT_INVALID_TRIM,
-            f"{label} would be {max(0.0, end - start):.2f}s long, under the "
-            f"{MIN_CLIP_SECONDS:.1f}s minimum clip length.",
-            details=f"start {start:.3f}s, end {end:.3f}s",
+            f"{label} {max(0.0, end - start):.2f} saniye olurdu; en az "
+            f"{MIN_CLIP_SECONDS:.1f} saniye olmalı.",
+            details=f"başlangıç {start:.3f} sn, bitiş {end:.3f} sn",
             suggestion=(
-                "Widen the trim, or deselect this section. A clip shorter than "
-                f"{MIN_CLIP_SECONDS:.1f}s reads as a glitch rather than a shot."
+                "Kırpmayı genişletin ya da bu bölümü seçimden çıkarın. "
+                f"{MIN_CLIP_SECONDS:.1f} saniyeden kısa bir parça, sahne gibi değil hata gibi "
+                "görünür."
             ),
             unit_id=entry.unit_id,
         )
@@ -237,28 +248,29 @@ def _warnings(total: float, groups: list[ShortGroupPlan]) -> list[str]:
 
     if total < RECOMMENDED_MIN_SECONDS:
         warnings.append(
-            f"This Short is {total:.0f}s. The recommended band is "
-            f"{RECOMMENDED_MIN_SECONDS:.0f}–{RECOMMENDED_MAX_SECONDS:.0f}s; shorter clips "
-            "often end before the viewer has a reason to stay."
+            f"Bu kısa video {total:.0f} saniye. Önerilen aralık "
+            f"{RECOMMENDED_MIN_SECONDS:.0f}–{RECOMMENDED_MAX_SECONDS:.0f} saniye; daha kısa "
+            "videolar izleyici ilgilenmeye fırsat bulamadan bitiyor."
         )
     elif total > RECOMMENDED_MAX_SECONDS:
         warnings.append(
-            f"This Short is {total:.0f}s, above the recommended "
-            f"{RECOMMENDED_MIN_SECONDS:.0f}–{RECOMMENDED_MAX_SECONDS:.0f}s band."
+            f"Bu kısa video {total:.0f} saniye; önerilen "
+            f"{RECOMMENDED_MIN_SECONDS:.0f}–{RECOMMENDED_MAX_SECONDS:.0f} saniyelik aralığın "
+            "üzerinde."
         )
 
     if total > 60.0:
         warnings.append(
-            "Over 60 seconds: a Short longer than a minute can be blocked worldwide if any "
-            "music in it has an active Content ID claim. That is fine when the music is "
-            "yours or licensed — otherwise keep the Short under a minute."
+            "60 saniyeyi aştı: bir dakikadan uzun kısa videolar, içindeki müzik telifliyse "
+            "tüm dünyada engellenebilir. Müzik sizinse veya lisanslıysa sorun yok; değilse bir "
+            "dakikanın altında kalın."
         )
 
     if len(groups) > 1:
         warnings.append(
-            f"{len(groups)} separate cuts: the sections you picked are not all adjacent, so "
-            "they join with hard cuts. Nothing is faded or added — the audio and picture come "
-            "straight from the finished render."
+            f"{len(groups)} ayrı parça: seçtiğiniz bölümler videoda yan yana olmadığı için "
+            "doğrudan uç uca eklenecek. Hiçbir efekt eklenmez; ses ve görüntü bitmiş videodan "
+            "olduğu gibi gelir."
         )
     return warnings
 
@@ -266,15 +278,28 @@ def _warnings(total: float, groups: list[ShortGroupPlan]) -> list[str]:
 # --- cache key --------------------------------------------------------------
 
 
-def cache_key(manifest: RenderManifest, plan: ShortPlan, layout: ShortLayout) -> str:
+def cache_key(
+    manifest: RenderManifest,
+    plan: ShortPlan,
+    layout: ShortLayout,
+    *,
+    caption_mode: ShortCaptionMode = ShortCaptionMode.SOURCE_BURNED_IN,
+    caption_style: ShortCaptionStyle | None = None,
+) -> str:
     """A deterministic content address for one Short.
 
     Two requests that would produce the same pixels produce the same key; any
-    change to the source file, the cut points, the layout or the encoder
-    produces a different one. That is what makes reuse safe: a cache hit can
-    never serve a Short built from a video that has since changed.
+    change to the source file, the cut points, the layout, the captions or the
+    encoder produces a different one. That is what makes reuse safe: a cache hit
+    can never serve a Short built from a video, a caption style or a cue list
+    that has since changed.
+
+    The ``captions`` block is added **only** when captions actually change the
+    output — that is, in any mode other than the historical one. A request that
+    does not mention captions therefore hashes to exactly the value it always
+    did, and every Short already on disk keeps matching its own request.
     """
-    payload = {
+    payload: dict[str, object] = {
         "manifestSchema": manifest.schema_version,
         "sourceSha256": manifest.source.sha256,
         "encoder": encoder_fingerprint(manifest.profile.fps),
@@ -295,6 +320,26 @@ def cache_key(manifest: RenderManifest, plan: ShortPlan, layout: ShortLayout) ->
             for group in plan.groups
         ],
     }
+
+    if caption_mode is not ShortCaptionMode.SOURCE_BURNED_IN:
+        package = manifest.shorts_source
+        payload["captions"] = {
+            "mode": caption_mode.value,
+            "renderer": CAPTION_RENDERER_VERSION,
+            # The picture itself comes from the clean master in these modes, so
+            # its checksum belongs in the key even when nothing is drawn.
+            "cleanMasterSha256": package.clean_master.sha256 if package else None,
+            "cueSchema": package.cue_sidecar.schema_version if package else None,
+            # The cue *content* hash, not the file hash: rewriting the side-car
+            # with identical captions must not invalidate a finished Short.
+            "cueContentHash": package.cue_sidecar.content_hash if package else None,
+            "style": (
+                resolve_caption_style(caption_style).model_dump(mode="json", by_alias=True)
+                if caption_mode is ShortCaptionMode.SHORTS_NATIVE
+                else None
+            ),
+        }
+
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()

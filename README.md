@@ -10,7 +10,9 @@ the core workflow, and the basic path uses no paid APIs.
 
 A **Shorts** tab turns any completed render into a 1080×1920 vertical clip by
 cutting the sections you pick out of the finished video — no re-render, so the
-narration, music and burned-in subtitles come through untouched.
+narration, music and transitions come through untouched. Captions can either be
+the ones already in the picture, or large Shorts-native ones drawn on the
+vertical canvas.
 
 ---
 
@@ -145,6 +147,11 @@ time for the tabs below, which give you the fine controls.
    picks keep the transition between them exactly as rendered. 25–50 seconds is
    the recommended length; over 60 seconds you get a Content ID warning, and over
    three minutes YouTube no longer treats it as a Short so the render is blocked.
+   **Captions**: keep the ones burned into the video (always available), or — if
+   the render kept a caption-free *clean master*, which the Export tab prepares
+   by default for new projects — have them redrawn large at the bottom of the
+   vertical frame. Burned-in captions cannot be removed from an old render, so a
+   render made without a clean master says so and offers the legacy option.
 
 Projects, images, generated audio and every export live under
 `~/ExtinctVideoBuilder` (see below) — nothing leaves your machine.
@@ -219,6 +226,11 @@ and the navigation sidebar. M1–M7 are complete and pushed.
 - **M8 — Shorts** ✅ a vertical 9:16 cut-down built from a completed render and
   its versioned manifest, with its own planner, pipeline, job queue and page —
   the long render pipeline is untouched apart from writing that manifest
+- **M9 — Shorts captions** ✅ an opt-in caption-free *clean master* and immutable
+  cue side-car written beside a render, so a Short can draw its own large
+  captions on the 9:16 canvas instead of shrinking the burned-in ones. Legacy
+  renders keep working unchanged and are told, in plain words, why they cannot
+  use the new mode — burned-in captions are never removed from a finished file
 
 ### M7 detail
 

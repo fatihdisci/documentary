@@ -7,35 +7,46 @@ import { ErrorBox } from '@/components/ErrorBox'
 import './ExportPage.css'
 
 const PHASE_LABEL: Record<JobPhase, string> = {
-  validate: 'Checking the project',
-  'verify-sources': 'Verifying images and audio',
-  'generate-tts': 'Generating narration',
-  'probe-audio': 'Measuring audio',
-  'compute-timeline': 'Computing the timeline',
-  'build-subtitles': 'Building subtitles',
-  'normalize-images': 'Preparing images',
-  'render-text-cards': 'Rendering text',
-  'render-scene-clips': 'Rendering scenes',
-  assemble: 'Joining scenes',
-  'mix-audio': 'Mixing audio',
-  encode: 'Encoding the final video',
-  'validate-output': 'Validating the export',
-  'write-artifacts': 'Writing exports',
-  cleanup: 'Cleaning up',
+  validate: 'Proje kontrol ediliyor',
+  'verify-sources': 'Görseller ve sesler kontrol ediliyor',
+  'generate-tts': 'Metinler seslendiriliyor',
+  'probe-audio': 'Ses süreleri ölçülüyor',
+  'compute-timeline': 'Sahne süreleri hesaplanıyor',
+  'build-subtitles': 'Altyazılar hazırlanıyor',
+  'normalize-images': 'Görseller hazırlanıyor',
+  'render-text-cards': 'Yazılar çiziliyor',
+  'render-scene-clips': 'Sahneler oluşturuluyor',
+  assemble: 'Sahneler birleştiriliyor',
+  'mix-audio': 'Sesler karıştırılıyor',
+  encode: 'Video kaydediliyor',
+  'validate-output': 'Video kontrol ediliyor',
+  'prepare-shorts-source': 'Kısa video kaynağı hazırlanıyor',
+  'write-artifacts': 'Dosyalar yazılıyor',
+  cleanup: 'Temizlik yapılıyor',
+}
+
+/** Durum rozetleri. Ham İngilizce durum adlarını ekrana yazmamak için. */
+const STATUS_LABEL: Record<string, string> = {
+  queued: 'sırada',
+  running: 'çalışıyor',
+  completed: 'tamamlandı',
+  failed: 'başarısız',
+  cancelled: 'iptal edildi',
+  interrupted: 'yarıda kaldı',
 }
 
 const QUALITIES: { id: QualityPreset; label: string; hint: string }[] = [
-  { id: 'youtube-hq', label: 'YouTube high quality', hint: 'Best for upload. Slowest.' },
-  { id: 'high', label: 'High', hint: 'High quality, a little faster.' },
-  { id: 'standard', label: 'Standard', hint: 'Good quality, quicker.' },
-  { id: 'preview', label: 'Preview', hint: 'Fast and rough. For checking timing only.' },
+  { id: 'youtube-hq', label: 'YouTube kalitesi', hint: 'Yayınlamak için en iyisi. En yavaşı.' },
+  { id: 'high', label: 'Yüksek', hint: 'Yüksek kalite, biraz daha hızlı.' },
+  { id: 'standard', label: 'Normal', hint: 'İyi kalite, daha hızlı.' },
+  { id: 'preview', label: 'Hızlı deneme', hint: 'Kaba ve hızlı. Sadece kontrol için.' },
 ]
 
 function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '—'
   const minutes = Math.floor(seconds / 60)
   const rest = Math.round(seconds % 60)
-  return minutes > 0 ? `${minutes}m ${rest}s` : `${rest}s`
+  return minutes > 0 ? `${minutes} dk ${rest} sn` : `${rest} sn`
 }
 
 function formatBytes(bytes: number): string {
@@ -45,7 +56,7 @@ function formatBytes(bytes: number): string {
 }
 
 function StatusPill({ status }: { status: RenderJob['status'] }) {
-  return <span className={`status-pill status-${status}`}>{status}</span>
+  return <span className={`status-pill status-${status}`}>{STATUS_LABEL[status] ?? status}</span>
 }
 
 export function ExportPage() {
@@ -68,8 +79,8 @@ export function ExportPage() {
   if (!project || !slug) {
     return (
       <div className="page">
-        <h1>Export</h1>
-        <p className="page-subtitle">Open a project first.</p>
+        <h1>Videoyu oluştur</h1>
+        <p className="page-subtitle">Önce bir proje açın.</p>
       </div>
     )
   }
@@ -82,24 +93,25 @@ export function ExportPage() {
     <div className="page">
       <header className="page-header">
         <div>
-          <h1>Export</h1>
+          <h1>Videoyu oluştur</h1>
           <p className="page-subtitle">
-            Renders a 1920×1080, constant 60 FPS MP4 plus subtitles and side-car files.
+            Her şey hazırsa videonuzu burada oluşturursunuz. Sonuç: 1920×1080, 60 FPS bir MP4
+            dosyası ve yanında altyazı dosyası.
           </p>
         </div>
         <div className="header-actions">
           {running ? (
             <button className="danger" onClick={() => void cancel()}>
-              Cancel render
+              İptal et
             </button>
           ) : (
             <button
               className="primary"
               onClick={() => void start(slug)}
               disabled={busy || !preflight?.ready}
-              title={preflight?.ready ? 'Start rendering' : 'Resolve the blocking issues first'}
+              title={preflight?.ready ? 'Videoyu oluşturmaya başla' : 'Önce aşağıdaki sorunları giderin'}
             >
-              {busy ? 'Starting…' : 'Render video'}
+              {busy ? 'Başlatılıyor…' : 'Videoyu oluştur'}
             </button>
           )}
         </div>
@@ -111,7 +123,7 @@ export function ExportPage() {
       {running && (
         <section className="card render-live">
           <div className="render-head">
-            <h2>{PHASE_LABEL[live?.phase ?? job.phase] ?? 'Rendering'}</h2>
+            <h2>{PHASE_LABEL[live?.phase ?? job.phase] ?? 'Oluşturuluyor'}</h2>
             <StatusPill status={job.status} />
           </div>
           <div className="progress-track" role="progressbar" aria-valuenow={percent}>
@@ -121,9 +133,9 @@ export function ExportPage() {
             <span className="percent">{percent}%</span>
             <span>{live?.message ?? job.message}</span>
             <span className="spacer" />
-            <span>Elapsed {formatDuration(live?.elapsedSeconds ?? 0)}</span>
+            <span>Geçen süre {formatDuration(live?.elapsedSeconds ?? 0)}</span>
             {live?.estimatedRemainingSeconds != null && (
-              <span>~{formatDuration(live.estimatedRemainingSeconds)} left</span>
+              <span>yaklaşık {formatDuration(live.estimatedRemainingSeconds)} kaldı</span>
             )}
           </div>
         </section>
@@ -135,12 +147,12 @@ export function ExportPage() {
           <div className="render-head">
             <h2>
               {job.status === 'completed'
-                ? 'Render complete'
+                ? 'Video hazır'
                 : job.status === 'cancelled'
-                  ? 'Render cancelled'
+                  ? 'İptal edildi'
                   : job.status === 'interrupted'
-                    ? 'Render interrupted'
-                    : 'Render failed'}
+                    ? 'Yarıda kaldı'
+                    : 'Video oluşturulamadı'}
             </h2>
             <StatusPill status={job.status} />
           </div>
@@ -149,8 +161,8 @@ export function ExportPage() {
             <>
               <p className="muted">
                 {job.outputFile} · {formatDuration(job.totalDurationSeconds)} ·{' '}
-                {job.scenesRendered} scene{job.scenesRendered === 1 ? '' : 's'} rendered,{' '}
-                {job.scenesReused} reused from cache
+                {job.scenesRendered} sahne oluşturuldu, {job.scenesReused} sahne hazırdan
+                kullanıldı
               </p>
               <div className="artifact-list">
                 {job.artifacts.map((artifact) => (
@@ -170,7 +182,7 @@ export function ExportPage() {
                 code: job.errorCode ?? 'render_failed',
                 message: job.errorMessage,
                 details: job.errorDetails,
-                suggestion: job.errorSuggestion ?? 'Check the render log for details.',
+                suggestion: job.errorSuggestion ?? 'Ayrıntılar için kayıt dosyasına bakın.',
                 logPath: job.logFile,
                 context: {},
               }}
@@ -191,17 +203,17 @@ export function ExportPage() {
       {/* --- preflight --- */}
       {preflight && !running && (
         <section className="card">
-          <h2>Before rendering</h2>
+          <h2>Başlamadan önce</h2>
 
           {preflight.blockingIssues.length > 0 ? (
             <div className="blocking">
-              <strong>These must be fixed first:</strong>
+              <strong>Önce bunların çözülmesi gerekiyor:</strong>
               {preflight.blockingIssues.map((issue) => (
                 <p key={issue}>✕ {issue}</p>
               ))}
             </div>
           ) : (
-            <p className="ready-note">✓ Everything needed for a render is in place.</p>
+            <p className="ready-note">✓ Her şey hazır, videoyu oluşturabilirsiniz.</p>
           )}
 
           {preflight.warnings.length > 0 && (
@@ -215,17 +227,17 @@ export function ExportPage() {
           <div className="timing-grid">
             <div className="timing-stat big">
               <span className="value">{String(preflight.timing.totalFormatted ?? '—')}</span>
-              <span className="label">Final runtime</span>
+              <span className="label">Video süresi</span>
             </div>
             <div className="timing-stat">
               <span className="value">{Number(preflight.timing.sceneCount ?? 0)}</span>
-              <span className="label">Scenes</span>
+              <span className="label">Sahne</span>
             </div>
             <div className="timing-stat">
               <span className="value">
                 {Number(preflight.timing.transitionSeconds ?? 0).toFixed(1)}s
               </span>
-              <span className="label">Transition overlap</span>
+              <span className="label">Geçişler</span>
             </div>
             <div className="timing-stat">
               <span className="value">
@@ -233,11 +245,11 @@ export function ExportPage() {
                   ? `${(Number(preflight.disk.totalMb) / 1024).toFixed(1)} GB`
                   : `${Number(preflight.disk.totalMb ?? 0).toFixed(0)} MB`}
               </span>
-              <span className="label">Disk needed</span>
+              <span className="label">Gereken disk alanı</span>
             </div>
             <div className="timing-stat">
               <span className="value">~{formatDuration(preflight.estimatedRenderSeconds)}</span>
-              <span className="label">Est. render time</span>
+              <span className="label">Tahmini süre</span>
             </div>
           </div>
         </section>
@@ -245,7 +257,7 @@ export function ExportPage() {
 
       {/* --- options --- */}
       <section className="card">
-        <h2>Output</h2>
+        <h2>Kalite ve seçenekler</h2>
         <div className="quality-options">
           {QUALITIES.map((quality) => (
             <label
@@ -272,9 +284,9 @@ export function ExportPage() {
             onChange={(e) => edit((d) => void (d.export.useHardwareEncoder = e.target.checked))}
             disabled={running}
           />
-          Use the hardware encoder
+          Ekran kartını kullan
           <span className="hint">
-            Much faster, but software encoding gives better quality per megabyte.
+            Çok daha hızlı, ama aynı dosya boyutunda kalite biraz daha düşük olur.
           </span>
         </label>
         <label className="checkbox">
@@ -284,10 +296,26 @@ export function ExportPage() {
             onChange={(e) => edit((d) => void (d.subtitles.burnIn = e.target.checked))}
             disabled={running}
           />
-          Burn subtitles into the picture
+          Altyazıyı videonun içine göm
           <span className="hint">
-            On by default. A separate .srt is always exported too; turn this off for a clean
-            image, which YouTube prefers.
+            Açık gelir. Ayrı bir .srt altyazı dosyası her hâlükârda oluşur; görüntünün temiz
+            kalmasını isterseniz bunu kapatın.
+          </span>
+        </label>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={project.export.prepareCleanMasterForShorts}
+            onChange={(e) =>
+              edit((d) => void (d.export.prepareCleanMasterForShorts = e.target.checked))
+            }
+            disabled={running}
+          />
+          Kısa video için altyazısız kopya da hazırla
+          <span className="hint">
+            {project.subtitles.burnIn
+              ? 'Videonun altyazısız ikinci bir kopyasını saklar. Böylece kısa videolarda altyazılar telefon ekranına göre büyük ve okunaklı çizilebilir. Süreyi yaklaşık iki katına çıkarır ve bir video boyutu kadar daha yer kaplar. Bunu şimdi yapmazsanız, sonradan eklenemez.'
+              : 'Burada ek bir maliyeti yok: altyazı videoya gömülmediği için bu video zaten altyazısız ve doğrudan kopya olarak kullanılır.'}
           </span>
         </label>
       </section>
@@ -295,7 +323,7 @@ export function ExportPage() {
       {/* --- history --- */}
       {history.length > 0 && (
         <section className="card">
-          <h2>Render history</h2>
+          <h2>Geçmiş</h2>
           <table className="history-table">
             <tbody>
               {history.map((entry) => (
@@ -307,12 +335,12 @@ export function ExportPage() {
                   <td className="history-actions">
                     {entry.status !== 'completed' && (
                       <button onClick={() => void retry(entry.id)} disabled={running || busy}>
-                        Retry
+                        Tekrar dene
                       </button>
                     )}
                     {entry.logFile && (
                       <a className="button-link" href={`/api/jobs/${entry.id}/log`} download>
-                        Log
+                        Kayıt dosyası
                       </a>
                     )}
                   </td>
@@ -325,7 +353,7 @@ export function ExportPage() {
 
       {exports.length > 0 && (
         <section className="card">
-          <h2>Files on disk</h2>
+          <h2>Bilgisayarınızdaki dosyalar</h2>
           <div className="artifact-list">
             {exports.slice(0, 20).map((entry) => (
               <a key={entry.url} className="artifact" href={entry.url} download>

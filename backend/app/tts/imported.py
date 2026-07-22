@@ -18,7 +18,7 @@ class ImportedAudioProvider:
         return ProviderStatus(
             name=self.name,
             available=True,
-            message="Use your own audio files. Works with no internet connection.",
+            message="Kendi ses dosyalarınızı kullanın. İnternet gerektirmez.",
             supports_rate=False,
             supports_pitch=False,
             supports_word_timings=False,
@@ -37,10 +37,10 @@ class ImportedAudioProvider:
         """
         raise AppError(
             ErrorCode.MISSING_AUDIO,
-            "This scene is set to use imported audio, but no audio file has been uploaded.",
+            "Bu sahne için hazır ses seçili ama henüz bir dosya yüklenmemiş.",
             details=f"expected an upload for: {request.output_path.name}",
             suggestion=(
-                "Upload a WAV, MP3 or M4A file for this scene, or switch the project's "
-                "TTS provider to Edge to generate narration automatically."
+                "Bu sahne için WAV, MP3 ya da M4A dosyası yükleyin ya da projenin "
+                "ses kaynağını Edge yapıp otomatik seslendirin."
             ),
         )

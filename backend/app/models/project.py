@@ -28,7 +28,10 @@ from app.models.enums import (
     TTSProviderName,
 )
 
-SCHEMA_VERSION = 1
+#: v2 added ``export.prepareCleanMasterForShorts``. New projects default it on;
+#: the v1 -> v2 migration turns it *off* for projects that predate it, so opening
+#: an old project never silently doubles its next render.
+SCHEMA_VERSION = 2
 
 #: Zoom beyond this visibly softens even a 4K source once supersampled.
 MAX_SCALE = 3.0
@@ -342,6 +345,25 @@ class ExportSettings(Base):
     export_narration_audio: bool = True
     export_description: bool = True
     keep_temp_files: bool = False
+    #: Also keep a subtitle-free "clean master" beside the normal export, so this
+    #: render can later drive Shorts with their own large captions instead of the
+    #: tiny burned-in ones.
+    #:
+    #: Product default: **on for new projects**. Large Shorts captions are the
+    #: whole point of the Shorts tab, and a render that did not prepare a clean
+    #: master can never gain one afterwards — the option has to be set *before*
+    #: the render, so defaulting it off would mean nearly every first Short is
+    #: blocked on a re-render. The v1 -> v2 project migration turns it off for
+    #: projects created before it existed, so no existing project is quietly
+    #: signed up for extra work.
+    #:
+    #: Cost, surfaced in the Export UI:
+    #:   * ``subtitles.burn_in`` off — free. The normal export already has no
+    #:     burned-in captions, so it *is* the clean master; nothing extra runs.
+    #:   * ``subtitles.burn_in`` on — a second scene-clip + assemble pass, so
+    #:     roughly double the render time and one more file the size of the
+    #:     export.
+    prepare_clean_master_for_shorts: bool = True
 
 
 class Project(Base):

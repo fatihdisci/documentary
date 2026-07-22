@@ -65,8 +65,8 @@ export function MusicPage() {
   if (!project || !slug) {
     return (
       <div className="page">
-        <h1>Music</h1>
-        <p className="page-subtitle">Open a project first.</p>
+        <h1>Müzik</h1>
+        <p className="page-subtitle">Önce bir proje açın.</p>
       </div>
     )
   }
@@ -135,14 +135,14 @@ export function MusicPage() {
     <div className="page">
       <header className="page-header">
         <div>
-          <h1>Music</h1>
+          <h1>Müzik</h1>
           <p className="page-subtitle">
-            Background tracks for this project. Levels, ducking and fades live on the Audio page.
+            Videonun arka plan müziği. Konuşma varken müzik kendiliğinden kısılır.
           </p>
         </div>
         <div className="header-actions">
           <button className="primary" onClick={() => fileInput.current?.click()} disabled={busy}>
-            {busy ? 'Working…' : 'Upload track'}
+            {busy ? 'Çalışıyor…' : 'Müzik yükle'}
           </button>
         </div>
       </header>
@@ -155,7 +155,7 @@ export function MusicPage() {
         accept="audio/wav,audio/mpeg,audio/mp4,audio/ogg,audio/flac,.wav,.mp3,.m4a,.aac,.ogg,.flac"
         hidden
         multiple
-        aria-label="Upload music track"
+        aria-label="Müzik dosyası yükle"
         onChange={(e) => {
           if (e.target.files?.length) void uploadFiles(e.target.files)
           e.target.value = ''
@@ -169,23 +169,23 @@ export function MusicPage() {
             onClick={useNoMusic}
             aria-pressed={source === 'none'}
           >
-            No music
+            Müzik yok
           </button>
           <span className="hint">
             {source === 'none'
-              ? 'No background music will be mixed in.'
+              ? 'Arka planda müzik çalmayacak.'
               : source === 'generated-ambient'
-                ? 'Using the basic generated ambient bed (set on the Audio page).'
+                ? 'Uygulamanın ürettiği basit fon müziği kullanılıyor.'
                 : selected
-                  ? `Using “${selected}”.`
-                  : 'Pick a track below to use it in the render.'}
+                  ? `“${selected}” kullanılıyor.`
+                  : 'Aşağıdan bir parça seçin.'}
           </span>
         </div>
       </section>
 
       {tracks.length > 0 && (
         <section className="card">
-          <h2>Music level</h2>
+          <h2>Müzik seviyesi</h2>
           <div className="music-level-row">
             <input
               type="range"
@@ -194,7 +194,7 @@ export function MusicPage() {
               step={0.5}
               value={musicVolumeDb}
               onChange={(e) => edit((d) => void (d.audio.musicVolumeDb = Number(e.target.value)))}
-              aria-label="Music level in decibels"
+              aria-label="Müzik seviyesi (desibel)"
             />
             <input
               type="number"
@@ -203,33 +203,32 @@ export function MusicPage() {
               step={0.5}
               value={musicVolumeDb}
               onChange={(e) => edit((d) => void (d.audio.musicVolumeDb = Number(e.target.value)))}
-              aria-label="Music level in decibels"
+              aria-label="Müzik seviyesi (desibel)"
             />
             <span className="music-level-db">{musicVolumeDb} dB</span>
           </div>
           <p className="hint">
-            The previews below play at this level, so you can hear how loud the music will sit in
-            the video. Under narration it is ducked further automatically in the final render. This
-            is the same control as “Music level” on the Audio page.
+            Aşağıdaki örnekler tam bu seviyede çalar; müziğin videoda ne kadar yüksek olacağını
+            böyle duyarsınız. Konuşma sırasında ayrıca otomatik olarak kısılır.
           </p>
         </section>
       )}
 
       <section className="card" ref={libraryRef}>
-        <h2>Library</h2>
+        <h2>Müzik listesi</h2>
         {tracks.length === 0 ? (
           <p className="muted">
-            No tracks yet. Upload a <code>.wav</code>, <code>.mp3</code>, <code>.m4a</code>,{' '}
-            <code>.aac</code>, <code>.ogg</code> or <code>.flac</code> file to get started.
+            Henüz parça yok. <code>.mp3</code>, <code>.wav</code>, <code>.m4a</code>,{' '}
+            <code>.aac</code>, <code>.ogg</code> veya <code>.flac</code> dosyası yükleyin.
           </p>
         ) : (
           <table className="music-table">
             <thead>
               <tr>
                 <th />
-                <th>Track</th>
-                <th>Size</th>
-                <th>Preview</th>
+                <th>Parça</th>
+                <th>Boyut</th>
+                <th>Dinle</th>
                 <th />
               </tr>
             </thead>
@@ -240,8 +239,8 @@ export function MusicPage() {
                   <tr key={t.filename} className={isSelected ? 'selected' : ''}>
                     <td>
                       {isSelected ? (
-                        <span className="tag tag-ok" title="Used in the render">
-                          ● in use
+                        <span className="tag tag-ok" title="Videoda bu parça kullanılıyor">
+                          ● kullanımda
                         </span>
                       ) : null}
                     </td>
@@ -264,16 +263,16 @@ export function MusicPage() {
                       <button
                         onClick={() => selectTrack(t.filename)}
                         disabled={busy || isSelected}
-                        title="Use this track in the render"
+                        title="Bu parçayı videoda kullan"
                       >
-                        {isSelected ? 'In use' : 'Use'}
+                        {isSelected ? 'Kullanımda' : 'Kullan'}
                       </button>
                       <button
                         className="danger"
                         onClick={() => setPendingDelete(t.filename)}
                         disabled={busy}
                       >
-                        Delete
+                        Sil
                       </button>
                     </td>
                   </tr>
@@ -286,14 +285,14 @@ export function MusicPage() {
 
       {pendingDelete && (
         <ConfirmDialog
-          title="Delete this track?"
+          title="Bu parça silinsin mi?"
           body={
             <>
-              <code>{pendingDelete}</code> will be removed from this project's music folder. This
-              cannot be undone.
+              <code>{pendingDelete}</code> bu projenin müzik klasöründen silinir. Bu işlem geri
+              alınamaz.
             </>
           }
-          confirmLabel="Delete"
+          confirmLabel="Sil"
           destructive
           onConfirm={() => void confirmDelete(pendingDelete)}
           onCancel={() => setPendingDelete(null)}

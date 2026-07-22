@@ -29,7 +29,7 @@ DERIVED_DIRS = (
     "audio/generated",
 )
 
-OTHER_DIRS = ("exports", "exports/shorts", "backups", "logs")
+OTHER_DIRS = ("exports", "exports/shorts", "exports/shorts-source", "backups", "logs")
 
 
 @dataclass(frozen=True)
@@ -106,6 +106,18 @@ class ProjectPaths:
     def shorts_exports(self) -> Path:
         """Finished Short MP4s and their side-car manifest/log files."""
         return self.root / "exports" / "shorts"
+
+    @property
+    def shorts_source(self) -> Path:
+        """The Shorts-ready source package for each render: clean master + cues.
+
+        Under ``exports/`` rather than ``derived/`` on purpose. A clean master
+        cannot be rebuilt on demand — it is bound to one finished render, and the
+        project may have moved on since — so it must survive "clear derived
+        files". It sits in its own subdirectory so it never appears in the
+        user-facing export list, which only reads the top level.
+        """
+        return self.root / "exports" / "shorts-source"
 
     @property
     def backups(self) -> Path:

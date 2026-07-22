@@ -28,11 +28,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from app.config import Settings, get_settings
-from app.errors import AppError, ConflictError, ErrorCode, NotFoundError
+from app.errors import AppError, ConflictError, ErrorCode, NotFoundError, ValidationError
 from app.models.enums import JobStatus
 from app.render.ffmpeg import CancelledRender
 from app.render.jobs import _process_alive
 from app.render.slot import render_slot
+from app.shorts.cues import CueSidecar
+from app.shorts.manifest import RenderManifest as ShortRenderManifest
 from app.shorts.models import ShortJob, ShortJobEvent, ShortPhase, ShortRequest
 from app.shorts.pipeline import ShortsPipeline, artifacts_for
 from app.shorts.plan import build_plan
@@ -113,14 +115,14 @@ class ShortJobManager:
             if job.is_active and not _process_alive(job.pid):
                 job.status = JobStatus.INTERRUPTED
                 job.message = (
-                    "Interrupted — the application stopped while this Short was being built."
+                    "Yarıda kaldı — kısa video hazırlanırken uygulama kapandı."
                 )
                 job.finished_at = job.finished_at or datetime.now(timezone.utc)
                 job.error_code = ErrorCode.RENDER_FAILED.value
-                job.error_message = "The Short was interrupted before it finished."
+                job.error_message = "Kısa video tamamlanamadan yarıda kesildi."
                 job.error_suggestion = (
-                    "Retry it. Retry reuses the same sections, trims and layout, and any "
-                    "cut that was already made is reused."
+                    "Tekrar deneyin. Aynı bölümler, kırpmalar ve düzen kullanılır; hâlihazırda "
+                    "kesilmiş parçalar yeniden kesilmez."
                 )
                 self._persist(job)
                 interrupted += 1
@@ -185,7 +187,7 @@ class ShortJobManager:
         if job is None:
             raise NotFoundError(
                 ErrorCode.SHORT_JOB_NOT_FOUND,
-                f"No Shorts job with id '{job_id}'.",
+                f"'{job_id}' numaralı bir kısa video işlemi bulunamadı.",
             )
         return job
 
@@ -220,6 +222,11 @@ class ShortJobManager:
         assert self._lock is not None and self._queue is not None
 
         manifest, source = self.service.load_source(project_slug, request.source_render_id)
+        # Captions are resolved before a job exists, so "this render has no clean
+        # master" is a 4xx the page can explain rather than a job that fails a
+        # second later. Nothing falls back to the captioned export here.
+        if request.caption_mode.needs_clean_master:
+            self._resolve_clean_source(project_slug, manifest)
         plan = build_plan(manifest, request)
 
         async with self._lock:
@@ -258,6 +265,32 @@ class ShortJobManager:
         await self.start()
         return job
 
+    def _resolve_clean_source(
+        self, slug: str, manifest: ShortRenderManifest
+    ) -> tuple[Path, CueSidecar]:
+        """Fully verify the clean master and its cue data, or refuse the job.
+
+        Checksums, ffprobe, schema versions and the render/snapshot binding are
+        all checked here. Every failure raises; there is deliberately no path
+        that quietly continues with the captioned export, because a Short built
+        that way would carry the source's small captions *and* the large ones.
+        """
+        paths = self.service.paths_for(slug)
+        master = self.service.clean_master_path(paths, manifest)
+        if master is None:
+            raise ValidationError(
+                ErrorCode.SHORT_CAPTIONS_UNAVAILABLE,
+                "Bu videonun altyazıları görüntünün içine gömülü. Büyük altyazı kullanmak "
+                "için uzun videoyu, altyazısız kopya hazırlama seçeneği açıkken yeniden "
+                "oluşturun.",
+                details="bu videonun kayıtlarında altyazısız kopya bilgisi yok",
+                suggestion=(
+                    "Ya da bu kısa videoyu “Videodaki altyazıyı kullan” seçeneğiyle oluşturun."
+                ),
+            )
+        cues = self.service.load_caption_cues(paths, manifest)
+        return master, cues
+
     def _completed_from_cache(
         self, slug: str, request: ShortRequest, plan, record  # noqa: ANN001
     ) -> ShortJob:
@@ -273,7 +306,7 @@ class ShortJobManager:
             status=JobStatus.COMPLETED,
             phase=ShortPhase.PUBLISH,
             progress=1.0,
-            message="Reused the identical Short already in this project.",
+            message="Bu projede birebir aynısı olduğu için mevcut dosya kullanıldı.",
             started_at=datetime.now(timezone.utc),
             finished_at=datetime.now(timezone.utc),
             output_file=record.filename,
@@ -293,15 +326,15 @@ class ShortJobManager:
         if job.is_terminal:
             raise ConflictError(
                 ErrorCode.SHORT_JOB_NOT_FOUND,
-                f"This Short already finished with status '{job.status.value}'.",
-                suggestion="Start a new one instead.",
+                "Bu kısa video işlemi zaten tamamlanmış.",
+                suggestion="Bunun yerine yeni bir kısa video oluşturun.",
             )
         running = self._running.get(job_id)
         if running is not None:
             running.cancel_event.set()
             logger.info("cancellation requested for running Short %s", job_id)
         else:
-            self._finalize(job, JobStatus.CANCELLED, "Cancelled before it started.")
+            self._finalize(job, JobStatus.CANCELLED, "Başlamadan iptal edildi.")
         return job
 
     async def retry(self, job_id: str) -> ShortJob:
@@ -310,8 +343,8 @@ class ShortJobManager:
         if job.is_active:
             raise ConflictError(
                 ErrorCode.SHORT_JOB_NOT_FOUND,
-                "That Short is still being built.",
-                suggestion="Cancel it first, or wait for it to finish.",
+                "Bu kısa video hâlâ hazırlanıyor.",
+                suggestion="Önce iptal edin ya da bitmesini bekleyin.",
             )
         return await self.submit(job.project_slug, job.request)
 
@@ -378,12 +411,18 @@ class ShortJobManager:
         job.status = JobStatus.RUNNING
         job.started_at = datetime.now(timezone.utc)
         job.pid = os.getpid()
-        job.message = "Starting"
+        job.message = "Başlıyor"
         self._persist(job)
         self._broadcast(running)
 
         try:
             manifest, _ = self.service.load_source(job.project_slug, job.request.source_render_id)
+            clean_master: Path | None = None
+            cue_sidecar: CueSidecar | None = None
+            if job.request.caption_mode.needs_clean_master:
+                clean_master, cue_sidecar = self._resolve_clean_source(
+                    job.project_slug, manifest
+                )
             plan = build_plan(manifest, job.request)
             paths = self.service.paths_for(job.project_slug)
 
@@ -402,6 +441,8 @@ class ShortJobManager:
                 on_progress=on_progress,
                 cancel_event=cancel_event,
                 job_id=job.id,
+                clean_master=clean_master,
+                cue_sidecar=cue_sidecar,
             )
             result = await pipeline.run()
 
@@ -415,11 +456,11 @@ class ShortJobManager:
             job.segment_count = len(result.plan.segments)
             job.group_count = len(result.plan.groups)
             job.section_numbers = [s.number for s in result.plan.segments]
-            self._finalize(job, JobStatus.COMPLETED, "Short complete.", running)
+            self._finalize(job, JobStatus.COMPLETED, "Kısa video hazır.", running)
 
         except CancelledRender:
             logger.info("Short job %s cancelled", job.id)
-            self._finalize(job, JobStatus.CANCELLED, "Short cancelled.", running)
+            self._finalize(job, JobStatus.CANCELLED, "İptal edildi.", running)
 
         except AppError as exc:
             logger.warning("Short job %s failed: %s", job.id, exc)
@@ -434,11 +475,10 @@ class ShortJobManager:
 
             logger.exception("Short job %s failed unexpectedly", job.id)
             job.error_code = ErrorCode.INTERNAL.value
-            job.error_message = f"An unexpected {type(exc).__name__} stopped the Short."
+            job.error_message = "Beklenmedik bir hata kısa video oluşturmayı durdurdu."
             job.error_details = traceback.format_exc()[-4000:]
             job.error_suggestion = (
-                "This is a bug. The technical details above and the backend log have "
-                "the full traceback."
+                "Bu bir yazılım hatası. Ayrıntılar yukarıda ve kayıt dosyasında yer alıyor."
             )
             self._finalize(job, JobStatus.FAILED, str(exc), running)
 

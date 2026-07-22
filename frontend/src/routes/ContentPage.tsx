@@ -17,8 +17,8 @@ export function ContentPage() {
   if (!project) {
     return (
       <div className="page">
-        <h1>Content</h1>
-        <p className="page-subtitle">Open a project first.</p>
+        <h1>Metinler</h1>
+        <p className="page-subtitle">Önce bir proje açın.</p>
       </div>
     )
   }
@@ -74,9 +74,10 @@ export function ContentPage() {
     <div className="page">
       <header className="page-header">
         <div>
-          <h1>Content</h1>
+          <h1>Metinler</h1>
           <p className="page-subtitle">
-            Import a content package to fill in every scene at once, or edit the fields by hand.
+            Videonun konuşma metinleri, başlıkları ve açıklaması. Hazır bir dosya yükleyip her
+            sahneyi tek seferde doldurabilir ya da alanları elle yazabilirsiniz.
           </p>
         </div>
       </header>
@@ -84,10 +85,10 @@ export function ContentPage() {
       {error && <ErrorBox error={error} onDismiss={() => setError(null)} />}
 
       <section className="card">
-        <h2>Import a content package</h2>
+        <h2>Hazır metin dosyası yükle</h2>
         <p className="muted">
-          A JSON file with narration, titles, image prompts and framing hints. Importing never
-          changes your video, style or audio settings.
+          İçinde tüm sahnelerin konuşma metni, başlığı ve görsel açıklaması olan bir dosya
+          (JSON). Yüklemek görünüm, ses ve video ayarlarınıza dokunmaz.
         </p>
 
         <label className="checkbox">
@@ -96,11 +97,11 @@ export function ContentPage() {
             checked={replaceScenes}
             onChange={(e) => setReplaceScenes(e.target.checked)}
           />
-          Replace existing scenes
+          Mevcut sahnelerin yerine geçsin
           <span className="hint">
             {replaceScenes
-              ? 'Scenes are rebuilt from the package. Per-scene tuning is lost.'
-              : 'Existing scenes are updated in place, keeping audio and manual durations.'}
+              ? 'Sahneler dosyadan yeniden kurulur. Sahnelerde yaptığınız ince ayarlar kaybolur.'
+              : 'Mevcut sahneler güncellenir; sesler ve elle verdiğiniz süreler korunur.'}
           </span>
         </label>
 
@@ -109,7 +110,7 @@ export function ContentPage() {
             ref={fileInput}
             type="file"
             accept="application/json,.json"
-            aria-label="Content package JSON"
+            aria-label="Metin dosyası (JSON)"
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) void importFile(file)
@@ -117,23 +118,23 @@ export function ContentPage() {
             }}
           />
           <button onClick={() => void downloadExample()} disabled={busy}>
-            Download example template
+            Örnek dosyayı indir
           </button>
           <button onClick={() => void exportContent()} disabled={busy}>
-            Export this project's content
+            Bu projenin metinlerini indir
           </button>
         </div>
 
-        {busy && <p className="muted">Importing…</p>}
+        {busy && <p className="muted">Yükleniyor…</p>}
 
         {report && (
           <div className="import-report">
-            <h3>Import complete</h3>
+            <h3>Yükleme tamamlandı</h3>
             <ul>
-              {report.scenesCreated > 0 && <li>{report.scenesCreated} scenes created</li>}
-              {report.scenesUpdated > 0 && <li>{report.scenesUpdated} scenes updated</li>}
-              <li>{report.imagesMapped} images mapped</li>
-              {report.introImage && <li>Intro image: {report.introImage}</li>}
+              {report.scenesCreated > 0 && <li>{report.scenesCreated} sahne oluşturuldu</li>}
+              {report.scenesUpdated > 0 && <li>{report.scenesUpdated} sahne güncellendi</li>}
+              <li>{report.imagesMapped} görsel eşleştirildi</li>
+              {report.introImage && <li>Giriş görseli: {report.introImage}</li>}
             </ul>
             {report.warnings.length > 0 && (
               <div className="warnings">
@@ -147,31 +148,31 @@ export function ContentPage() {
       </section>
 
       <section className="card">
-        <h2>Video details</h2>
+        <h2>Video bilgileri</h2>
         <div className="field-grid">
           <label>
-            Animal name
+            Hayvanın adı
             <input
               value={project.animal.commonName}
               onChange={(e) => edit((d) => void (d.animal.commonName = e.target.value))}
             />
           </label>
           <label>
-            Scientific name
+            Latince adı
             <input
               value={project.animal.scientificName}
               onChange={(e) => edit((d) => void (d.animal.scientificName = e.target.value))}
             />
           </label>
           <label className="span-2">
-            Video title
+            Video başlığı
             <input
               value={project.metadata.videoTitle}
               onChange={(e) => edit((d) => void (d.metadata.videoTitle = e.target.value))}
             />
           </label>
           <label className="span-2">
-            YouTube description
+            YouTube açıklaması
             <textarea
               rows={8}
               value={project.metadata.description}
@@ -179,14 +180,14 @@ export function ContentPage() {
             />
           </label>
           <label>
-            Thumbnail text
+            Kapak görselindeki yazı
             <input
               value={project.metadata.thumbnailText}
               onChange={(e) => edit((d) => void (d.metadata.thumbnailText = e.target.value))}
             />
           </label>
           <label>
-            Thumbnail prompt
+            Kapak görseli için açıklama
             <input
               value={project.metadata.thumbnailPrompt}
               onChange={(e) => edit((d) => void (d.metadata.thumbnailPrompt = e.target.value))}
@@ -196,19 +197,19 @@ export function ContentPage() {
       </section>
 
       <section className="card">
-        <h2>Intro narration</h2>
+        <h2>Giriş konuşması</h2>
         <textarea
           rows={4}
           value={project.intro.narration}
           onChange={(e) => edit((d) => void (d.intro.narration = e.target.value))}
-          placeholder="Spoken over the opening shot."
+          placeholder="Videonun başında, ilk görüntünün üzerinde okunur."
         />
-        <h2>Outro narration</h2>
+        <h2>Kapanış konuşması</h2>
         <textarea
           rows={4}
           value={project.outro.narration}
           onChange={(e) => edit((d) => void (d.outro.narration = e.target.value))}
-          placeholder="Closing message, subscribe prompt, next episode teaser."
+          placeholder="Kapanış cümlesi, abone olma daveti, sonraki bölümün tanıtımı."
         />
       </section>
     </div>

@@ -51,7 +51,7 @@ describe('ExportPage', () => {
     seedProject(null)
     vi.spyOn(api, 'preflight').mockResolvedValue(preflight())
     render(<ExportPage />)
-    expect(screen.getByText('Open a project first.')).toBeInTheDocument()
+    expect(screen.getByText('Önce bir proje açın.')).toBeInTheDocument()
   })
 
   it('shows a ready preflight and enables the render button', async () => {
@@ -59,9 +59,9 @@ describe('ExportPage', () => {
     vi.spyOn(api, 'preflight').mockResolvedValue(preflight())
     render(<ExportPage />)
 
-    expect(await screen.findByText(/Everything needed for a render is in place/)).toBeInTheDocument()
+    expect(await screen.findByText(/Her şey hazır, videoyu oluşturabilirsiniz/)).toBeInTheDocument()
     expect(screen.getByText('4:30')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Render video' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Videoyu oluştur' })).toBeEnabled()
   })
 
   it('lists blocking issues and disables the render button', async () => {
@@ -71,9 +71,9 @@ describe('ExportPage', () => {
     )
     render(<ExportPage />)
 
-    expect(await screen.findByText(/These must be fixed first/)).toBeInTheDocument()
+    expect(await screen.findByText(/Önce bunların çözülmesi gerekiyor/)).toBeInTheDocument()
     expect(screen.getByText(/Scene 3 has no image\./)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Render video' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Videoyu oluştur' })).toBeDisabled()
   })
 
   it('starts a render when the button is pressed', async () => {
@@ -91,7 +91,7 @@ describe('ExportPage', () => {
     const startRender = vi.spyOn(api, 'startRender').mockResolvedValue(job)
     render(<ExportPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Render video' }))
+    await user.click(await screen.findByRole('button', { name: 'Videoyu oluştur' }))
     await waitFor(() => expect(startRender).toHaveBeenCalledWith('the-dodo', undefined))
   })
 

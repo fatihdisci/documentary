@@ -48,7 +48,7 @@ describe('ScenePreview', () => {
   it('scrubbing to the end pans the centre to cx=0.6', async () => {
     render(<ScenePreview project={project} scene={scene} />)
     await screen.findByText('pan right')
-    const slider = screen.getByLabelText('Scrub preview')
+    const slider = screen.getByLabelText('Önizlemede ileri geri git')
     fireEvent.change(slider, { target: { value: '1' } })
 
     const img = document.querySelector('.preview-image') as HTMLImageElement
@@ -60,6 +60,6 @@ describe('ScenePreview', () => {
   it('falls back to a static frame when motion cannot be loaded', async () => {
     vi.spyOn(api, 'getMotion').mockRejectedValue(new Error('offline'))
     render(<ScenePreview project={project} scene={scene} />)
-    expect(await screen.findByText(/showing a static frame/)).toBeInTheDocument()
+    expect(await screen.findByText(/sabit görüntü gösteriliyor/)).toBeInTheDocument()
   })
 })

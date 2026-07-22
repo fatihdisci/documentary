@@ -74,7 +74,7 @@ class TestStaleDetection:
         with pytest.raises(AppError) as exc:
             verify_source(built, video)
         assert exc.value.code is ErrorCode.STALE_RENDER
-        assert "no longer" in exc.value.message
+        assert "artık bu projenin klasöründe yok" in exc.value.message
 
     def test_a_resized_source_is_stale(self, manifest) -> None:  # noqa: ANN001
         built, video = manifest
@@ -82,7 +82,7 @@ class TestStaleDetection:
         with pytest.raises(AppError) as exc:
             verify_source(built, video)
         assert exc.value.code is ErrorCode.STALE_RENDER
-        assert "changed" in exc.value.message
+        assert "değişmiş" in exc.value.message
 
     def test_a_replaced_source_of_the_same_size_is_stale(self, manifest) -> None:  # noqa: ANN001
         built, video = manifest
@@ -90,7 +90,7 @@ class TestStaleDetection:
         with pytest.raises(AppError) as exc:
             verify_source(built, video)
         assert exc.value.code is ErrorCode.STALE_RENDER
-        assert "no longer matches" in exc.value.message
+        assert "kaydedildiği hâliyle aynı değil" in exc.value.message
 
     @requires_ffmpeg
     def test_a_source_without_audio_is_refused(self, tmp_path, settings) -> None:  # noqa: ANN001
@@ -112,7 +112,7 @@ class TestStaleDetection:
         with pytest.raises(AppError) as exc:
             verify_source(built, video, settings=settings)
         assert exc.value.code is ErrorCode.STALE_RENDER
-        assert "no audio stream" in exc.value.message
+        assert "içinde ses yok" in exc.value.message
 
     @requires_ffmpeg
     def test_a_matching_source_verifies(self, tmp_path, settings) -> None:  # noqa: ANN001

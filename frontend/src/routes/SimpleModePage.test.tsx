@@ -38,13 +38,13 @@ describe('SimpleModePage', () => {
   it('prompts to open a project when none is loaded', () => {
     seedProject(null)
     render(<SimpleModePage goTo={noop} />)
-    expect(screen.getByText('Open a project first.')).toBeInTheDocument()
+    expect(screen.getByText('Önce bir proje açın.')).toBeInTheDocument()
   })
 
   it('marks the content step done when scenes exist', () => {
     seedProject(makeProject({ scenes: [makeScene({ id: 's1' }), makeScene({ id: 's2' })] }))
     render(<SimpleModePage goTo={noop} />)
-    expect(screen.getByText(/2 scenes ready/)).toBeInTheDocument()
+    expect(screen.getByText(/2 sahne hazır/)).toBeInTheDocument()
   })
 
   it('navigates between steps via the stepper chips', async () => {
@@ -52,8 +52,8 @@ describe('SimpleModePage', () => {
     seedProject(makeProject({ scenes: [makeScene({ id: 's1', narration: 'Hi.' })] }))
     render(<SimpleModePage goTo={noop} />)
 
-    await user.click(screen.getByRole('button', { name: /Narration/ }))
-    expect(screen.getByText('5 · Narration')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Seslendirme/ }))
+    expect(screen.getByText('5 · Seslendirme')).toBeInTheDocument()
   })
 
   it('generates narration from the narration step', async () => {
@@ -69,8 +69,8 @@ describe('SimpleModePage', () => {
     seedProject(makeProject({ scenes: [makeScene({ id: 's1', narration: 'Hello.' })] }))
     render(<SimpleModePage goTo={noop} />)
 
-    await user.click(screen.getByRole('button', { name: /Narration/ }))
-    await user.click(screen.getByRole('button', { name: /Generate narration/ }))
+    await user.click(screen.getByRole('button', { name: /^5Seslendirme$/ }))
+    await user.click(screen.getByRole('button', { name: /^Seslendir \(/ }))
     await waitFor(() => expect(generate).toHaveBeenCalledWith('the-dodo', [], false))
   })
 
@@ -95,10 +95,10 @@ describe('SimpleModePage', () => {
     seedProject(makeProject({ scenes: [makeScene({ id: 's1', narration: 'Hi.' })] }))
     render(<SimpleModePage goTo={noop} />)
 
-    await user.click(screen.getByRole('button', { name: /Render/ }))
-    expect(await screen.findByText(/Ready — about 4:30 long/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Video/ }))
+    expect(await screen.findByText(/Hazır — video yaklaşık 4:30 sürecek/)).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Render video' }))
+    await user.click(screen.getByRole('button', { name: 'Videoyu oluştur' }))
     await waitFor(() => expect(startRender).toHaveBeenCalledWith('the-dodo', undefined))
   })
 })

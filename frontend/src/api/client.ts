@@ -69,11 +69,11 @@ export function describeError(error: unknown): ApiErrorPayload {
   if (error instanceof Error) {
     return {
       code: 'network',
-      message: `Could not reach the backend: ${error.message}`,
+      message: `Uygulamaya ulaşılamadı: ${error.message}`,
       details: error.stack ?? null,
       suggestion:
-        'Check that the backend is running (./dev.sh starts it), then retry. ' +
-        'If it is running, look at the backend log for a startup failure.',
+        'Uygulamanın arka planda çalıştığından emin olun, sonra tekrar deneyin. ' +
+        'Çalışıyorsa kayıt dosyasına bakın.',
       logPath: null,
       context: {},
     }
@@ -82,7 +82,7 @@ export function describeError(error: unknown): ApiErrorPayload {
     code: 'unknown',
     message: String(error),
     details: null,
-    suggestion: 'Retry the action. If it persists, check the backend log.',
+    suggestion: 'Tekrar deneyin. Sürerse kayıt dosyasına bakın.',
     logPath: null,
     context: {},
   }

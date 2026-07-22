@@ -102,7 +102,7 @@ class TestRegistry:
         status = get_provider(TTSProviderName.ELEVENLABS).status()
         assert status.available is False
         assert status.requires_api_key is True
-        assert "Settings" in status.message
+        assert "Ayarlar" in status.message
 
 
 class TestPronunciation:
@@ -329,7 +329,7 @@ class TestOfflineWorkflow:
 
         error = exc_info.value
         assert error.code is ErrorCode.MISSING_AUDIO
-        assert "upload" in error.suggestion.lower()
+        assert "yükleyin" in error.suggestion.lower()
 
     async def test_missing_imported_file_is_reported(self, project_with_scene) -> None:
         project, paths = project_with_scene

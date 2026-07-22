@@ -111,8 +111,8 @@ def build_timeline(
     if not units:
         raise ValidationError(
             ErrorCode.INVALID_DURATION,
-            "This project has nothing to render.",
-            suggestion="Add at least one enabled scene with narration or an image.",
+            "Bu projede oluşturulacak bir şey yok.",
+            suggestion="Metni ya da görseli olan en az bir sahne ekleyin.",
         )
 
     warnings: list[str] = []
@@ -207,10 +207,10 @@ def _fit_to_target(
         overshoot = natural_total - target
         if overshoot > 1.0:
             warnings.append(
-                f"The narration alone runs {_fmt(natural_total)}, which is "
-                f"{_fmt(overshoot)} longer than the {_fmt(target)} target. Narration is never "
-                "cut, so the video will be longer than the target. Shorten the narration, "
-                "remove a scene, or raise the speech rate."
+                f"Sadece konuşmalar {_fmt(natural_total)} sürüyor; bu, {_fmt(target)} olan "
+                f"hedeften {_fmt(overshoot)} uzun. Konuşma hiçbir zaman kesilmez, bu yüzden "
+                "video hedeften uzun olacak. Metni kısaltın, bir sahne çıkarın ya da konuşma "
+                "hızını artırın."
             )
         return durations, warnings
 
@@ -220,8 +220,8 @@ def _fit_to_target(
     weight_total = sum(durations)
     adjusted = [d + surplus * (d / weight_total) for d in durations]
     warnings.append(
-        f"Added {_fmt(surplus)} of extra visual hold across {len(durations)} sections "
-        f"to reach the {_fmt(target)} target."
+        f"{_fmt(target)} hedefine ulaşmak için {len(durations)} sahneye toplam "
+        f"{_fmt(surplus)} ek bekleme süresi eklendi."
     )
     return adjusted, warnings
 
@@ -253,17 +253,17 @@ def _resolve_transitions(
             if validate and duration > neighbour_min:
                 raise ValidationError(
                     ErrorCode.INVALID_TRANSITION,
-                    f"A {duration:.2f}s transition is longer than the "
-                    f"{neighbour_min:.2f}s section it sits beside.",
-                    details=f"section index {position}, transition {preset.value}",
+                    f"{duration:.2f} saniyelik geçiş, yanındaki {neighbour_min:.2f} saniyelik "
+                    "sahneden uzun.",
+                    details=f"{position}. sahne, geçiş: {preset.value}",
                     suggestion=(
-                        "Shorten the transition, or lengthen the scene. A transition cannot "
-                        f"exceed {MAX_TRANSITION_RATIO:.0%} of its shorter neighbour."
+                        "Geçişi kısaltın ya da sahneyi uzatın. Bir geçiş, kısa olan komşusunun "
+                        f"%{MAX_TRANSITION_RATIO * 100:.0f}'ından uzun olamaz."
                     ),
                 )
             warnings.append(
-                f"Transition after section {position + 1} shortened from {duration:.2f}s to "
-                f"{allowed:.2f}s so both scenes stay visible."
+                f"{position + 1}. sahneden sonraki geçiş, iki sahne de görünsün diye "
+                f"{duration:.2f} saniyeden {allowed:.2f} saniyeye kısaltıldı."
             )
             duration = allowed
         resolved.append((preset, duration))
@@ -317,8 +317,8 @@ def _validate(timeline: Timeline, project: Project) -> None:
     if timeline.total_duration_seconds <= 0:
         raise ValidationError(
             ErrorCode.INVALID_DURATION,
-            "The computed video duration is zero.",
-            suggestion="Add narration or set a manual duration for at least one scene.",
+            "Hesaplanan video süresi sıfır.",
+            suggestion="En az bir sahneye metin ekleyin ya da elle bir süre verin.",
         )
 
     # Check each section individually first: naming the offending scene is far
@@ -331,19 +331,19 @@ def _validate(timeline: Timeline, project: Project) -> None:
             name = _entry_label(entry, position)
             raise ValidationError(
                 ErrorCode.INVALID_DURATION,
-                f"{name} is {entry.duration_seconds:.2f}s long but its narration needs "
-                f"{entry.narration_duration_seconds:.2f}s — the last {overflow:.2f}s "
-                "would be cut off.",
+                f"{name} {entry.duration_seconds:.2f} saniye ama konuşması "
+                f"{entry.narration_duration_seconds:.2f} saniye sürüyor — son "
+                f"{overflow:.2f} saniye kesilirdi.",
                 details=(
-                    f"section starts {entry.start_seconds:.3f}s, ends {entry.end_seconds:.3f}s; "
-                    f"narration {entry.narration_start_seconds:.3f}s to "
-                    f"{entry.narration_end_seconds:.3f}s"
+                    f"sahne {entry.start_seconds:.3f} sn'de başlıyor, {entry.end_seconds:.3f} "
+                    f"sn'de bitiyor; konuşma {entry.narration_start_seconds:.3f} sn – "
+                    f"{entry.narration_end_seconds:.3f} sn"
                 ),
                 suggestion=(
-                    "Narration is never cut. Remove the manual duration for this scene so it "
-                    "follows the audio, raise it to at least "
-                    f"{entry.narration_duration_seconds + project.video.scene_lead_in_seconds:.2f}s, "
-                    "or shorten the narration."
+                    "Konuşma hiçbir zaman kesilmez. Bu sahnenin elle verilmiş süresini kaldırın "
+                    "ki sese uysun, süreyi en az "
+                    f"{entry.narration_duration_seconds + project.video.scene_lead_in_seconds:.2f} "
+                    "saniye yapın ya da metni kısaltın."
                 ),
             )
 
@@ -351,19 +351,19 @@ def _validate(timeline: Timeline, project: Project) -> None:
     if last_narration > timeline.total_duration_seconds + 1e-6:
         raise ValidationError(
             ErrorCode.INVALID_DURATION,
-            "The narration would be cut off by the end of the video.",
+            "Konuşma, video bitmeden tamamlanamıyor.",
             details=(
-                f"last narration ends at {last_narration:.3f}s but the video is "
-                f"{timeline.total_duration_seconds:.3f}s long"
+                f"son konuşma {last_narration:.3f} sn'de bitiyor ama video "
+                f"{timeline.total_duration_seconds:.3f} sn"
             ),
-            suggestion="Increase the audio tail, or lengthen the final scene.",
+            suggestion="Video sonundaki bekleme süresini artırın ya da son sahneyi uzatın.",
         )
 
     for previous, current in zip(timeline.entries, timeline.entries[1:], strict=False):
         if current.start_seconds < previous.start_seconds:
             raise ValidationError(
                 ErrorCode.INVALID_DURATION,
-                "Sections are not in increasing time order.",
+                "Sahneler zaman sırasına göre dizilmemiş.",
                 details=f"{previous.unit_id} at {previous.start_seconds}s, "
                         f"{current.unit_id} at {current.start_seconds}s",
             )
@@ -371,10 +371,10 @@ def _validate(timeline: Timeline, project: Project) -> None:
 
 def _entry_label(entry: TimelineEntry, position: int) -> str:
     if entry.kind == "intro":
-        return "The intro"
+        return "Giriş"
     if entry.kind == "outro":
-        return "The outro"
-    return f"Scene {entry.index + 1}"
+        return "Kapanış"
+    return f"{entry.index + 1}. sahne"
 
 
 def _fmt(seconds: float) -> str:

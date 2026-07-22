@@ -97,19 +97,19 @@ class TestStorage:
 class TestWarnings:
     def test_portrait_image_warns_about_cropping(self, paths) -> None:  # noqa: ANN001
         stored = media.store_image(paths, make_image_bytes(1440, 1920), "tall.png", slug="dodo")
-        assert any("portrait" in w for w in stored.info.warnings)
+        assert any("dikey" in w for w in stored.info.warnings)
 
     def test_square_image_warns(self, paths) -> None:  # noqa: ANN001
         stored = media.store_image(paths, make_image_bytes(1440, 1440), "square.png", slug="dodo")
-        assert any("square" in w for w in stored.info.warnings)
+        assert any("kare" in w for w in stored.info.warnings)
 
     def test_ultra_wide_image_warns(self, paths) -> None:  # noqa: ANN001
         stored = media.store_image(paths, make_image_bytes(3840, 1080), "wide.png", slug="dodo")
-        assert any("very wide" in w for w in stored.info.warnings)
+        assert any("çok geniş" in w for w in stored.info.warnings)
 
     def test_sub_1080p_warns_about_softness(self, paths) -> None:  # noqa: ANN001
         stored = media.store_image(paths, make_image_bytes(1600, 900), "small.png", slug="dodo")
-        assert any("soften" in w for w in stored.info.warnings)
+        assert any("bulanıklaşacak" in w for w in stored.info.warnings)
 
     def test_clean_16x9_image_has_no_warnings(self, paths) -> None:  # noqa: ANN001
         stored = media.store_image(paths, make_image_bytes(2560, 1440), "good.png", slug="dodo")

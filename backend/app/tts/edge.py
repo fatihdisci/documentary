@@ -42,7 +42,7 @@ class EdgeTTSProvider:
         return ProviderStatus(
             name=self.name,
             available=True,
-            message="Free, no API key. Requires an internet connection.",
+            message="Ücretsiz, anahtar gerektirmez. İnternet bağlantısı ister.",
             supports_rate=True,
             supports_pitch=True,
             supports_word_timings=True,
@@ -61,14 +61,14 @@ class EdgeTTSProvider:
         except asyncio.TimeoutError as exc:
             raise AppError(
                 ErrorCode.TTS_TIMEOUT,
-                "Timed out fetching the Edge TTS voice list.",
+                "Konuşmacı listesi alınamadı (zaman aşımı).",
                 details=str(exc),
-                suggestion="Check your internet connection, or upload narration audio instead.",
+                suggestion="İnternet bağlantınızı kontrol edin ya da kendi ses kayıtlarınızı yükleyin.",
             ) from exc
         except Exception as exc:  # noqa: BLE001 - any transport failure is the same story
             raise AppError(
                 ErrorCode.TTS_PROVIDER_UNAVAILABLE,
-                "Could not reach the Edge TTS service to list voices.",
+                "Konuşmacı listesi için seslendirme servisine ulaşılamadı.",
                 details=f"{type(exc).__name__}: {exc}",
             ) from exc
 
@@ -96,8 +96,8 @@ class EdgeTTSProvider:
         if not text:
             raise AppError(
                 ErrorCode.MISSING_NARRATION,
-                "There is no narration text to synthesize.",
-                suggestion="Add narration to this scene, or disable it.",
+                "Seslendirilecek metin yok.",
+                suggestion="Bu sahneye metin yazın ya da sahneyi kapatın.",
             )
 
         request.output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,19 +124,19 @@ class EdgeTTSProvider:
         if isinstance(last_error, asyncio.TimeoutError):
             raise AppError(
                 ErrorCode.TTS_TIMEOUT,
-                f"Edge TTS timed out after {MAX_ATTEMPTS} attempts.",
+                f"Seslendirme servisi {MAX_ATTEMPTS} denemede yanıt vermedi.",
                 details=str(last_error),
                 suggestion=(
-                    "Check your connection and retry. You can also upload narration audio "
+                    "Bağlantınızı kontrol edip tekrar deneyin. Dilerseniz kendi ses "
                     "for this scene and render entirely offline."
                 ),
             )
         raise AppError(
             ErrorCode.TTS_FAILED,
-            f"Edge TTS failed after {MAX_ATTEMPTS} attempts.",
+            f"Seslendirme {MAX_ATTEMPTS} denemede başarısız oldu.",
             details=f"{type(last_error).__name__}: {last_error}",
             suggestion=(
-                "Check your internet connection. If it persists, switch the provider to "
+                "İnternet bağlantınızı kontrol edin. Sürerse ses kaynağını "
                 "'imported' and upload narration audio per scene."
             ),
         )

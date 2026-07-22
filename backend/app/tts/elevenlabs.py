@@ -35,9 +35,9 @@ class ElevenLabsProvider:
             name=self.name,
             available=configured,
             message=(
-                "Ready. Uses your ElevenLabs quota."
+                "Hazır. ElevenLabs kotanızı kullanır."
                 if configured
-                else "Add an ElevenLabs API key in Settings to enable this provider."
+                else "Kullanmak için Ayarlar'dan bir ElevenLabs anahtarı ekleyin."
             ),
             requires_api_key=True,
             api_key_configured=configured,
@@ -54,7 +54,7 @@ class ElevenLabsProvider:
         except httpx.HTTPError as exc:
             raise AppError(
                 ErrorCode.TTS_PROVIDER_UNAVAILABLE,
-                "Could not reach ElevenLabs to list voices.",
+                "Konuşmacı listesi için ElevenLabs'e ulaşılamadı.",
                 details=f"{type(exc).__name__}: {exc}",
             ) from exc
 
@@ -78,8 +78,8 @@ class ElevenLabsProvider:
         if not text:
             raise AppError(
                 ErrorCode.MISSING_NARRATION,
-                "There is no narration text to synthesize.",
-                suggestion="Add narration to this scene, or disable it.",
+                "Seslendirilecek metin yok.",
+                suggestion="Bu sahneye metin yazın ya da sahneyi kapatın.",
             )
 
         request.output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -97,13 +97,13 @@ class ElevenLabsProvider:
         except httpx.TimeoutException as exc:
             raise AppError(
                 ErrorCode.TTS_TIMEOUT,
-                "ElevenLabs timed out while generating narration.",
+                "ElevenLabs seslendirme sırasında yanıt vermedi.",
                 details=str(exc),
             ) from exc
         except httpx.HTTPError as exc:
             raise AppError(
                 ErrorCode.TTS_PROVIDER_UNAVAILABLE,
-                "Could not reach ElevenLabs.",
+                "ElevenLabs'e ulaşılamadı.",
                 details=f"{type(exc).__name__}: {exc}",
             ) from exc
 
@@ -111,7 +111,7 @@ class ElevenLabsProvider:
         if not response.content:
             raise AppError(
                 ErrorCode.TTS_FAILED,
-                "ElevenLabs returned an empty audio response.",
+                "ElevenLabs boş bir ses yanıtı döndürdü.",
                 details=f"status={response.status_code}",
             )
 
@@ -128,8 +128,8 @@ class ElevenLabsProvider:
         if not key:
             raise AppError(
                 ErrorCode.TTS_INVALID_API_KEY,
-                "No ElevenLabs API key is configured.",
-                suggestion="Add one in Settings → API keys, or use Edge TTS, which is free.",
+                "ElevenLabs anahtarı tanımlı değil.",
+                suggestion="Ayarlar → Servis anahtarları bölümünden ekleyin ya da ücretsiz olan Edge'i kullanın.",
             )
         return key
 
@@ -143,21 +143,21 @@ class ElevenLabsProvider:
         if response.status_code in {401, 403}:
             raise AppError(
                 ErrorCode.TTS_INVALID_API_KEY,
-                "ElevenLabs rejected the API key.",
+                "ElevenLabs anahtarı kabul etmedi.",
                 details=f"HTTP {response.status_code}: {body}",
-                suggestion="Re-enter your API key in Settings → API keys.",
+                suggestion="Ayarlar → Servis anahtarları bölümünden anahtarı yeniden girin.",
             )
         if response.status_code == 429:
             raise AppError(
                 ErrorCode.TTS_QUOTA_EXCEEDED,
-                "ElevenLabs quota or rate limit reached.",
+                "ElevenLabs kotası ya da hız sınırı doldu.",
                 details=f"HTTP 429: {body}",
                 suggestion=(
-                    "Wait for your quota to reset, or switch to Edge TTS, which is free."
+                    "Kotanızın yenilenmesini bekleyin ya da ücretsiz olan Edge'e geçin."
                 ),
             )
         raise AppError(
             ErrorCode.TTS_FAILED,
-            f"ElevenLabs returned HTTP {response.status_code}.",
+            f"ElevenLabs {response.status_code} hata kodu döndürdü.",
             details=body,
         )

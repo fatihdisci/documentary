@@ -36,13 +36,23 @@ from app.models.base import CamelModel
 from app.models.enums import QualityPreset
 from app.models.project import Project, Scene, Section
 from app.render.codecs import RenderProfile
+from app.shorts.cues import CUE_SIDECAR_SCHEMA_VERSION, CueSidecarRef
 from app.timing.probe import probe_video
 from app.timing.schedule import Timeline
 
 logger = logging.getLogger("evb.shorts.manifest")
 
-#: Bumped whenever the meaning of a field changes. Readers refuse anything newer.
-MANIFEST_SCHEMA_VERSION = 1
+#: Bumped whenever the meaning of a field changes. Readers refuse anything newer
+#: and keep accepting every older version they know about.
+#:
+#: v2 added the optional ``shortsSource`` package (clean master + cue side-car).
+#: Every v2 field is optional with a default, so a v1 manifest written before the
+#: feature existed still validates and still cuts legacy Shorts exactly as it did
+#: — it simply reports that Shorts-native captions are unavailable.
+MANIFEST_SCHEMA_VERSION = 2
+
+#: The oldest manifest this build can still read.
+MIN_MANIFEST_SCHEMA_VERSION = 1
 
 MANIFEST_SUFFIX = "-manifest.json"
 
@@ -113,6 +123,54 @@ class ManifestEntry(CamelModel):
         return max(0.0, self.safe_end_seconds - self.safe_start_seconds)
 
 
+#: Bumped when the *contents* of a Shorts source package change meaning. Kept
+#: separate from the manifest version so a package can evolve without forcing a
+#: manifest migration, and so a reader can reject just this part.
+SHORTS_SOURCE_PACKAGE_VERSION = 1
+
+#: How the clean master came to exist.
+#:   ``primary-export``  the render had no burned-in subtitles, so the normal
+#:                       export is already caption-free and is the clean master.
+#:                       Costs nothing extra and is bit-identical to the export.
+#:   ``dedicated-pass``  subtitles were burned in, so a second subtitle-free
+#:                       encode of the same timeline was produced alongside.
+CLEAN_MASTER_FROM_PRIMARY_EXPORT = "primary-export"
+CLEAN_MASTER_FROM_DEDICATED_PASS = "dedicated-pass"
+
+
+class ShortsSourcePackage(CamelModel):
+    """The Shorts-ready source bound to one finished render.
+
+    Immutable, and never inferred from a filename: a Short only uses a clean
+    master this package explicitly names, whose checksum still matches, paired
+    with the cue side-car recorded here. Anything else is a stale-source error
+    the user is told how to fix — it is never a silent fall back to the captioned
+    export, which would double-caption the Short.
+    """
+
+    package_version: int = SHORTS_SOURCE_PACKAGE_VERSION
+    #: Relative to ``exports/`` — the package lives in ``exports/shorts-source/``.
+    directory: str = "shorts-source"
+    #: Full ffprobe description of the clean master, in the same shape as the
+    #: normal export's, so both go through the same verification code.
+    clean_master: ManifestSource
+    origin: str = CLEAN_MASTER_FROM_DEDICATED_PASS
+    #: Geometry and codecs the clean master targeted. Must equal the export's.
+    profile: ManifestProfile
+    cue_sidecar: CueSidecarRef
+    #: Restated here so a mismatch is caught even if the two files were shuffled.
+    render_job_id: str = ""
+    project_snapshot_sha256: str = ""
+    #: Checksum of the captioned export this clean master is the twin of.
+    paired_export_sha256: str = ""
+    written_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @property
+    def has_burned_in_subtitles(self) -> bool:
+        """Always false. A clean master with captions in it is a contradiction."""
+        return False
+
+
 class RenderManifest(CamelModel):
     """Everything a Short needs to know about a finished long render."""
 
@@ -130,8 +188,29 @@ class RenderManifest(CamelModel):
     entries: list[ManifestEntry] = Field(default_factory=list)
     written_at: datetime
 
+    #: Whether the *normal* export has captions burned into the picture. Recorded
+    #: so a Short can say why native captions are unavailable without guessing.
+    #: Absent in v1 manifests, where it defaults to the historical behaviour:
+    #: burn-in was on by default, and either way those pixels cannot be undone.
+    source_has_burned_in_subtitles: bool = True
+    #: Present only when the render prepared a Shorts-ready clean master. ``None``
+    #: on every v1 manifest and on any render that opted out.
+    shorts_source: ShortsSourcePackage | None = None
+
     def entry(self, unit_id: str) -> ManifestEntry | None:
         return next((e for e in self.entries if e.unit_id == unit_id), None)
+
+    @property
+    def supports_native_captions(self) -> bool:
+        """Whether this render *claims* a usable Shorts source package.
+
+        A claim only. The files it names are verified before anything is cut.
+        """
+        return (
+            self.shorts_source is not None
+            and self.shorts_source.package_version <= SHORTS_SOURCE_PACKAGE_VERSION
+            and self.shorts_source.cue_sidecar.schema_version <= CUE_SIDECAR_SCHEMA_VERSION
+        )
 
 
 # --- writing ---------------------------------------------------------------
@@ -140,6 +219,27 @@ class RenderManifest(CamelModel):
 def manifest_path_for(video: Path) -> Path:
     """Where the manifest for ``video`` lives. Always beside the MP4."""
     return video.with_name(f"{video.stem}{MANIFEST_SUFFIX}")
+
+
+def describe_file(
+    video: Path, *, checksum: str = "", settings: Settings | None = None
+) -> ManifestSource:
+    """ffprobe one video and record everything a later check will compare."""
+    info = probe_video(video, settings=settings or get_settings())
+    return ManifestSource(
+        filename=video.name,
+        size_bytes=video.stat().st_size,
+        sha256=checksum or sha256_file(video),
+        width=info.width,
+        height=info.height,
+        duration_seconds=round(info.duration_seconds, 4),
+        codec=info.codec,
+        pix_fmt=info.pix_fmt,
+        avg_frame_rate=info.avg_frame_rate,
+        has_audio=info.has_audio,
+        audio_codec=info.audio_codec,
+        audio_sample_rate=info.audio_sample_rate,
+    )
 
 
 def build_manifest(
@@ -152,9 +252,11 @@ def build_manifest(
     checksum: str,
     job_id: str = "",
     settings: Settings | None = None,
+    shorts_source: ShortsSourcePackage | None = None,
 ) -> RenderManifest:
     """Describe ``video`` and the timeline that produced it."""
-    info = probe_video(video, settings=settings or get_settings())
+    active = settings or get_settings()
+    info = probe_video(video, settings=active)
     closing_fade_start = _closing_fade_start(project, timeline)
 
     entries: list[ManifestEntry] = []
@@ -227,6 +329,8 @@ def build_manifest(
         closing_fade_start_seconds=round(closing_fade_start, 4),
         entries=entries,
         written_at=datetime.now(timezone.utc),
+        source_has_burned_in_subtitles=bool(project.subtitles.burn_in and timeline.cues),
+        shorts_source=shorts_source,
     )
 
 
@@ -240,6 +344,7 @@ def write_render_manifest(
     checksum: str,
     job_id: str = "",
     settings: Settings | None = None,
+    shorts_source: ShortsSourcePackage | None = None,
 ) -> Path:
     """Build and atomically write the manifest for a finished render."""
     manifest = build_manifest(
@@ -251,6 +356,7 @@ def write_render_manifest(
         checksum=checksum,
         job_id=job_id,
         settings=settings,
+        shorts_source=shorts_source,
     )
     target = manifest_path_for(video)
     tmp = target.with_suffix(".json.tmp")
@@ -268,15 +374,16 @@ def load_manifest(path: Path) -> RenderManifest:
     if not path.is_file():
         raise NotFoundError(
             ErrorCode.SHORT_MANIFEST_MISSING,
-            f"No render manifest was found next to '{path.name.replace(MANIFEST_SUFFIX, '.mp4')}'.",
-            details=f"expected {path}",
+            f"'{path.name.replace(MANIFEST_SUFFIX, '.mp4')}' dosyasının yanında bölüm "
+            "bilgileri bulunamadı.",
+            details=f"beklenen konum: {path}",
         )
     try:
         raw = json.loads(path.read_text("utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         raise ValidationError(
             ErrorCode.SHORT_MANIFEST_MISSING,
-            f"The render manifest '{path.name}' could not be read.",
+            f"'{path.name}' dosyası okunamadı.",
             details=str(exc),
         ) from exc
 
@@ -284,8 +391,11 @@ def load_manifest(path: Path) -> RenderManifest:
     if isinstance(version, int) and version > MANIFEST_SCHEMA_VERSION:
         raise ValidationError(
             ErrorCode.UNSUPPORTED_SCHEMA_VERSION,
-            f"The render manifest '{path.name}' was written by a newer version of the app.",
-            details=f"manifest schemaVersion={version}, supported={MANIFEST_SCHEMA_VERSION}",
+            f"'{path.name}' dosyası uygulamanın daha yeni bir sürümüyle yazılmış.",
+            details=(
+                f"manifest schemaVersion={version}, "
+                f"supported={MIN_MANIFEST_SCHEMA_VERSION}..{MANIFEST_SCHEMA_VERSION}"
+            ),
         )
 
     try:
@@ -293,10 +403,10 @@ def load_manifest(path: Path) -> RenderManifest:
     except PydanticValidationError as exc:
         raise ValidationError(
             ErrorCode.SHORT_MANIFEST_MISSING,
-            f"The render manifest '{path.name}' does not match the expected schema.",
+            f"'{path.name}' dosyasının biçimi beklenenden farklı.",
             details=str(exc)[:2000],
             suggestion=(
-                "Re-render the long video. The new export writes a fresh manifest."
+                "Uzun videoyu yeniden oluşturun; yeni video kendi bölüm bilgilerini yazar."
             ),
         ) from exc
 
@@ -316,9 +426,8 @@ def verify_source(
     if not video.is_file():
         raise NotFoundError(
             ErrorCode.STALE_RENDER,
-            f"The exported video '{manifest.source.filename}' is no longer in this "
-            "project's exports folder.",
-            details=f"expected {video}",
+            f"'{manifest.source.filename}' videosu artık bu projenin klasöründe yok.",
+            details=f"beklenen konum: {video}",
             source_filename=manifest.source.filename,
         )
 
@@ -326,11 +435,11 @@ def verify_source(
     if size != manifest.source.size_bytes:
         raise ValidationError(
             ErrorCode.STALE_RENDER,
-            f"'{video.name}' has changed since it was rendered, so its section "
-            "timeline no longer applies.",
+            f"'{video.name}' oluşturulduğundan beri değişmiş; bölüm bilgileri artık "
+            "geçerli değil.",
             details=(
-                f"manifest recorded {manifest.source.size_bytes} bytes, "
-                f"the file on disk is {size} bytes"
+                f"kayıtlı boyut {manifest.source.size_bytes} bayt, "
+                f"diskteki dosya {size} bayt"
             ),
             source_filename=video.name,
         )
@@ -340,10 +449,10 @@ def verify_source(
         if digest != manifest.source.sha256:
             raise ValidationError(
                 ErrorCode.STALE_RENDER,
-                f"'{video.name}' no longer matches the render it was produced by.",
+                f"'{video.name}' artık kaydedildiği hâliyle aynı değil.",
                 details=(
-                    f"manifest sha256 {manifest.source.sha256}\n"
-                    f"file     sha256 {digest}"
+                    f"kayıtlı sha256 {manifest.source.sha256}\n"
+                    f"dosya    sha256 {digest}"
                 ),
                 source_filename=video.name,
             )
@@ -355,11 +464,11 @@ def verify_source(
         # underlying reason: truncated, half-written, or not really a video.
         raise ValidationError(
             ErrorCode.STALE_RENDER,
-            f"'{video.name}' could not be read by FFmpeg, so no Short can be cut from it.",
+            f"'{video.name}' açılamadı, bu yüzden ondan kısa video kesilemez.",
             details=exc.details or exc.message,
             suggestion=(
-                "The file is corrupt or incomplete. Render the long video again, then "
-                "build the Short from the new export."
+                "Dosya bozuk ya da eksik. Uzun videoyu yeniden oluşturun ve kısa videoyu "
+                "yeni dosyadan kesin."
             ),
             source_filename=video.name,
         ) from exc
@@ -367,29 +476,192 @@ def verify_source(
     if info.width <= 0 or info.height <= 0:
         raise ValidationError(
             ErrorCode.STALE_RENDER,
-            f"'{video.name}' has no readable video stream.",
-            details=f"ffprobe reported {info.width}x{info.height}",
+            f"'{video.name}' içinde okunabilir bir görüntü yok.",
+            details=f"bulunan boyut: {info.width}x{info.height}",
             source_filename=video.name,
         )
     if not info.has_audio:
         raise ValidationError(
             ErrorCode.STALE_RENDER,
-            f"'{video.name}' has no audio stream, so a Short cut from it would be silent.",
-            details="ffprobe found no audio stream",
+            f"'{video.name}' içinde ses yok; bundan kesilecek kısa video sessiz olurdu.",
+            details="dosyada ses kanalı bulunamadı",
             suggestion=(
-                "Re-render the long video with narration or music enabled, then build the "
-                "Short from that export."
+                "Uzun videoyu seslendirme ya da müzik açıkken yeniden oluşturun, sonra kısa "
+                "videoyu ondan kesin."
             ),
             source_filename=video.name,
         )
     if abs(info.duration_seconds - manifest.source.duration_seconds) > DURATION_MATCH_TOLERANCE:
         raise ValidationError(
             ErrorCode.STALE_RENDER,
-            f"'{video.name}' is {info.duration_seconds:.2f}s long but the manifest "
-            f"recorded {manifest.source.duration_seconds:.2f}s.",
-            details="the file was re-encoded, trimmed or replaced after it was rendered",
+            f"'{video.name}' {info.duration_seconds:.2f} saniye ama kayıtlarda "
+            f"{manifest.source.duration_seconds:.2f} saniye yazıyor.",
+            details="dosya oluşturulduktan sonra yeniden kaydedilmiş, kırpılmış ya da "
+                    "değiştirilmiş",
             source_filename=video.name,
         )
+
+
+def verify_clean_master(
+    manifest: RenderManifest,
+    clean_master: Path,
+    *,
+    settings: Settings | None = None,
+    check_checksum: bool = True,
+    probe: bool = True,
+) -> ShortsSourcePackage:
+    """Confirm the clean master is exactly the one this render recorded.
+
+    Deliberately strict, and deliberately fatal. If any of this does not hold,
+    the only safe outcomes are "use the burned-in source" or "re-render" — never
+    "carry on with the captioned export", which would put two sets of captions on
+    the same Short.
+
+    ``check_checksum`` and ``probe`` are the two expensive steps, and both are
+    skipped when this runs for every card in the source picker: hashing and
+    ffprobing every render on every page load would be absurd. Both always run
+    before a job is queued, which is the only point at which it matters.
+    """
+    package = manifest.shorts_source
+    if package is None:
+        raise ValidationError(
+            ErrorCode.SHORT_CAPTIONS_UNAVAILABLE,
+            "Bu videonun altyazıları görüntünün içine gömülü. Büyük altyazı kullanmak için "
+            "uzun videoyu, altyazısız kopya hazırlama seçeneği açıkken yeniden oluşturun.",
+            details=(
+                f"kayıt sürümü {manifest.schema_version}, altyazısız kopya bilgisi yok"
+            ),
+            source_filename=manifest.source.filename,
+        )
+
+    if package.package_version > SHORTS_SOURCE_PACKAGE_VERSION:
+        raise ValidationError(
+            ErrorCode.UNSUPPORTED_SCHEMA_VERSION,
+            "Bu videonun kısa video verileri uygulamanın daha yeni bir sürümüyle yazılmış.",
+            details=(
+                f"package version={package.package_version}, "
+                f"supported={SHORTS_SOURCE_PACKAGE_VERSION}"
+            ),
+        )
+    if package.cue_sidecar.schema_version > CUE_SIDECAR_SCHEMA_VERSION:
+        raise ValidationError(
+            ErrorCode.UNSUPPORTED_SCHEMA_VERSION,
+            "Bu videonun altyazı verisi uygulamanın daha yeni bir sürümüyle yazılmış.",
+            details=(
+                f"side-car schemaVersion={package.cue_sidecar.schema_version}, "
+                f"supported={CUE_SIDECAR_SCHEMA_VERSION}"
+            ),
+        )
+
+    # Identity: the package must belong to *this* render, not a neighbour's.
+    if package.render_job_id and manifest.render_job_id and (
+        package.render_job_id != manifest.render_job_id
+    ):
+        raise ValidationError(
+            ErrorCode.SHORT_CLEAN_SOURCE_STALE,
+            "Diskteki altyazısız kopya başka bir videoya ait.",
+            details=(
+                f"kopya: {package.render_job_id!r}, video: {manifest.render_job_id!r}"
+            ),
+            source_filename=manifest.source.filename,
+        )
+    if package.project_snapshot_sha256 and (
+        package.project_snapshot_sha256 != manifest.project_snapshot_sha256
+    ):
+        raise ValidationError(
+            ErrorCode.SHORT_CLEAN_SOURCE_STALE,
+            "Altyazısız kopya, projenin başka bir hâlinden oluşturulmuş.",
+            details=(
+                f"kopya {package.project_snapshot_sha256[:16]}, "
+                f"video {manifest.project_snapshot_sha256[:16]}"
+            ),
+            source_filename=manifest.source.filename,
+        )
+
+    expected = package.clean_master
+    if not clean_master.is_file():
+        raise NotFoundError(
+            ErrorCode.SHORT_CLEAN_SOURCE_STALE,
+            f"Bu videonun altyazısız kopyası ('{expected.filename}') artık diskte yok.",
+            details=f"beklenen konum: {clean_master}",
+            suggestion=(
+                "Uzun videoyu, altyazısız kopya hazırlama seçeneği açıkken yeniden oluşturun. "
+                "Ya da bu kısa videoyu videodaki mevcut altyazıyla oluşturun."
+            ),
+            source_filename=expected.filename,
+        )
+
+    size = clean_master.stat().st_size
+    if size != expected.size_bytes:
+        raise ValidationError(
+            ErrorCode.SHORT_CLEAN_SOURCE_STALE,
+            f"Altyazısız kopya ('{expected.filename}') oluşturulduğundan beri değişmiş.",
+            details=(
+                f"kayıtlı boyut {expected.size_bytes} bayt, "
+                f"diskteki dosya {size} bayt"
+            ),
+            source_filename=expected.filename,
+        )
+
+    if check_checksum:
+        digest = sha256_file(clean_master)
+        if digest != expected.sha256:
+            raise ValidationError(
+                ErrorCode.SHORT_CLEAN_SOURCE_STALE,
+                f"Altyazısız kopya ('{expected.filename}') artık ait olduğu videoyla "
+                "uyuşmuyor.",
+                details=f"kayıtlı sha256 {expected.sha256}\ndosya    sha256 {digest}",
+                source_filename=expected.filename,
+            )
+
+    if not probe:
+        return package
+
+    try:
+        info = probe_video(clean_master, settings=settings or get_settings())
+    except AppError as exc:
+        raise ValidationError(
+            ErrorCode.SHORT_CLEAN_SOURCE_STALE,
+            f"Altyazısız kopya ('{expected.filename}') açılamadı.",
+            details=exc.details or exc.message,
+            suggestion="Uzun videoyu yeniden oluşturun ve kısa videoyu yeni dosyadan kesin.",
+            source_filename=expected.filename,
+        ) from exc
+
+    # Timeline identity: a clean master that is not the same length, shape or
+    # frame rate as the export is not the same cut, and every section boundary in
+    # the manifest would land in the wrong place.
+    mismatches: list[str] = []
+    if (info.width, info.height) != (manifest.source.width, manifest.source.height):
+        mismatches.append(
+            f"boyut {info.width}x{info.height}, "
+            f"video {manifest.source.width}x{manifest.source.height}"
+        )
+    if info.avg_frame_rate != manifest.source.avg_frame_rate:
+        mismatches.append(
+            f"kare hızı {info.avg_frame_rate}, video {manifest.source.avg_frame_rate}"
+        )
+    if package.profile.fps != manifest.profile.fps:
+        mismatches.append(f"kayıtlı fps {package.profile.fps}, video {manifest.profile.fps}")
+    if abs(info.duration_seconds - manifest.source.duration_seconds) > DURATION_MATCH_TOLERANCE:
+        mismatches.append(
+            f"süre {info.duration_seconds:.2f} sn, video "
+            f"{manifest.source.duration_seconds:.2f} sn"
+        )
+    if not info.has_audio:
+        mismatches.append("ses kanalı yok")
+
+    if mismatches:
+        raise ValidationError(
+            ErrorCode.SHORT_CLEAN_SOURCE_STALE,
+            f"Altyazısız kopya ('{expected.filename}') ait olduğu videoyla uyuşmuyor; bölüm "
+            "bilgileri artık geçerli değil.",
+            details="\n".join(mismatches),
+            suggestion="Uzun videoyu yeniden oluşturun ve kısa videoyu yeni dosyadan kesin.",
+            source_filename=expected.filename,
+        )
+
+    return package
 
 
 def sha256_file(path: Path) -> str:

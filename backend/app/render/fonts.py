@@ -115,9 +115,8 @@ def resolve(family: str, weight: int = 400) -> ResolvedFont:
         path=fallback.path,
         bundled=True,
         substitution_note=(
-            f"The font '{requested}' is not installed on this machine, so the bundled "
-            f"Inter was used instead. Text sizes and line breaks may differ from what "
-            f"you designed."
+            f"'{requested}' yazı tipi bu bilgisayarda kurulu değil; onun yerine uygulamayla "
+            "gelen Inter kullanıldı. Yazı boyutları ve satır sonları farklı olabilir."
         ),
     )
 
@@ -126,11 +125,11 @@ def _bundled_inter(weight: int) -> ResolvedFont:
     if not _bundled_present():
         raise AppError(
             ErrorCode.FONT_UNAVAILABLE,
-            "The bundled fonts are missing from this installation.",
-            details=f"expected Inter .ttf files in {BUNDLED_DIR}",
+            "Uygulamayla gelen yazı tipleri bulunamadı.",
+            details=f"Inter .ttf dosyaları burada olmalıydı: {BUNDLED_DIR}",
             suggestion=(
-                "Reinstall the application, or place Inter-Regular.ttf and Inter-Bold.ttf "
-                f"in {BUNDLED_DIR}."
+                "Uygulamayı yeniden kurun ya da Inter-Regular.ttf ve Inter-Bold.ttf "
+                f"dosyalarını şuraya koyun: {BUNDLED_DIR}."
             ),
         )
     nearest = min(_INTER_WEIGHTS, key=lambda w: abs(w - weight))
@@ -189,9 +188,9 @@ def load(family: str, weight: int, size: int) -> ImageFont.FreeTypeFont:
     except OSError as exc:
         raise AppError(
             ErrorCode.FONT_UNAVAILABLE,
-            f"The font file for '{family}' could not be loaded.",
+            f"'{family}' yazı tipi dosyası açılamadı.",
             details=f"{resolved.path}: {exc}",
-            suggestion="Choose a different font in Style settings.",
+            suggestion="Görünüm ayarlarından başka bir yazı tipi seçin.",
         ) from exc
 
 
@@ -203,5 +202,5 @@ def validate(family: str) -> tuple[bool, str]:
         return False, exc.message
     if resolved.substitution_note:
         return False, resolved.substitution_note
-    source = "bundled with the app" if resolved.bundled else f"system font at {resolved.path}"
-    return True, f"'{resolved.family}' is available ({source})."
+    source = "uygulamayla geliyor" if resolved.bundled else f"sistemde: {resolved.path}"
+    return True, f"'{resolved.family}' kullanılabilir ({source})."

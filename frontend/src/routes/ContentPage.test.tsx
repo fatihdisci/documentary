@@ -25,7 +25,7 @@ describe('ContentPage', () => {
   it('prompts to open a project when none is loaded', () => {
     seedProject(null)
     render(<ContentPage />)
-    expect(screen.getByText('Open a project first.')).toBeInTheDocument()
+    expect(screen.getByText('Önce bir proje açın.')).toBeInTheDocument()
   })
 
   it('imports a package and shows the report', async () => {
@@ -48,11 +48,11 @@ describe('ContentPage', () => {
     render(<ContentPage />)
 
     const file = new File(['{}'], 'dodo.json', { type: 'application/json' })
-    await user.upload(screen.getByLabelText('Content package JSON'), file)
+    await user.upload(screen.getByLabelText('Metin dosyası (JSON)'), file)
 
-    expect(await screen.findByText('Import complete')).toBeInTheDocument()
-    expect(screen.getByText('8 scenes created')).toBeInTheDocument()
-    expect(screen.getByText('6 images mapped')).toBeInTheDocument()
+    expect(await screen.findByText('Yükleme tamamlandı')).toBeInTheDocument()
+    expect(screen.getByText('8 sahne oluşturuldu')).toBeInTheDocument()
+    expect(screen.getByText('6 görsel eşleştirildi')).toBeInTheDocument()
     expect(screen.getByText(/Scene 3 has no image\./)).toBeInTheDocument()
   })
 
@@ -74,14 +74,14 @@ describe('ContentPage', () => {
     render(<ContentPage />)
 
     const file = new File(['not json'], 'broken.json', { type: 'application/json' })
-    await user.upload(screen.getByLabelText('Content package JSON'), file)
+    await user.upload(screen.getByLabelText('Metin dosyası (JSON)'), file)
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('The content package is not valid JSON.')
     expect(alert).toHaveTextContent('Fix the JSON and try again.')
     expect(alert).toHaveTextContent('/tmp/backend.log')
     // Details are available on demand, not dumped raw.
-    await user.click(screen.getByRole('button', { name: /technical details/ }))
+    await user.click(screen.getByRole('button', { name: /Teknik ayrıntıları/ }))
     expect(screen.getByText('line 4: unexpected token')).toBeInTheDocument()
   })
 
@@ -90,7 +90,7 @@ describe('ContentPage', () => {
     seedProject(makeProject())
     render(<ContentPage />)
 
-    const input = screen.getByLabelText('Animal name')
+    const input = screen.getByLabelText('Hayvanın adı')
     await user.clear(input)
     await user.type(input, 'Thylacine')
 

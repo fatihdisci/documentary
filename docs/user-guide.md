@@ -100,31 +100,32 @@ shown below.
 
 Turns a finished video into a vertical clip for YouTube Shorts. It only ever
 cuts from a **completed render** — nothing is re-rendered, so the narration,
-music, burned-in subtitles and scene transitions come through exactly as they
-were mixed.
+music and scene transitions come through exactly as they were mixed.
 
 1. **Pick the source render.** Only completed renders that still match the file
    on disk are offered. If an export was deleted or edited after it was
    rendered, it is shown as unusable and the reason is given — render the long
    video again and use the new export.
-2. **Choose sections.** Cards are numbered the way the video plays: `0 — Intro`,
+2. **Choose your captions.** See [Captions in a Short](#captions-in-a-short)
+   below.
+3. **Choose sections.** Cards are numbered the way the video plays: `0 — Intro`,
    `1…N — Scene title`, `N+1 — Outro`. Tick them in the order you want them to
    appear; the badge on each card shows its position, and 6-then-2 really does
    put section 6 first. Non-adjacent picks are fine.
-3. **Trim.** Each selected section gets a start and end field. The bounds come
+4. **Trim.** Each selected section gets a start and end field. The bounds come
    from the render manifest, not from guesswork — the excluded margins are the
    transition each section shares with its neighbours, and cutting inside one
    would duplicate frames. Sections you pick back-to-back and leave untrimmed at
    the join are cut as one continuous span, so the transition between them is
    preserved exactly. Trim at a join and the two become separate cuts joined by
    a hard cut; nothing is faded or invented.
-4. **Watch the duration.** 25–50 seconds is the recommended band. Past **60
+5. **Watch the duration.** 25–50 seconds is the recommended band. Past **60
    seconds** you get a warning, because a Short over a minute can be blocked
    worldwide if any music in it has an active Content ID claim — fine when the
    music is yours or licensed, which is why it is only a warning. Past **three
    minutes** the render is blocked: YouTube only treats vertical or square video
    up to three minutes as a Short.
-5. **Check the preview**, then **Render Short**. Progress streams live and can be
+6. **Check the preview**, then **Render Short**. Progress streams live and can be
    cancelled or retried. Requesting a Short you already built reuses the existing
    file instead of encoding again, and says so.
 
@@ -135,6 +136,41 @@ source lands at 1080×608 with black above and below.
 Finished Shorts live in `exports/shorts/` inside the project, separately from the
 long video's exports. Deleting one removes only that Short's files; the long
 render, the project and every other Short are untouched.
+
+### Captions in a Short
+
+The long video's subtitles are sized for a wide 16:9 frame. Centred on a vertical
+canvas, that frame is only about a third of the height — and so are its
+subtitles, which is too small to read on a phone. There is no way to take them
+out afterwards: once captions are burned into a video they are part of the
+picture, and anything that tried to erase them would damage the film.
+
+So the Shorts tab offers:
+
+- **Use captions already in video (legacy).** Cuts the finished export as it is.
+  Always available, for every render you have ever made. The captions will be
+  small.
+- **Large Shorts captions.** Draws the video's captions fresh, big, at the bottom
+  of the vertical frame, clear of the scrubber and the like/comment buttons.
+  Choose **Standard**, **Large** or **Compact**.
+- **No captions.** A clean picture with no text at all.
+
+The last two need a render that kept a **clean master** — a second, caption-free
+copy made at the same time as the video. On the Export tab, *Prepare a clean
+master for Shorts* controls that:
+
+- It is **on for new projects** and **off for projects made before this existed**,
+  so nothing you already have suddenly renders twice as slowly.
+- If you have *Burn subtitles into the picture* switched **off**, it costs
+  nothing — your export already has no captions in it and is kept as its own
+  clean master.
+- If burn-in is **on**, it renders the video a second time without subtitles.
+  That roughly doubles the render time and uses about as much disk again.
+
+It has to be decided *before* you render. If a render was made without one, the
+Shorts tab greys out the large-caption option and says so; the fix is to render
+the long video again with the setting on. Until then you can still make Shorts
+from it using the legacy option.
 
 ## Quality presets
 

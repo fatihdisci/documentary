@@ -134,7 +134,7 @@ class TestPersistence:
         recovered = manager.get("killed01")
 
         assert recovered.status is JobStatus.INTERRUPTED
-        assert "Interrupted" in recovered.message
+        assert "Yarıda kaldı" in recovered.message
         assert recovered.error_suggestion
         # The stored copy was updated too, so a second restart stays consistent.
         stored = json.loads((history / "killed01.json").read_text("utf-8"))
@@ -193,7 +193,7 @@ class TestQueueBehaviour:
 
         cancelled = asyncio.run(run())
         assert cancelled.status is JobStatus.CANCELLED
-        assert "before it started" in cancelled.message
+        assert "Başlamadan iptal" in cancelled.message
 
     def test_cancelling_a_finished_job_is_a_conflict(
         self, manager: ShortJobManager, project

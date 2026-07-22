@@ -43,12 +43,12 @@ class TestFonts:
         """A missing font must not fail the render, but must not be silent either."""
         resolved = fonts.resolve("DefinitelyNotInstalled", 400)
         assert resolved.bundled is True
-        assert "not installed" in resolved.substitution_note
+        assert "kurulu değil" in resolved.substitution_note
         assert "Inter" in resolved.substitution_note
 
     def test_validate_reports_exact_and_substituted(self) -> None:
         exact, message = fonts.validate("Inter")
-        assert exact is True and "available" in message
+        assert exact is True and "kullanılabilir" in message
 
         exact, message = fonts.validate("NoSuchFont")
         assert exact is False and message

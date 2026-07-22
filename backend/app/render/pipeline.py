@@ -17,10 +17,12 @@ after it recomputes a duration or an offset.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
+import os
 import shutil
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from app.config import Settings, get_settings
@@ -35,7 +37,21 @@ from app.models.enums import (
 from app.models.project import Project, Scene, Section
 from app.render import transitions
 from app.render.audio_mix import build_audio_plan, render_narration_only, resolve_music_file
-from app.render.codecs import AUDIO_ARGS, estimate_disk_mb, quality_spec, render_profile
+from app.render.clean_master import (
+    CLEAN_MASTER_CACHE_SLUG,
+    CleanMasterPlan,
+    clean_master_cache_key,
+    clean_master_path,
+    clean_master_project,
+    plan_clean_master,
+)
+from app.render.codecs import (
+    AUDIO_ARGS,
+    RenderProfile,
+    estimate_disk_mb,
+    quality_spec,
+    render_profile,
+)
 from app.render.ffmpeg import (
     CancelledRender,
     FFmpegRunner,
@@ -44,7 +60,15 @@ from app.render.ffmpeg import (
 )
 from app.render.scene_clip import SceneClip, render_scene_clip, resolve_image
 from app.render.validate import ValidationReport, validate_output
-from app.shorts.manifest import write_render_manifest
+from app.shorts.cues import build_sidecar, sidecar_path_for, write_sidecar
+from app.shorts.manifest import (
+    CLEAN_MASTER_FROM_DEDICATED_PASS,
+    CLEAN_MASTER_FROM_PRIMARY_EXPORT,
+    ManifestProfile,
+    ShortsSourcePackage,
+    describe_file,
+    write_render_manifest,
+)
 from app.storage.layout import ProjectPaths
 from app.storage.paths import safe_join, unique_path
 from app.synth.music import render_ambient_bed
@@ -79,9 +103,29 @@ PHASE_WEIGHTS: dict[JobPhase, float] = {
     JobPhase.MIX_AUDIO: 0.02,
     JobPhase.ENCODE: 0.22,
     JobPhase.VALIDATE_OUTPUT: 0.03,
+    JobPhase.PREPARE_SHORTS_SOURCE: 0.0,
     JobPhase.WRITE_ARTIFACTS: 0.02,
     JobPhase.CLEANUP: 0.01,
 }
+
+#: Share of the bar the clean-master pass takes when it actually has to run. It
+#: re-renders every scene clip and re-encodes the whole video, so it is close to
+#: a second render; a smaller number would park the bar at 97% for minutes.
+SHORTS_SOURCE_WEIGHT = 0.38
+
+
+def phase_weights(*, with_shorts_source: bool) -> dict[JobPhase, float]:
+    """Weights for one render, with room reserved for a clean-master pass.
+
+    Every other phase is scaled down proportionally rather than re-tuned by hand,
+    so a render that skips the pass is weighted exactly as it always was.
+    """
+    if not with_shorts_source:
+        return dict(PHASE_WEIGHTS)
+    scale = 1.0 - SHORTS_SOURCE_WEIGHT
+    weights = {phase: weight * scale for phase, weight in PHASE_WEIGHTS.items()}
+    weights[JobPhase.PREPARE_SHORTS_SOURCE] = SHORTS_SOURCE_WEIGHT
+    return weights
 
 
 @dataclass
@@ -141,19 +185,19 @@ def preflight_disk_space(
     if free_mb < required_mb:
         raise DiskSpaceError(
             ErrorCode.INSUFFICIENT_DISK_SPACE,
-            f"Not enough disk space to render: this needs about "
-            f"{estimate['totalMb'] / 1024:.1f} GB plus a {margin_mb / 1024:.1f} GB safety "
-            f"margin, but only {free_mb / 1024:.1f} GB is free.",
+            f"Diskte yeterli yer yok: bu video için yaklaşık "
+            f"{estimate['totalMb'] / 1024:.1f} GB, ayrıca {margin_mb / 1024:.1f} GB güvenlik "
+            f"payı gerekiyor; ama sadece {free_mb / 1024:.1f} GB boş yer var.",
             details=(
-                f"scene clips  ~{estimate['intermediateMb']:.0f} MB\n"
-                f"final output ~{estimate['outputMb']:.0f} MB\n"
-                f"other assets ~{estimate['assetsMb']:.0f} MB\n"
-                f"free space    {free_mb:.0f} MB"
+                f"sahne dosyaları  ~{estimate['intermediateMb']:.0f} MB\n"
+                f"bitmiş video     ~{estimate['outputMb']:.0f} MB\n"
+                f"diğer dosyalar   ~{estimate['assetsMb']:.0f} MB\n"
+                f"boş yer           {free_mb:.0f} MB"
             ),
             suggestion=(
-                "Free up disk space, choose a lighter intermediate codec in Settings "
-                "(H.264 CRF 14 is ~80x smaller than ProRes), lower the export quality, "
-                "or point the temporary directory at a larger volume."
+                "Diskte yer açın, Ayarlar'dan daha hafif bir ara dosya biçimi seçin "
+                "(H.264 CRF 14, ProRes'ten yaklaşık 80 kat küçüktür), video kalitesini "
+                "düşürün ya da geçici dosya klasörünü daha geniş bir diske taşıyın."
             ),
         )
     return {**estimate, "freeMb": round(free_mb, 1), "requiredMb": round(required_mb, 1)}
@@ -189,13 +233,20 @@ class RenderPipeline:
         self.warnings: list[str] = []
         self._completed_weight = 0.0
         self._last_reported = 0.0
+        # Reserve bar space up front rather than mid-render: both inputs are
+        # known now, and rescaling later would stall the bar at the join.
+        self._weights = phase_weights(
+            with_shorts_source=(
+                project.export.prepare_clean_master_for_shorts and project.subtitles.burn_in
+            )
+        )
 
     # --- progress ---------------------------------------------------------
 
     def _emit(self, phase: JobPhase, fraction: float, message: str) -> None:
         if self.on_progress is None:
             return
-        weight = PHASE_WEIGHTS.get(phase, 0.01)
+        weight = self._weights.get(phase, 0.01)
         overall = min(1.0, self._completed_weight + weight * max(0.0, min(1.0, fraction)))
         # Progress is monotonic by construction. Sub-steps report their own
         # fractions and a new step's opening estimate can otherwise undercut the
@@ -205,7 +256,7 @@ class RenderPipeline:
         self.on_progress(phase, overall, message)
 
     def _finish_phase(self, phase: JobPhase) -> None:
-        self._completed_weight = min(1.0, self._completed_weight + PHASE_WEIGHTS.get(phase, 0.01))
+        self._completed_weight = min(1.0, self._completed_weight + self._weights.get(phase, 0.01))
 
     def _check_cancelled(self) -> None:
         if self.cancel_event is not None and self.cancel_event.is_set():
@@ -223,7 +274,7 @@ class RenderPipeline:
         if not capabilities.is_usable:
             raise RenderError(
                 ErrorCode.FFMPEG_CAPABILITY_MISSING,
-                "This FFmpeg build cannot render: required components are missing.",
+                "Bu FFmpeg sürümüyle video oluşturulamaz: gerekli bazı özellikler eksik.",
                 details=(
                     f"missing filters: {capabilities.missing_required_filters}\n"
                     f"missing encoders: {capabilities.missing_required_encoders}"
@@ -233,11 +284,11 @@ class RenderPipeline:
             self._record(f"[capability] {note}")
 
         # 1-2. Validate the project and its source files.
-        self._emit(JobPhase.VALIDATE, 0.0, "Checking the project")
+        self._emit(JobPhase.VALIDATE, 0.0, "Proje kontrol ediliyor")
         self._validate_project()
         self._finish_phase(JobPhase.VALIDATE)
 
-        self._emit(JobPhase.VERIFY_SOURCES, 0.0, "Verifying images and audio")
+        self._emit(JobPhase.VERIFY_SOURCES, 0.0, "Görseller ve sesler kontrol ediliyor")
         self._verify_sources()
         self._finish_phase(JobPhase.VERIFY_SOURCES)
 
@@ -247,7 +298,7 @@ class RenderPipeline:
         self._finish_phase(JobPhase.PROBE_AUDIO)
 
         # 5-6. Timeline and subtitles.
-        self._emit(JobPhase.COMPUTE_TIMELINE, 0.0, "Computing the timeline")
+        self._emit(JobPhase.COMPUTE_TIMELINE, 0.0, "Sahne süreleri hesaplanıyor")
         timeline = build_timeline(
             self.project,
             word_timings=word_timings,
@@ -261,12 +312,12 @@ class RenderPipeline:
         )
         self._finish_phase(JobPhase.COMPUTE_TIMELINE)
 
-        self._emit(JobPhase.BUILD_SUBTITLES, 0.0, "Building subtitles")
+        self._emit(JobPhase.BUILD_SUBTITLES, 0.0, "Altyazılar hazırlanıyor")
         problems = validate_cues(timeline.cues)
         if problems:
             raise RenderError(
                 ErrorCode.RENDER_FAILED,
-                "The generated subtitles are not valid.",
+                "Oluşturulan altyazılarda sorun var.",
                 details="\n".join(problems[:20]),
             )
         self._record(f"[subtitles] {len(timeline.cues)} cues")
@@ -292,7 +343,7 @@ class RenderPipeline:
         self._finish_phase(JobPhase.ENCODE)
 
         # 12. Validate what was actually produced.
-        self._emit(JobPhase.VALIDATE_OUTPUT, 0.0, "Validating the exported file")
+        self._emit(JobPhase.VALIDATE_OUTPUT, 0.0, "Video kontrol ediliyor")
         validation = validate_output(
             output, project=self.project, timeline=timeline, settings=self.settings,
             profile=self.profile,
@@ -300,23 +351,33 @@ class RenderPipeline:
         if not validation.passed:
             raise RenderError(
                 ErrorCode.OUTPUT_VALIDATION_FAILED,
-                "FFmpeg finished, but the exported file failed validation.",
+                "Video oluştu ama kontrolden geçemedi.",
                 details=validation.format_failures(),
                 suggestion=(
-                    "This should not happen. Retry the render; if it repeats, the details "
-                    "above list every assertion and the value actually found."
+                    "Bu olmamalıydı. Tekrar deneyin; yine olursa yukarıdaki ayrıntılarda "
+                    "nelerin beklendiği ve ne bulunduğu yazıyor."
                 ),
             )
         self.warnings.extend(validation.warnings)
         self._finish_phase(JobPhase.VALIDATE_OUTPUT)
 
+        # 12b. The Shorts-ready source package. Opt-in, always additive: the
+        #      export validated above is already final and is never touched by
+        #      anything below.
+        shorts_source = await self._prepare_shorts_source(
+            timeline, output, validation, capabilities
+        )
+        self._finish_phase(JobPhase.PREPARE_SHORTS_SOURCE)
+
         # 13. Side-car artifacts.
-        self._emit(JobPhase.WRITE_ARTIFACTS, 0.0, "Writing exports")
-        artifacts = await self._write_artifacts(output, timeline, validation)
+        self._emit(JobPhase.WRITE_ARTIFACTS, 0.0, "Dosyalar yazılıyor")
+        artifacts = await self._write_artifacts(
+            output, timeline, validation, shorts_source=shorts_source
+        )
         self._finish_phase(JobPhase.WRITE_ARTIFACTS)
 
         # 14. Cleanup.
-        self._emit(JobPhase.CLEANUP, 0.0, "Cleaning up")
+        self._emit(JobPhase.CLEANUP, 0.0, "Temizlik yapılıyor")
         self._cleanup()
         self._finish_phase(JobPhase.CLEANUP)
 
@@ -336,11 +397,13 @@ class RenderPipeline:
         if not self.project.active_scenes:
             raise ValidationError(
                 ErrorCode.INVALID_DURATION,
-                "This project has no enabled scenes.",
-                suggestion="Enable at least one scene, or import a content package.",
+                "Bu projede açık hiç sahne yok.",
+                suggestion="En az bir sahneyi açın ya da hazır bir metin dosyası yükleyin.",
             )
         if self.project.video.fps <= 0:
-            raise ValidationError(ErrorCode.INVALID_DURATION, "The frame rate must be positive.")
+            raise ValidationError(
+                ErrorCode.INVALID_DURATION, "Saniyedeki kare sayısı sıfırdan büyük olmalı."
+            )
 
     def _verify_sources(self) -> None:
         for unit_id, unit in _all_units(self.project):
@@ -360,7 +423,7 @@ class RenderPipeline:
             self._emit(
                 JobPhase.GENERATE_TTS,
                 position / max(1, len(pending)),
-                f"Generating narration {position + 1} of {len(pending)}",
+                f"Seslendiriliyor: {position + 1} / {len(pending)}",
             )
             outcome = await generate_for_unit(self.project, unit, unit_id, self.paths,
                                               settings=self.settings)
@@ -372,8 +435,8 @@ class RenderPipeline:
             if unit.narration.strip() and not unit.audio_file:
                 raise ValidationError(
                     ErrorCode.MISSING_AUDIO,
-                    f"Section '{unit_id}' has narration but no audio.",
-                    suggestion="Generate narration on the Audio tab, or upload an audio file.",
+                    f"'{unit_id}' bölümünün metni var ama sesi yok.",
+                    suggestion="Seslendirme sekmesinden seslendirin ya da bir ses dosyası yükleyin.",
                 )
 
         # Pick up timings for every section whose audio was already cached. In
@@ -400,10 +463,10 @@ class RenderPipeline:
         ]
         if estimated:
             self.warnings.append(
-                f"{len(estimated)} section(s) have generated narration with no stored word "
-                "timings, so their subtitles are timed by estimate and can sit up to about "
-                "half a second ahead of the voice. Regenerate narration on the Audio tab "
-                "(Regenerate all) once to have them timed to the words instead."
+                f"{len(estimated)} bölümün ses kaydı, kelime zamanlaması saklanmadan önce "
+                "üretilmiş. Bu yüzden altyazıları tahminle yerleştiriliyor ve sesin yarım "
+                "saniye kadar önüne geçebiliyor. Seslendirme sekmesinde bir kez “Hepsini "
+                "yeniden seslendir” derseniz altyazılar kelimelere tam oturur."
             )
         return word_timings
 
@@ -439,30 +502,47 @@ class RenderPipeline:
             )
         return onsets
 
-    async def _render_clips(self, timeline: Timeline) -> list[SceneClip]:
+    async def _render_clips(
+        self,
+        timeline: Timeline,
+        *,
+        project: Project | None = None,
+        profile: RenderProfile | None = None,
+        phase: JobPhase = JobPhase.RENDER_SCENE_CLIPS,
+        span: tuple[float, float] = (0.0, 1.0),
+        label: str = "Sahne oluşturuluyor",
+        log_prefix: str = "clip",
+    ) -> list[SceneClip]:
+        """Pass A: one cached clip per section.
+
+        ``project`` and ``profile`` are overridable so the clean-master pass can
+        reuse this verbatim with burn-in off and its own clip cache namespace.
+        Both default to this render's own, so the normal path is unchanged.
+        """
+        source = project or self.project
+        prof = profile or self.profile
         clips: list[SceneClip] = []
         previous_preset = None
         total = len(timeline.entries)
 
         for position, entry in enumerate(timeline.entries):
             self._check_cancelled()
-            unit = _unit_for(self.project, entry.unit_id)
+            unit = _unit_for(source, entry.unit_id)
             if unit is None:
                 continue
 
             def progress(fraction: float, _position: int = position) -> None:
                 self._emit(
-                    JobPhase.RENDER_SCENE_CLIPS,
-                    (_position + fraction) / total,
-                    f"Rendering scene {_position + 1} of {total}",
+                    phase,
+                    _within(span, (_position + fraction) / total),
+                    f"{label} {_position + 1} / {total}",
                 )
 
             self._emit(
-                JobPhase.RENDER_SCENE_CLIPS, position / total,
-                f"Rendering scene {position + 1} of {total}",
+                phase, _within(span, position / total), f"{label} {position + 1} / {total}"
             )
             clip = await render_scene_clip(
-                self.project, unit, entry, self.paths,
+                source, unit, entry, self.paths,
                 cues=timeline.cues_by_unit.get(entry.unit_id, []),
                 previous_preset=previous_preset,
                 index=position,
@@ -471,19 +551,19 @@ class RenderPipeline:
                 cancel_event=self.cancel_event,
                 on_progress=progress,
                 suppress_fade_out=(position == total - 1),
-                profile=self.profile,
+                profile=prof,
             )
             clips.append(clip)
             previous_preset = unit.animation_preset
             self._record(
-                f"[clip] {entry.unit_id}: {'reused' if clip.reused else 'rendered'} "
+                f"[{log_prefix}] {entry.unit_id}: {'reused' if clip.reused else 'rendered'} "
                 f"{clip.duration_seconds:.3f}s"
             )
             for line in clip.log:
                 self._record(line)
 
         if not clips:
-            raise RenderError(ErrorCode.RENDER_FAILED, "No scene clips were produced.")
+            raise RenderError(ErrorCode.RENDER_FAILED, "Hiçbir sahne oluşturulamadı.")
         return clips
 
     async def _assemble(
@@ -492,8 +572,19 @@ class RenderPipeline:
         clips: list[SceneClip],
         output: Path,
         capabilities,  # noqa: ANN001
+        *,
+        mix_phase: JobPhase = JobPhase.MIX_AUDIO,
+        encode_phase: JobPhase = JobPhase.ENCODE,
+        span: tuple[float, float] = (0.0, 1.0),
+        label: str = "Video kaydediliyor",
     ) -> None:
-        """Join the clips with transitions and mux the mixed audio."""
+        """Join the clips with transitions and mux the mixed audio.
+
+        The phase/span arguments only move where progress is reported. The
+        clean-master pass calls this with the same timeline, clips of the same
+        length and the same audio plan, so both outputs share one mix by
+        construction rather than by a second computation.
+        """
         self._check_cancelled()
         ffmpeg = self.settings.require_tool("ffmpeg")
         fps = self.profile.fps
@@ -528,7 +619,8 @@ class RenderPipeline:
                 current = f"j{position}"
         elif len(clips) > 1:
             self.warnings.append(
-                "This FFmpeg build has no 'xfade' filter, so scenes are joined with hard cuts."
+                "Bu FFmpeg sürümünde yumuşak geçiş özelliği yok; sahneler sert kesmeyle "
+                "birleştirildi."
             )
             joined = "".join(f"[{i}:v]" for i in range(len(clips)))
             steps.append(f"{joined}concat=n={len(clips)}:v=1:a=0[joined]")
@@ -563,7 +655,7 @@ class RenderPipeline:
         if self.project.music.source is MusicSource.UPLOADED:
             music_path = resolve_music_file(self.project, self.paths)
         elif self.project.music.source is MusicSource.GENERATED_AMBIENT:
-            self._emit(JobPhase.MIX_AUDIO, 0.2, "Generating the ambient bed")
+            self._emit(mix_phase, _within(span, 0.2), "Fon müziği üretiliyor")
             music_path = await render_ambient_bed(
                 total + 1.0,
                 self.paths.root / "derived" / "ambient-bed.wav",
@@ -596,20 +688,169 @@ class RenderPipeline:
             str(output),
         ]
 
-        self._emit(JobPhase.ENCODE, 0.0, "Encoding the final video")
+        self._emit(encode_phase, _within(span, 0.0), label)
         await self.runner.run(
             args,
             stage="assemble",
             expected_duration=total,
             on_progress=lambda fraction: self._emit(
-                JobPhase.ENCODE, fraction, f"Encoding — {fraction * 100:.0f}%"
+                encode_phase, _within(span, fraction), f"{label} — %{fraction * 100:.0f}"
             ),
             log_sink=self._record,
             cancel_event=self.cancel_event,
         )
 
+    async def _prepare_shorts_source(
+        self,
+        timeline: Timeline,
+        export: Path,
+        validation: ValidationReport,
+        capabilities,  # noqa: ANN001
+    ) -> ShortsSourcePackage | None:
+        """Build the clean master and the cue side-car, if this render wants one.
+
+        Never fatal. The export above is already validated and published; if
+        anything here fails the render still succeeds, the manifest simply
+        records no Shorts source, and the Shorts tab says so in plain words
+        instead of silently producing double-captioned clips.
+        """
+        plan = plan_clean_master(self.project, timeline)
+        if not plan.wanted:
+            self._record(f"[shorts-source] {plan.reason}")
+            return None
+
+        self._emit(JobPhase.PREPARE_SHORTS_SOURCE, 0.0, "Kısa video kaynağı hazırlanıyor")
+        try:
+            return await self._build_shorts_source(
+                plan, timeline, export, validation, capabilities
+            )
+        except CancelledRender:
+            raise
+        except Exception as exc:  # noqa: BLE001 - additive; never fails the export
+            logger.warning("could not prepare the Shorts source package: %s", exc)
+            self._record(f"[shorts-source] failed: {exc}")
+            self.warnings.append(
+                "Kısa videolar için altyazısız kopya hazırlanamadı. Bu videodan kesilecek "
+                "kısa videolar, görüntüye gömülü mevcut altyazıyı kullanacak. Videonun "
+                "kendisi bundan etkilenmedi."
+            )
+            return None
+
+    async def _build_shorts_source(
+        self,
+        plan: CleanMasterPlan,
+        timeline: Timeline,
+        export: Path,
+        validation: ValidationReport,
+        capabilities,  # noqa: ANN001
+    ) -> ShortsSourcePackage:
+        target = clean_master_path(self.paths, export)
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        if plan.reuse_primary_export:
+            # No burned-in captions to avoid, so the export *is* the clean
+            # master. Hard-linked where the filesystem allows it and copied
+            # otherwise: the package must keep working after the export is
+            # deleted, and it must not cost a second full-size file when it can
+            # avoid one.
+            self._emit(JobPhase.PREPARE_SHORTS_SOURCE, 0.5, "Preparing the Shorts source")
+            _link_or_copy(export, target)
+            checksum = validation.checksum or ""
+            origin = CLEAN_MASTER_FROM_PRIMARY_EXPORT
+        else:
+            clean_profile = replace(self.profile, cache_slug=CLEAN_MASTER_CACHE_SLUG)
+            clean_project = clean_master_project(self.project)
+            self._record(
+                f"[shorts-source] {plan.reason}; clips cached under "
+                f"clips/{CLEAN_MASTER_CACHE_SLUG}/, key "
+                f"{clean_master_cache_key(clean_project, timeline, clean_profile.fps)}"
+            )
+
+            clips = await self._render_clips(
+                timeline,
+                project=clean_project,
+                profile=clean_profile,
+                phase=JobPhase.PREPARE_SHORTS_SOURCE,
+                span=(0.0, 0.72),
+                label="Kısa video kaynağı: sahne",
+                log_prefix="clean-clip",
+            )
+            staged = target.with_suffix(".partial.mp4")
+            staged.unlink(missing_ok=True)
+            await self._assemble(
+                timeline, clips, staged, capabilities,
+                mix_phase=JobPhase.PREPARE_SHORTS_SOURCE,
+                encode_phase=JobPhase.PREPARE_SHORTS_SOURCE,
+                span=(0.72, 0.98),
+                label="Kısa video kaynağı kaydediliyor",
+            )
+            # Published the same way the export is: rename only once the whole
+            # file exists, so a killed render never leaves a half-written master
+            # that the next Short would happily cut from.
+            os.replace(staged, target)
+            checksum = ""
+            origin = CLEAN_MASTER_FROM_DEDICATED_PASS
+
+        self._emit(JobPhase.PREPARE_SHORTS_SOURCE, 0.98, "Altyazı verisi kaydediliyor")
+        described = describe_file(target, checksum=checksum, settings=self.settings)
+
+        sidecar = build_sidecar(
+            project_slug=self.project.slug,
+            cues=timeline.cues,
+            cues_by_unit=timeline.cues_by_unit,
+            clean_master_sha256=described.sha256,
+            total_duration_seconds=timeline.total_duration_seconds,
+            render_job_id=self.job_id,
+            timing_source=self._cue_timing_source(),
+        )
+        ref = write_sidecar(sidecar, sidecar_path_for(target))
+
+        self._record(
+            f"[shorts-source] clean master {target.name} ({origin}), "
+            f"{described.width}x{described.height} @{described.avg_frame_rate}, "
+            f"{len(sidecar.cues)} cue(s) in {ref.filename}"
+        )
+        return ShortsSourcePackage(
+            clean_master=described,
+            origin=origin,
+            profile=ManifestProfile(
+                width=self.profile.width,
+                height=self.profile.height,
+                fps=self.profile.fps,
+                quality=self.quality.value,
+            ),
+            cue_sidecar=ref,
+            render_job_id=self.job_id,
+            project_snapshot_sha256=hashlib.sha256(
+                self.project.model_dump_json().encode("utf-8")
+            ).hexdigest(),
+            paired_export_sha256=validation.checksum or "",
+        )
+
+    def _cue_timing_source(self) -> str:
+        """Whether the cues came from measured words, estimates, or both.
+
+        Read back off the render log rather than threaded through every call: it
+        is provenance for a debugging summary, not something anything branches
+        on.
+        """
+        line = next((entry for entry in self.log if entry.startswith("[tts] ") and
+                     "measured word timings" in entry), "")
+        if not line:
+            return "unknown"
+        if line.startswith("[tts] 0 of"):
+            return "estimated"
+        measured, _, rest = line[len("[tts] "):].partition(" of ")
+        total = rest.split(" ", 1)[0]
+        return "measured-words" if measured == total else "mixed"
+
     async def _write_artifacts(
-        self, output: Path, timeline: Timeline, validation: ValidationReport
+        self,
+        output: Path,
+        timeline: Timeline,
+        validation: ValidationReport,
+        *,
+        shorts_source: ShortsSourcePackage | None = None,
     ) -> RenderArtifacts:
         import json
 
@@ -641,7 +882,7 @@ class RenderPipeline:
                     settings=self.settings,
                 )
             except AppError as exc:
-                self.warnings.append(f"Narration-only export skipped: {exc.message}")
+                self.warnings.append(f"Sadece konuşma sesi dosyası oluşturulamadı: {exc.message}")
                 artifacts.narration_audio = None
 
         if self.project.export.export_description:
@@ -707,12 +948,13 @@ class RenderPipeline:
                 checksum=validation.checksum,
                 job_id=self.job_id,
                 settings=self.settings,
+                shorts_source=shorts_source,
             )
         except Exception as exc:  # noqa: BLE001 - side-car, never fatal
             logger.warning("could not write the render manifest: %s", exc)
             self.warnings.append(
-                "The render manifest could not be written, so this export cannot be used "
-                "as a source for Shorts. The video itself is unaffected."
+                "Bölüm bilgileri yazılamadı; bu videodan kısa video kesilemez. Videonun "
+                "kendisi bundan etkilenmedi."
             )
 
         return artifacts
@@ -732,6 +974,32 @@ class RenderPipeline:
         stem = self.project.slug
         # Auto-versioning: a re-render never overwrites a previous export.
         return unique_path(directory, stem, ".mp4")
+
+
+def _within(span: tuple[float, float], fraction: float) -> float:
+    """Map a 0..1 sub-step fraction into a slice of a phase's own 0..1 range."""
+    low, high = span
+    return low + (high - low) * max(0.0, min(1.0, fraction))
+
+
+def _link_or_copy(source: Path, target: Path) -> None:
+    """Hard-link ``source`` to ``target``, copying if the filesystem refuses.
+
+    A hard link is right when the two files really are the same bytes: it costs
+    no disk, and deleting the export later leaves the clean master intact because
+    the data has another name. Cross-device links and filesystems without link
+    support fall back to a plain copy.
+    """
+    target.unlink(missing_ok=True)
+    try:
+        os.link(source, target)
+        return
+    except (OSError, NotImplementedError, AttributeError):
+        pass
+    staged = target.with_suffix(".partial.mp4")
+    staged.unlink(missing_ok=True)
+    shutil.copy2(source, staged)
+    os.replace(staged, target)
 
 
 def _all_units(project: Project) -> list[tuple[str, Scene | Section]]:

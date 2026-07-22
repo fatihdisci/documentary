@@ -124,9 +124,9 @@ class TestCrashRecovery:
 
         assert recovered.status is JobStatus.INTERRUPTED
         assert recovered.finished_at is not None
-        assert "Interrupted" in recovered.message
+        assert "Yarıda kaldı" in recovered.message
         assert recovered.error_suggestion
-        assert "faster" in recovered.error_suggestion  # cached clips will be reused
+        assert "daha hızlı" in recovered.error_suggestion  # cached clips will be reused
 
     def test_the_change_is_written_back(self, manager: JobManager, settings) -> None:  # noqa: ANN001
         jobs_dir = settings.data_dir / "jobs"
@@ -176,8 +176,8 @@ class TestQueueRules:
         with pytest.raises(AppError) as exc_info:
             await manager.submit(project_slug)
         assert exc_info.value.http_status == 409
-        assert "already" in exc_info.value.message
-        assert "cancel" in exc_info.value.suggestion
+        assert "zaten" in exc_info.value.message
+        assert "iptal" in exc_info.value.suggestion
         await manager.stop()
 
     async def test_rendering_a_missing_project_fails_early(self, manager: JobManager) -> None:
