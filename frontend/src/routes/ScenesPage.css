@@ -59,3 +59,37 @@
 .tag-warn { color: var(--warn); border-color: var(--warn); }
 
 .preview-panel { max-width: 620px; }
+
+.notice.ok { border-color: var(--ok); background: var(--ok-dim); color: var(--text); }
+
+button.subtle { color: var(--text-muted); }
+
+.image-manager { margin-bottom: 12px; }
+.image-manager-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 10px;
+}
+.image-manager-head h2 { font-size: 14px; margin: 0; }
+.image-grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px;
+}
+.image-tile {
+  position: relative; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--bg-input);
+}
+.image-tile img {
+  width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;
+  background: var(--bg-input);
+}
+.image-name {
+  display: block; font-size: 11px; color: var(--text-muted); padding: 4px 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.image-delete {
+  position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+  border-radius: 4px; background: rgba(0,0,0,0.6); color: #fff; border: none;
+  font-size: 12px; opacity: 0.85;
+}
+.image-delete:hover:not(:disabled) { background: var(--fail); opacity: 1; }

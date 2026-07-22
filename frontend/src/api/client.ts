@@ -190,6 +190,9 @@ export const api = {
     request<void>(`/api/projects/${slug}/images/${encodeURIComponent(filename)}`, {
       method: 'DELETE',
     }),
+  /** Delete every uploaded image and detach it from all units. */
+  deleteAllImages: (slug: string) =>
+    request<{ removed: number }>(`/api/projects/${slug}/images`, { method: 'DELETE' }),
   assignImage: (slug: string, sceneId: string, imageFile: string | null) =>
     request<ProjectResponse>(`/api/projects/${slug}/scenes/${sceneId}/image`, {
       method: 'POST',

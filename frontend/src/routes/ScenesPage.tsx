@@ -20,8 +20,14 @@ import { api } from '@/api/client'
 import type { Scene } from '@/api/project-types'
 import { useProjectStore } from '@/store/project'
 import { ErrorBox } from '@/components/ErrorBox'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ScenePreview } from '@/components/ScenePreview'
 import './ScenesPage.css'
+
+type Cleanup =
+  | { kind: 'image'; filename: string }
+  | { kind: 'allImages' }
+  | { kind: 'cache' }
 
 function SortableSceneCard({
   scene,
@@ -94,6 +100,9 @@ export function ScenesPage() {
     useProjectStore()
   const [uploading, setUploading] = useState(false)
   const [dropActive, setDropActive] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [cleanup, setCleanup] = useState<Cleanup | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const sensors = useSensors(
@@ -127,6 +136,43 @@ export function ScenesPage() {
   }
 
   const slug = project.slug
+
+  async function runCleanup(action: () => Promise<string>) {
+    setBusy(true)
+    setNotice(null)
+    clearError()
+    try {
+      const message = await action()
+      await openProject(slug)
+      setNotice(message)
+    } catch (err) {
+      setError(err)
+    } finally {
+      setBusy(false)
+      setCleanup(null)
+    }
+  }
+
+  function confirmCleanup() {
+    if (cleanup === null) return
+    if (cleanup.kind === 'image') {
+      const { filename } = cleanup
+      void runCleanup(async () => {
+        await api.deleteImage(slug, filename)
+        return `Deleted ${filename}.`
+      })
+    } else if (cleanup.kind === 'allImages') {
+      void runCleanup(async () => {
+        const { removed } = await api.deleteAllImages(slug)
+        return `Deleted ${removed} image${removed === 1 ? '' : 's'}.`
+      })
+    } else {
+      void runCleanup(async () => {
+        const { removed } = await api.cleanDerived(slug)
+        return `Cleared ${removed} cached file${removed === 1 ? '' : 's'}.`
+      })
+    }
+  }
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -186,6 +232,14 @@ export function ScenesPage() {
           >
             Add scene
           </button>
+          <button
+            className="subtle"
+            onClick={() => setCleanup({ kind: 'cache' })}
+            disabled={busy}
+            title="Delete cached clips, normalized images and text cards. Your images, audio and exports are kept."
+          >
+            Clear render cache
+          </button>
         </div>
       </header>
 
@@ -229,11 +283,50 @@ export function ScenesPage() {
         <code>00-intro.png</code>, <code>01-opening.png</code>, and so on.
       </div>
 
+      {notice && <p className="notice ok">{notice}</p>}
+
       {unusedImages.length > 0 && (
         <p className="notice">
           {unusedImages.length} uploaded image{unusedImages.length === 1 ? ' is' : 's are'} not used:{' '}
           {unusedImages.map((i) => i.filename).join(', ')}
         </p>
+      )}
+
+      {images.length > 0 && (
+        <section className="card image-manager">
+          <div className="image-manager-head">
+            <h2>Uploaded images ({images.length})</h2>
+            <button
+              className="danger"
+              onClick={() => setCleanup({ kind: 'allImages' })}
+              disabled={busy}
+            >
+              Delete all images
+            </button>
+          </div>
+          <ul className="image-grid">
+            {images.map((image) => (
+              <li key={image.filename} className="image-tile">
+                <img
+                  src={`/api/projects/${slug}/media/thumbnails/${image.filename.replace(/\.[^.]+$/, '.jpg')}`}
+                  alt=""
+                  loading="lazy"
+                />
+                <span className="image-name" title={image.filename}>
+                  {image.filename}
+                </span>
+                <button
+                  className="image-delete"
+                  aria-label={`Delete ${image.filename}`}
+                  onClick={() => setCleanup({ kind: 'image', filename: image.filename })}
+                  disabled={busy}
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {images.some((i) => i.warnings.length > 0) && (
@@ -274,6 +367,42 @@ export function ScenesPage() {
             </ul>
           </SortableContext>
         </DndContext>
+      )}
+
+      {cleanup && (
+        <ConfirmDialog
+          title={
+            cleanup.kind === 'cache'
+              ? 'Clear render cache?'
+              : cleanup.kind === 'allImages'
+                ? 'Delete all images?'
+                : 'Delete this image?'
+          }
+          body={
+            cleanup.kind === 'cache' ? (
+              <p>
+                This deletes the cached render files (clips, normalized images, text cards and
+                subtitle overlays). They rebuild automatically on the next render. Your images,
+                narration audio and finished exports are <strong>not</strong> touched.
+              </p>
+            ) : cleanup.kind === 'allImages' ? (
+              <p>
+                This permanently deletes all {images.length} uploaded image
+                {images.length === 1 ? '' : 's'} and removes them from every scene and the intro.
+                This cannot be undone.
+              </p>
+            ) : (
+              <p>
+                This permanently deletes <strong>{cleanup.filename}</strong> and removes it from any
+                scene or the intro using it. This cannot be undone.
+              </p>
+            )
+          }
+          confirmLabel={cleanup.kind === 'cache' ? 'Clear cache' : 'Delete'}
+          destructive={cleanup.kind !== 'cache'}
+          onCancel={() => setCleanup(null)}
+          onConfirm={confirmCleanup}
+        />
       )}
     </div>
   )

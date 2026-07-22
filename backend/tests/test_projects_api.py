@@ -171,6 +171,32 @@ class TestImages:
         assert project["scenes"][0]["imageFile"] is None
         assert len(client.get(f"/api/projects/{slug}/images").json()) == 9
 
+    def test_deleting_the_intro_image_detaches_it_from_the_intro(self, client: TestClient) -> None:
+        slug = create_project(client)
+        upload_images(client, slug, 11)  # one spare, so the intro gets its own
+        client.post(f"/api/projects/{slug}/content", json={"content": load_dodo_package()})
+
+        project = client.get(f"/api/projects/{slug}").json()["project"]
+        intro_image = project["intro"]["imageFile"]
+        assert intro_image == "01-opening.png"
+
+        assert client.delete(f"/api/projects/{slug}/images/{intro_image}").status_code == 204
+        project = client.get(f"/api/projects/{slug}").json()["project"]
+        assert project["intro"]["imageFile"] is None
+
+    def test_delete_all_images_clears_everything(self, client: TestClient) -> None:
+        slug = create_project(client)
+        upload_images(client, slug, 10)
+        client.post(f"/api/projects/{slug}/content", json={"content": load_dodo_package()})
+
+        response = client.delete(f"/api/projects/{slug}/images")
+        assert response.status_code == 200
+        assert response.json()["removed"] == 10
+
+        assert client.get(f"/api/projects/{slug}/images").json() == []
+        project = client.get(f"/api/projects/{slug}").json()["project"]
+        assert all(scene["imageFile"] is None for scene in project["scenes"])
+
 
 class TestContentImport:
     def test_example_template_is_downloadable_and_valid(self, client: TestClient) -> None:

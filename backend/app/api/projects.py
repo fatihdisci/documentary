@@ -539,20 +539,48 @@ async def upload_images(
     return UploadImagesResponse(images=uploaded, mapping=mapping)
 
 
+def _detach_image(project, filename: str) -> bool:  # noqa: ANN001
+    """Clear ``image_file`` from every unit (intro, scenes, outro) that names it.
+
+    The intro can hold its own image now, so a delete that only looked at scenes
+    would leave the intro pointing at a file that no longer exists.
+    """
+    changed = False
+    for unit in (project.intro, *project.scenes, project.outro):
+        if unit.image_file == filename:
+            unit.image_file = None
+            changed = True
+    return changed
+
+
 @router.delete("/{slug}/images/{filename}", status_code=204)
 def delete_image(slug: str, filename: str) -> None:
     repository = repo()
     project = repository.load(slug)
     paths = repository.paths_for(slug)
     media.delete_image(paths, filename)
-    # Detach the deleted image from any scene still pointing at it.
-    changed = False
-    for scene in project.scenes:
-        if scene.image_file == filename:
-            scene.image_file = None
-            changed = True
-    if changed:
+    if _detach_image(project, filename):
         repository.save(project)
+
+
+@router.delete("/{slug}/images", status_code=200)
+def delete_all_images(slug: str) -> dict:
+    """Delete every uploaded image and detach it from all units.
+
+    User content only — derived caches and exports are left alone (use
+    ``clean-derived`` for those).
+    """
+    repository = repo()
+    project = repository.load(slug)
+    paths = repository.paths_for(slug)
+
+    removed = 0
+    for info in media.list_images(paths, slug=slug):
+        media.delete_image(paths, info.filename)
+        _detach_image(project, info.filename)
+        removed += 1
+    repository.save(project)
+    return {"removed": removed}
 
 
 @router.get("/{slug}/media/images/{filename}")
