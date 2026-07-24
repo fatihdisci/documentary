@@ -12,9 +12,9 @@
 
 | No | Species | Scientific Name | Status | Package Date | Publish Date | Published URL | Notes |
 |---:|---|---|---|---|---|---|---|
-| 1 | Dodo | Raphus cucullatus | Package Ready | 2026-07-22 |  |  | First production video; 11 images (00-intro + ten scenes) |
-| 2 | Tasmanian tiger | Thylacinus cynocephalus | Planned |  |  |  | Next planned episode |
-| 3 | Steller's sea cow | Hydrodamalis gigas | Planned |  |  |  |  |
+| 1 | Dodo | Raphus cucullatus | Published | 2026-07-22 |  |  | First production video; 11 images (00-intro + ten scenes) |
+| 2 | Tasmanian tiger | Thylacinus cynocephalus | Published |  |  |  | Second production video |
+| 3 | Steller's sea cow | Hydrodamalis gigas | Package Ready | 2026-07-24 |  |  | Third production video; 11 images (00-intro + ten scenes) |
 | 4 | Passenger pigeon | Ectopistes migratorius | Planned |  |  |  |  |
 | 5 | Carolina parakeet | Conuropsis carolinensis | Planned |  |  |  |  |
 | 6 | Pinta Island tortoise | Chelonoidis abingdonii | Planned |  |  |  |  |

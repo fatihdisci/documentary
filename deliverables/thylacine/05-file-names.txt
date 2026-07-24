@@ -1,0 +1,17 @@
+Expected image mapping
+
+00-intro.png
+01-opening.png
+02-habitat.png
+03-anatomy.png
+04-behavior.png
+05-human-contact.png
+06-bounty.png
+07-decline.png
+08-last-years.png
+09-evidence.png
+10-legacy.png
+
+Total: 11 images — one dedicated intro image plus ten scene images.
+
+The JSON pins these exact filenames. The intro uses 00-intro.png with useFirstSceneImage=false.
