@@ -15,8 +15,8 @@
 | 1 | Dodo | Raphus cucullatus | Published | 2026-07-22 |  |  | First production video; 11 images (00-intro + ten scenes) |
 | 2 | Tasmanian tiger | Thylacinus cynocephalus | Published |  |  |  | Second production video |
 | 3 | Steller's sea cow | Hydrodamalis gigas | Package Ready | 2026-07-24 |  |  | Third production video; 11 images (00-intro + ten scenes) |
-| 4 | Passenger pigeon | Ectopistes migratorius | Planned |  |  |  |  |
-| 5 | Carolina parakeet | Conuropsis carolinensis | Planned |  |  |  |  |
+| 4 | Passenger pigeon | Ectopistes migratorius | Package Ready | 2026-07-25 |  |  | Fourth production video; 11 images (00-intro + ten scenes) |
+| 5 | Carolina parakeet | Conuropsis carolinensis | Planned |  |  |  | Confirmed next-episode teaser |
 | 6 | Pinta Island tortoise | Chelonoidis abingdonii | Planned |  |  |  |  |
 | 7 | Chinese paddlefish | Psephurus gladius | Planned |  |  |  |  |
 | 8 | Golden toad | Incilius periglenes | Planned |  |  |  |  |

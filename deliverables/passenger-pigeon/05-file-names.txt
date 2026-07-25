@@ -1,0 +1,19 @@
+Expected image mapping
+
+00-intro.png
+01-opening.png
+02-flocks.png
+03-habitat.png
+04-nesting.png
+05-ecosystem.png
+06-market-hunting.png
+07-decline.png
+08-last-wild.png
+09-martha.png
+10-legacy.png
+
+Image count: 11
+Intro images: 1
+Scene images: 10
+
+The JSON pins these exact filenames. The intro is set to 00-intro.png with useFirstSceneImage=false.
