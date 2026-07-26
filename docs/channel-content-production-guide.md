@@ -4,7 +4,7 @@
 
 Create 4–7 minute English-language documentary videos for a global YouTube channel. Each episode tells the story of one extinct animal. Speak to the project owner in Turkish; every viewer-facing asset must be in English.
 
-The workflow is: import the content JSON, generate images from the prompts, upload them using the exact filenames, choose TTS and music, create audio, check the 1080p/30 FPS preview, then render the 1920×1080/60 FPS final video. Final video is rendered with FFmpeg, not Canvas. Text is made as Pillow RGBA PNG overlays; do not require FFmpeg `drawtext` or `libass`.
+The workflow is: import the content JSON, generate images from the prompts, upload them using the exact filenames, choose TTS and music, create audio, check the 1080p/30 FPS preview, then render the 1920×1080/60 FPS final video. Kokoro is the default local TTS provider; Edge, imported audio and optional ElevenLabs remain available. Final video is rendered with FFmpeg, not Canvas. Text is made as Pillow RGBA PNG overlays; do not require FFmpeg `drawtext` or `libass`.
 
 ## Research standard
 
@@ -16,7 +16,11 @@ When sources differ, avoid false certainty. Use careful wording such as “by th
 
 - Write natural, engaging English documentary narration with short, smooth sentences.
 - Prefer common, easy-to-pronounce words. Avoid Latin, technical labels, and scientific jargon in spoken narration.
-- Keep a scientific name only in metadata when needed. Provide a pronunciation entry for any unavoidable difficult name.
+- Treat Kokoro as the default TTS target. Write plain text only; do not use SSML, HTML, or Markdown in narration.
+- Use punctuation for natural pauses: full stops for longer pauses and commas for shorter ones.
+- Write numbers, years, dates, and abbreviations as they should be spoken. For example, use “nineteen fourteen” instead of “1914.”
+- Keep each intro, scene, and outro between two and six sentences; five natural sentences is the default target.
+- Keep scientific names in metadata whenever possible. Use unavoidable difficult proper names only once or twice, and add easy phonetic replacements to the JSON `pronunciation` field.
 - Avoid long parentheticals, tongue-twisters, dense lists, complicated clauses, filler, and repeated facts.
 - Use a strong hook immediately. Never open with “Welcome back to the channel.”
 - Do not pad scenes to equal length; each scene should earn its duration.

@@ -8,7 +8,7 @@ Kullanıcıyla Türkçe konuş. İzleyiciye yönelik tüm içerikleri İngilizce
 UYGULAMA
 Extinct Video Builder. GitHub: https://github.com/fatihdisci/documentary
 M1–M7 tamamlandı. Kodla ilgili soruda önce güncel repoyu incele; repo ile önceki bilgi çelişirse güncel kodu esas al.
-Teknoloji: React/TypeScript/Vite/Zustand frontend; Python 3.11/FastAPI/Pydantic backend; FFmpeg+ffprobe render; Pillow ile şeffaf PNG metin katmanları; Edge TTS / içe aktarılan ses / opsiyonel ElevenLabs; yerel saklama; 1920×1080 60 FPS MP4 (Preview kalitesi 30 FPS).
+Teknoloji: React/TypeScript/Vite/Zustand frontend; Python 3.11/FastAPI/Pydantic backend; FFmpeg+ffprobe render; Pillow ile şeffaf PNG metin katmanları; varsayılan yerel Kokoro TTS / Edge TTS / içe aktarılan ses / opsiyonel ElevenLabs; yerel saklama; 1920×1080 60 FPS MP4 (Preview kalitesi 30 FPS).
 Final video Canvas'tan değil FFmpeg ile üretilir. FFmpeg'de drawtext ve libass olmadığından tüm yazılar Pillow ile RGBA PNG overlay olarak eklenir. Drawtext'i zorunlu çözüm önerme.
 
 TEMEL İŞ AKIŞI
@@ -18,7 +18,7 @@ ARAŞTIRMA
 Her yeni hayvandan önce güncel araştırma yap. Öncelikli kaynaklar: IUCN Red List, BirdLife International, Smithsonian, Natural History Museum, üniversite/müzeler, bilimsel makaleler, koruma ve devlet kurumları. Doğrula: bilimsel ad, taksonomik statü, yaşam alanı, fiziksel özellikler, son doğrulanmış görülme, yok oluş/EW statüsü, nedenler, son bireyin ölüm tarihi. Kaynaklar çelişkiliyse kesin konuşma; "by the late seventeenth century", "the last confirmed sighting", "several pressures contributed" gibi güvenli ifadeler kullan.
 
 TTS METNİ
-Doğal belgesel dili; kısa akıcı cümleler; akademik üslup yok; uzun parantez/karmaşık bağlı cümle yok; aynı bilgiyi tekrar etme; bilimsel adı yalnız gerekli yerde; zor adlar için pronunciation alanı; sahne sürelerini eşitleme; dolgu cümlesi yok.
+Varsayılan motor Kokoro'dur. Düz İngilizce metin yaz; SSML, HTML ve Markdown kullanma. Nokta ile doğal uzun, virgülle kısa durak oluştur. Sayıları, tarihleri ve kısaltmaları konuşulacağı biçimde yazıyla yaz. Her intro, sahne ve outro için 2–6 cümle kullan; varsayılan hedef 5 doğal cümledir. Doğal belgesel dili; kısa akıcı cümleler; akademik üslup yok; uzun parantez/karmaşık bağlı cümle yok; aynı bilgiyi tekrar etme; bilimsel adı mümkünse yalnız metadata'da tut; anlatımda zorunlu olan zor özel adları en fazla 1–2 yerde kullan ve pronunciation alanına kolay fonetik karşılığını ekle. Karmaşık, teknik veya telaffuzu zor kelimeler yerine yaygın ve kolay sözcükleri seç. Sahne sürelerini eşitleme; dolgu cümlesi kullanma.
 
 VİDEO YAPISI
 1 intro + 8–12 ana sahne + 1 outro. Önerilen sıra: güçlü hook → tanıtım → yaşam alanı → fiziksel özellikler → davranış/beslenme → ekosistemdeki rol → insan/tehditle karşılaşma → nüfus düşüşü → son yıllar → yok oluş ve nedenleri → bilimsel miras → günümüze ders. Sıra ve sayı hikâyeye göre değişebilir.

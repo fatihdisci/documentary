@@ -77,7 +77,7 @@ def release_plan(start_date: str) -> list[ScheduledVideo]:
             "Steller's Sea Cow: The Giant Lost in 27 Years",
             long_description,
             ["Steller's sea cow", "extinct animals", "extinction", "marine mammals", "Bering Island", "Bering Sea", "ocean documentary", "wildlife documentary", "animal history", "kelp forest", "Georg Steller", "lost species"],
-            publish_time(start_date, 0, 20),
+            publish_time(start_date, 0, 22),
         ),
         ScheduledVideo(
             "stellers-sea-cow-short-1e388eaa25ba610f.mp4",
@@ -91,14 +91,14 @@ def release_plan(start_date: str) -> list[ScheduledVideo]:
             "The Only Scientist Who Saw This Giant Alive",
             "After a shipwreck in 1741, Georg Steller saw a giant animal moving through the shallows of Bering Island.\n\nSteller's sea cow lived in cold kelp forests near the shore. That coastline gave it food, but it also made the animals easy for people to reach.\n\nWatch the full documentary:\n" + short_link + "\n\n#StellersSeaCow #ExtinctAnimals #OceanHistory #Shorts",
             ["Steller's sea cow", "Georg Steller", "Bering Island", "extinct animals", "kelp forest", "marine mammal", "ocean history", "wildlife documentary", "animal extinction", "Commander Islands", "Vanished Earth", "documentary shorts"],
-            publish_time(start_date, 1, 2),
+            publish_time(start_date, 1, 18),
         ),
         ScheduledVideo(
             "stellers-sea-cow-short-e9e13baa07f5cc1a.mp4",
             "The Kelp Forest Lost Its Giant",
             "Steller's sea cows ate kelp in the cold shallows of the northern Pacific.\n\nScientists are still exploring what a giant grazer like this may have meant for those forests. By feeding near the surface, the animals may have changed how light reached the kelp below.\n\nWatch the full documentary:\n" + short_link + "\n\n#StellersSeaCow #KelpForest #ExtinctAnimals #Shorts",
             ["Steller's sea cow", "kelp forest", "extinct animals", "marine ecosystem", "ocean ecology", "northern Pacific", "wildlife documentary", "animal extinction", "sea cow", "conservation", "Vanished Earth", "documentary shorts"],
-            publish_time(start_date, 1, 6),
+            publish_time(start_date, 1, 23),
         ),
     ]
 

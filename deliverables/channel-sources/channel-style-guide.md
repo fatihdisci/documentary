@@ -78,7 +78,7 @@ Keep the animal's physical description consistent across all scenes. Mix portrai
 - Attribution format:
 
 ## Publishing
-- Upload day:
-- Upload time:
-- Long videos per week:
-- Shorts per long video:
+- Upload day: Every other day, in a repeating two-day cycle.
+- Upload time: Day 0 — long video at 22:00, then Short at 23:00; Day 1 — Shorts at 18:00 and 23:00 (Türkiye time, Europe/Istanbul).
+- Long videos per week: 3–4 (3.5 average).
+- Shorts per long video: 3, all tied to that long video.
