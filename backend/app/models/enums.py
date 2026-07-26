@@ -117,6 +117,23 @@ class TTSProviderName(str, Enum):
     EDGE = "edge"
     IMPORTED = "imported"
     ELEVENLABS = "elevenlabs"
+    #: Runs on this machine. Optional dependency; see app/tts/kokoro.py.
+    KOKORO = "kokoro"
+
+
+class KokoroDevice(str, Enum):
+    """Which torch device Kokoro runs its inference on.
+
+    ``AUTO`` prefers CUDA and otherwise stays on the CPU. It deliberately never
+    picks MPS: some torch builds lack the FFT kernels Kokoro's vocoder calls,
+    and at 82M parameters the CPU is already faster than real time. MPS remains
+    selectable for anyone whose build does support it.
+    """
+
+    AUTO = "auto"
+    CPU = "cpu"
+    MPS = "mps"
+    CUDA = "cuda"
 
 
 class MusicSource(str, Enum):

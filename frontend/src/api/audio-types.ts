@@ -23,6 +23,58 @@ export interface TTSProviderStatus {
   offline: boolean
 }
 
+export interface KokoroVoiceInfo {
+  id: string
+  label: string
+  gender: string
+  /** The model author's listening grade, e.g. "A", "C+". */
+  grade: string
+  training: string
+  note: string
+  langCode: string
+  language: string
+  locale: string
+  /** False for languages Kokoro cannot time at word level. */
+  wordTimings: boolean
+}
+
+export interface KokoroLanguageInfo {
+  code: string
+  label: string
+  locale: string
+  extraInstall: string
+  wordTimings: boolean
+  voiceCount: number
+}
+
+export interface KokoroEnvironment {
+  installed: boolean
+  modelCached: boolean
+  espeakAvailable: boolean
+  device: string
+  cacheDir: string
+  pipInstall: string
+  espeakInstall: string
+  repoId: string
+  sampleRate: number
+  defaultVoice: string
+  torchVersion: string
+}
+
+export interface KokoroInfo {
+  status: TTSProviderStatus
+  environment: KokoroEnvironment
+  voices: KokoroVoiceInfo[]
+  languages: KokoroLanguageInfo[]
+  recommended: string[]
+  deviceOptions: string[]
+  minSpeed: number
+  maxSpeed: number
+  setupSteps: string[]
+  usageNotes: string[]
+  inputNotes: string[]
+}
+
 export interface UnitResult {
   unitId: string
   label: string

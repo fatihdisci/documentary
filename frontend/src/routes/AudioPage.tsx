@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '@/api/client'
-import type { ApiErrorPayload } from '@/api/types'
+import type { ApiErrorPayload, TTSProviderName } from '@/api/types'
 import type { GenerateResponse, TimingResponse, TTSProviderStatus, Voice } from '@/api/audio-types'
 import { useProjectStore } from '@/store/project'
 import { ErrorBox } from '@/components/ErrorBox'
+import { KokoroPanel } from '@/components/KokoroPanel'
+import { voiceForProvider } from '@/lib/kokoroVoices'
 import './AudioPage.css'
 
 function formatSeconds(value: number): string {
@@ -23,6 +25,8 @@ export function AudioPage() {
   const [voiceFilter, setVoiceFilter] = useState('en-')
   const uploadTarget = useRef<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  /** Last voice used per provider, so switching back restores the choice. */
+  const voiceMemory = useRef<Record<string, string>>({})
 
   const slug = project?.slug ?? null
   const providerName = project?.audio.ttsProvider ?? 'edge'
@@ -107,6 +111,14 @@ export function AudioPage() {
     }
   }
 
+  function changeProvider(next: TTSProviderName) {
+    edit((d) => {
+      voiceMemory.current[d.audio.ttsProvider] = d.audio.voice
+      d.audio.ttsProvider = next
+      d.audio.voice = voiceForProvider(next, d.audio.voice, voiceMemory.current[next])
+    })
+  }
+
   async function uploadAudio(file: File) {
     const unitId = uploadTarget.current
     if (!unitId) return
@@ -165,9 +177,7 @@ export function AudioPage() {
             Ses kaynağı
             <select
               value={providerName}
-              onChange={(e) =>
-                edit((d) => void (d.audio.ttsProvider = e.target.value as typeof d.audio.ttsProvider))
-              }
+              onChange={(e) => changeProvider(e.target.value as TTSProviderName)}
             >
               {providers.map((p) => (
                 <option key={p.name} value={p.name} disabled={!p.available}>
@@ -192,6 +202,7 @@ export function AudioPage() {
                   .map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.id} — {v.gender}
+                      {v.description ? ` · ${v.description}` : ''}
                     </option>
                   ))}
               </select>
@@ -239,6 +250,13 @@ export function AudioPage() {
           </label>
         </div>
       </section>
+
+      {providerName === 'kokoro' && (
+        <KokoroPanel
+          currentVoice={project.audio.voice}
+          onPickVoice={(voiceId) => edit((d) => void (d.audio.voice = voiceId))}
+        />
+      )}
 
       {timing && (
         <section className="card">

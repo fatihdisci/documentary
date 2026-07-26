@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Start the backend and frontend together for development.
 #
-#   ./dev.sh              backend on :8756, Vite on :5173
-#   ./dev.sh --setup      create the venv and install everything first
+#   ./dev.sh                          backend on :8756, Vite on :5173
+#   ./dev.sh --setup                  create the venv and install everything first
+#   ./dev.sh --setup --no-kokoro      same, without the local narration voice
 #
 # Ctrl-C stops both.
 
@@ -18,6 +19,7 @@ log() { printf '\033[36m[evb]\033[0m %s\n' "$*"; }
 err() { printf '\033[31m[evb]\033[0m %s\n' "$*" >&2; }
 
 setup() {
+  local with_kokoro="$1"
   if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
     err "$PYTHON_BIN not found. Install it (brew install python@3.11) or set EVB_PYTHON."
     exit 1
@@ -27,13 +29,25 @@ setup() {
   "$VENV/bin/python" -m pip install --upgrade pip >/dev/null
   log "installing backend dependencies"
   "$VENV/bin/python" -m pip install -r "$BACKEND/requirements.txt"
+  if [[ "$with_kokoro" == "yes" ]]; then
+    # The default narration voice. Large (pulls PyTorch), so it is skippable —
+    # without it the app still runs and the Audio tab explains how to add it.
+    log "installing Kokoro, the local narration voice (~2 GB, --no-kokoro skips)"
+    "$VENV/bin/python" -m pip install -r "$BACKEND/requirements-kokoro.txt"
+  else
+    log "skipping Kokoro; narration defaults to it, so pick Edge in the Audio tab"
+  fi
   log "installing frontend dependencies"
   (cd "$FRONTEND" && npm install)
   log "setup complete"
 }
 
 if [[ "${1:-}" == "--setup" ]]; then
-  setup
+  if [[ "${2:-}" == "--no-kokoro" ]]; then
+    setup no
+  else
+    setup yes
+  fi
   exit 0
 fi
 

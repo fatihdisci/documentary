@@ -9,11 +9,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '@/api/client'
-import type { ApiErrorPayload } from '@/api/types'
+import type { ApiErrorPayload, TTSProviderName } from '@/api/types'
 import type { TTSProviderStatus, Voice } from '@/api/audio-types'
 import { useProjectStore } from '@/store/project'
 import { useRenderStore } from '@/store/render'
 import { ErrorBox } from '@/components/ErrorBox'
+import { voiceForProvider } from '@/lib/kokoroVoices'
 import './SimpleModePage.css'
 
 interface StepProps {
@@ -255,8 +256,9 @@ function VoiceStep({ goTo }: StepProps) {
     <div>
       <h2>3 · Ses</h2>
       <p className="muted">
-        Metinleri kim okusun? Edge ücretsizdir, kayıt gerektirmez, sadece internet ister. İsterseniz
-        kendi ses kayıtlarınızı da yükleyebilirsiniz.
+        Metinleri kim okusun? Edge ücretsizdir, kayıt gerektirmez, sadece internet ister. Kokoro
+        bu bilgisayarda çalışır ama önce kurulmalıdır — ayrıntılar Seslendirme sekmesinde.
+        İsterseniz kendi ses kayıtlarınızı da yükleyebilirsiniz.
       </p>
       <div className="field-grid">
         <label>
@@ -264,7 +266,13 @@ function VoiceStep({ goTo }: StepProps) {
           <select
             value={providerName}
             onChange={(e) =>
-              edit((d) => void (d.audio.ttsProvider = e.target.value as typeof d.audio.ttsProvider))
+              edit((d) => {
+                const next = e.target.value as TTSProviderName
+                d.audio.ttsProvider = next
+                // Voice namespaces do not overlap between providers; keeping a
+                // stale id here would only fail later, at generation time.
+                d.audio.voice = voiceForProvider(next, d.audio.voice, undefined)
+              })
             }
           >
             {providers.map((p) => (

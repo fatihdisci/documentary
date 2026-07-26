@@ -21,7 +21,13 @@ from pydantic import BaseModel, ConfigDict, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.errors import EnvironmentError_, ErrorCode
-from app.models.enums import IntermediateCodec, QualityPreset, TTSProviderName, TransitionPreset
+from app.models.enums import (
+    IntermediateCodec,
+    KokoroDevice,
+    QualityPreset,
+    TTSProviderName,
+    TransitionPreset,
+)
 
 logger = logging.getLogger("evb.config")
 
@@ -58,8 +64,10 @@ class MutableSettings(BaseModel):
     exports_dir: str = ""
     temp_dir: str = ""
 
-    tts_provider: TTSProviderName = TTSProviderName.EDGE
-    default_voice: str = "en-US-AndrewNeural"
+    tts_provider: TTSProviderName = TTSProviderName.KOKORO
+    default_voice: str = "af_bella"
+    #: Only consulted when a project uses the Kokoro provider.
+    kokoro_device: KokoroDevice = KokoroDevice.AUTO
     default_font: str = "Inter"
     default_fps: int = 60
     default_width: int = 1920

@@ -33,7 +33,8 @@ export interface ApiErrorPayload {
   context: Record<string, unknown>
 }
 
-export type TTSProviderName = 'edge' | 'imported' | 'elevenlabs'
+export type TTSProviderName = 'edge' | 'imported' | 'elevenlabs' | 'kokoro'
+export type KokoroDevice = 'auto' | 'cpu' | 'mps' | 'cuda'
 export type MusicSource = 'none' | 'uploaded' | 'generated-ambient'
 export type QualityPreset = 'preview' | 'standard' | 'high' | 'youtube-hq'
 export type DurationMode = 'audio' | 'target' | 'manual'
@@ -75,6 +76,8 @@ export interface AppSettings {
   tempDir: string
   ttsProvider: TTSProviderName
   defaultVoice: string
+  /** Only consulted when a project uses the Kokoro provider. */
+  kokoroDevice: KokoroDevice
   defaultFont: string
   defaultFps: number
   defaultWidth: number

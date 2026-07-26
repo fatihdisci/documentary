@@ -23,7 +23,7 @@ dependency-free server is what a future Tauri/Electron shell would wrap.
 | `api/` | HTTP routers: `projects`, `audio`, `render`, `diagnostics`, `settings_api`. |
 | `models/` | Pydantic schema (`project.py`), enums, and schema migrations. camelCase on the wire, snake_case in Python. |
 | `storage/` | The on-disk layout (`layout.py`), path safety (`paths.py`), media I/O (`media.py`), the project repository (`repository.py`), and content-package import. |
-| `tts/` | Provider abstraction (Edge / ElevenLabs / imported) with content-hash caching. |
+| `tts/` | Provider abstraction (Kokoro / Edge / ElevenLabs / imported) with content-hash caching. Kokoro runs locally and is the default; its dependencies are optional and its absence is reported, never fatal. |
 | `timing/` | The Timeline (`schedule.py`), audio probing, and subtitle cue building. |
 | `synth/` | The basic generated ambient music bed. |
 | `render/` | The render pipeline and its stages. |
@@ -173,7 +173,9 @@ in the modes where captions change the output.
 ### Subtitle timing
 
 Cues are placed from **measured word boundaries** whenever the TTS provider
-reports them (Edge is asked for word granularity explicitly). Those timings are
+reports them (Edge is asked for word granularity explicitly; Kokoro reports
+per-token timestamps for its English voices, rebased per chunk onto the joined
+audio). Those timings are
 written to a `.timings.json` beside the audio, keyed by the same content hash,
 so a render that reuses cached narration still gets them — narration is
 generated on the Audio tab and the render usually happens later, so without that

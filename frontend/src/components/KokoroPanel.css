@@ -1,0 +1,86 @@
+.kokoro-panel h2 { display: flex; align-items: center; gap: 8px; }
+
+.kokoro-pill {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;
+  padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border);
+}
+.kokoro-state-ready { color: var(--ok, #2f9e5f); border-color: currentColor; }
+.kokoro-state-pending { color: var(--warn); border-color: currentColor; }
+.kokoro-state-off { color: var(--text-faint); }
+
+.kokoro-facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px; margin: 12px 0 0;
+}
+.kokoro-facts > div {
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 10px;
+}
+.kokoro-facts dt {
+  font-size: 11px; color: var(--text-muted); margin-bottom: 3px;
+}
+.kokoro-facts dd { margin: 0; font-size: 13px; font-weight: 500; }
+.kokoro-facts dd.warn { color: var(--warn); }
+.kokoro-facts dd select { width: 100%; font-size: 12px; padding: 2px 4px; }
+
+.kokoro-callout {
+  margin-top: 12px; padding: 9px 11px; font-size: 12.5px;
+  border: 1px solid var(--warn); border-radius: var(--radius-sm);
+  color: var(--text); background: color-mix(in srgb, var(--warn) 8%, transparent);
+}
+
+.kokoro-recommended { margin-top: 14px; }
+.kokoro-recommended-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-faint); font-weight: 600;
+}
+.kokoro-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.kokoro-chip {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  font-size: 12px; padding: 4px 10px; border-radius: 999px;
+}
+.kokoro-chip.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.kokoro-chip-grade { font-size: 10px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.kokoro-chip.active .kokoro-chip-grade { color: inherit; }
+
+.kokoro-sections { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.kokoro-section { border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.kokoro-section.open { border-color: var(--accent); }
+.kokoro-section-head {
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 11px; font-size: 13px; font-weight: 500; text-align: left;
+  background: none; border: none; border-radius: var(--radius-sm); cursor: pointer;
+}
+.kokoro-section-head:hover { background: var(--bg-input); }
+.kokoro-section-meta { font-size: 11px; color: var(--text-faint); display: flex; gap: 6px; }
+.kokoro-section-body {
+  padding: 4px 12px 12px; font-size: 13px; border-top: 1px solid var(--border);
+}
+
+.kokoro-steps, .kokoro-notes { margin: 10px 0 0; padding-left: 20px; }
+.kokoro-steps li, .kokoro-notes li { margin-bottom: 7px; line-height: 1.5; }
+.kokoro-section-body code {
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: 3px;
+  padding: 1px 5px; font-size: 12px; word-break: break-all;
+}
+
+.kokoro-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.kokoro-table th {
+  text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-faint); font-weight: 600; padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.kokoro-table td {
+  padding: 5px 8px; border-bottom: 1px solid var(--border);
+  font-size: 12.5px; vertical-align: middle;
+}
+.kokoro-table tr:last-child td { border-bottom: none; }
+.kokoro-table tr.current { background: var(--bg-input); }
+.kokoro-table tr.current code { color: var(--accent); font-weight: 600; }
+.kokoro-table td .muted { font-size: 11px; margin-left: 4px; }
+.kokoro-table button { font-size: 11px; padding: 3px 8px; }
+
+.kokoro-subhead {
+  margin: 18px 0 0; font-size: 12px; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--text-muted);
+}

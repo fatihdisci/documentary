@@ -69,6 +69,59 @@ class ProviderListResponse(CamelModel):
     providers: list[ProviderStatus]
 
 
+class KokoroVoiceInfo(CamelModel):
+    id: str
+    label: str
+    gender: str
+    grade: str
+    training: str
+    note: str
+    lang_code: str
+    language: str
+    locale: str
+    #: False for the languages Kokoro cannot time at word level.
+    word_timings: bool
+
+
+class KokoroLanguageInfo(CamelModel):
+    code: str
+    label: str
+    locale: str
+    extra_install: str
+    word_timings: bool
+    voice_count: int
+
+
+class KokoroEnvironment(CamelModel):
+    installed: bool
+    model_cached: bool
+    espeak_available: bool
+    device: str
+    cache_dir: str
+    pip_install: str
+    espeak_install: str
+    repo_id: str
+    sample_rate: int
+    default_voice: str
+    torch_version: str
+
+
+class KokoroInfoResponse(CamelModel):
+    """Everything the Audio tab needs to explain and drive Kokoro."""
+
+    status: ProviderStatus
+    environment: KokoroEnvironment
+    voices: list[KokoroVoiceInfo]
+    languages: list[KokoroLanguageInfo]
+    recommended: list[str]
+    device_options: list[str]
+    min_speed: float
+    max_speed: float
+    setup_steps: list[str]
+    usage_notes: list[str]
+    input_notes: list[str]
+
+
 def _label_for(project: Project, unit_id: str) -> str:
     if unit_id == INTRO_ID:
         return "Intro"
@@ -96,6 +149,83 @@ def list_providers() -> ProviderListResponse:
 @providers_router.get("/voices", response_model=list[Voice])
 async def list_voices(provider: str = Query(default="edge")) -> list[Voice]:
     return await get_provider(provider).list_voices()
+
+
+@providers_router.get("/kokoro/info", response_model=KokoroInfoResponse)
+def kokoro_info() -> KokoroInfoResponse:
+    """Kokoro's catalogue, options and setup state.
+
+    Served whether or not Kokoro is installed: the point is to let the Audio tab
+    explain what installing it would give you, and exactly how, before anyone
+    downloads a 350 MB model.
+    """
+    from app.models.enums import KokoroDevice
+    from app.tts import kokoro as kokoro_provider
+    from app.tts.kokoro_catalog import MAX_SPEED, MIN_SPEED, RECOMMENDED, VOICES
+
+    environment = kokoro_provider.environment_report()
+    installed = bool(environment["installed"])
+    cached = bool(environment["modelCached"])
+
+    setup_steps = [
+        "Sanal ortamı etkinleştirin: source backend/.venv/bin/activate",
+        f"Modeli kurun: {environment['pipInstall']}",
+        f"Telaffuz motorunu kurun (önerilir): {environment['espeakInstall']}",
+        "Uygulamayı yeniden başlatın; Kokoro burada 'hazır' görünecek.",
+        f"İlk seslendirmede model bir kez indirilir (~350 MB, {environment['repoId']}) "
+        "ve yanına küçük bir dil paketi (en_core_web_sm, ~13 MB) kurulur.",
+    ]
+
+    usage_notes = [
+        "Model indikten sonra internet gerekmez; her şey bu bilgisayarda çalışır.",
+        "Konuşma hızı 0,50× ile 2,00× arasındadır. Ton (pitch) ayarı Kokoro'da yoktur.",
+        "İngilizce seslerde kelime kelime altyazı zamanlaması üretilir; diğer dillerde "
+        "altyazılar metne göre tahmin edilir.",
+        "'auto' bu bilgisayarda CPU kullanır ve bu bilinçli bir tercihtir: ölçümde "
+        "gerçek zamanın 8-10 katı hızda seslendiriyor, yani 20 saniyelik bir sahne "
+        "yaklaşık 2 saniye sürüyor. MPS bazı torch sürümlerinde hata verir; verirse "
+        "otomatik olarak CPU'ya düşülür.",
+        "Ses, sahne sahne önbelleğe alınır. Metni, sesi ya da hızı değiştirmedikçe "
+        "yeniden üretilmez.",
+    ]
+
+    input_notes = [
+        "Düz metin yazın. SSML, HTML etiketi ya da Markdown desteklenmez; bunlar "
+        "seslendirmeden önce temizlenir.",
+        "Bilimsel adları İçerik sekmesindeki telaffuz sözlüğüne ekleyin — "
+        "örneğin 'Ectopistes migratorius' → 'ek-toh-PISS-teez my-gruh-TOR-ee-us'.",
+        "Noktalama duraklamaları belirler: nokta uzun, virgül kısa duraklatır.",
+        "Sayıları ve kısaltmaları yazıyla yazın ('1914' yerine 'nineteen fourteen') — "
+        "okunuşları böylece kesinleşir.",
+        "Uzun metinler model tarafından cümle sınırlarından otomatik bölünür; "
+        "sahne başına 2-6 cümle en doğal sonucu verir.",
+    ]
+
+    if not installed:
+        usage_notes.insert(0, "Kokoro şu anda kurulu değil — aşağıdaki adımları izleyin.")
+    elif not cached:
+        usage_notes.insert(0, "Kurulu, ama model henüz indirilmedi. İlk seslendirme "
+                              "internet ister ve biraz uzun sürer.")
+
+    return KokoroInfoResponse(
+        status=get_provider("kokoro").status(),
+        environment=KokoroEnvironment.model_validate(environment),
+        voices=[
+            KokoroVoiceInfo.model_validate(kokoro_provider.describe_voice(voice.id))
+            for voice in VOICES
+        ],
+        languages=[
+            KokoroLanguageInfo.model_validate(row)
+            for row in kokoro_provider.language_summary()
+        ],
+        recommended=list(RECOMMENDED),
+        device_options=[device.value for device in KokoroDevice],
+        min_speed=MIN_SPEED,
+        max_speed=MAX_SPEED,
+        setup_steps=setup_steps,
+        usage_notes=usage_notes,
+        input_notes=input_notes,
+    )
 
 
 @providers_router.post("/preview", response_class=PlainTextResponse)

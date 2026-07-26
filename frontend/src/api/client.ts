@@ -22,6 +22,7 @@ import type {
 } from './shorts-types'
 import type {
   GenerateResponse,
+  KokoroInfo,
   TimingResponse,
   TTSProviderStatus,
   Voice,
@@ -251,6 +252,7 @@ export const api = {
   listProviders: () => request<{ providers: TTSProviderStatus[] }>('/api/tts/providers'),
   listVoices: (provider: string) =>
     request<Voice[]>(`/api/tts/voices?provider=${encodeURIComponent(provider)}`),
+  getKokoroInfo: () => request<KokoroInfo>('/api/tts/kokoro/info'),
   generateNarration: (slug: string, unitIds: string[] = [], force = false) =>
     request<GenerateResponse>(`/api/projects/${slug}/audio/generate`, {
       method: 'POST',

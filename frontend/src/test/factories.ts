@@ -8,6 +8,8 @@
 
 import type {
   ApiErrorPayload,
+  AppSettings,
+  SettingsResponse,
 } from '@/api/types'
 import type {
   AudioSettings,
@@ -85,6 +87,9 @@ const style: Style = {
   showScientificName: true,
 }
 
+// Deliberately Edge rather than the app default (Kokoro): it keeps the common
+// UI tests free of the Kokoro panel's extra API calls. KokoroPanel.test.tsx and
+// the backend's test_tts_defaults cover the real default.
 const audio: AudioSettings = {
   ttsProvider: 'edge',
   voice: 'en-US-GuyNeural',
@@ -233,6 +238,37 @@ export function seedProject(project: Project | null) {
     lastSavedAt: null,
     error: null,
   })
+}
+
+/** App settings as /api/settings returns them, with the real defaults. */
+export function makeSettingsResponse(
+  overrides: Partial<AppSettings> = {},
+): SettingsResponse {
+  const settings: AppSettings = {
+    ffmpegPath: 'ffmpeg',
+    ffprobePath: 'ffprobe',
+    projectsDir: '',
+    exportsDir: '',
+    tempDir: '',
+    ttsProvider: 'kokoro',
+    defaultVoice: 'af_bella',
+    kokoroDevice: 'auto',
+    defaultFont: 'Inter',
+    defaultFps: 60,
+    defaultWidth: 1920,
+    defaultHeight: 1080,
+    defaultTransition: 'documentary-dissolve',
+    defaultSceneLeadInSeconds: 0.35,
+    defaultSceneTailSeconds: 0.65,
+    defaultQuality: 'youtube-hq',
+    intermediateCodec: 'h264-crf14-fast',
+    useHardwareEncoder: false,
+    cleanupTempOnSuccess: true,
+    tempRetentionDays: 3,
+    logLevel: 'INFO',
+    ...overrides,
+  } as AppSettings
+  return { settings, configuredSecrets: [], resolvedPaths: {} }
 }
 
 export function apiError(overrides: Partial<ApiErrorPayload> = {}): ApiErrorPayload {

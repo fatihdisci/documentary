@@ -47,11 +47,18 @@ class TestDefaults:
         assert make_project().audio.duck_music_under_speech is True
 
     def test_tts_defaults(self) -> None:
+        """A new project narrates locally, with no account and no network."""
         p = make_project()
-        assert p.audio.tts_provider is TTSProviderName.EDGE
-        assert p.audio.voice == "en-US-AndrewNeural"
-        assert p.audio.speech_rate == 0.95
+        assert p.audio.tts_provider is TTSProviderName.KOKORO
+        assert p.audio.voice == "af_bella"
+        assert p.audio.speech_rate == 0.90
         assert p.video.duration_mode is DurationMode.AUDIO
+
+    def test_the_default_voice_belongs_to_the_default_provider(self) -> None:
+        """Guards the pairing: a mismatch only surfaces at generation time."""
+        from app.tts.kokoro_catalog import is_known
+
+        assert is_known(make_project().audio.voice)
 
 
 class TestValidation:

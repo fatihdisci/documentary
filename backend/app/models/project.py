@@ -153,9 +153,11 @@ class Style(Base):
 
 
 class AudioSettings(Base):
-    tts_provider: TTSProviderName = TTSProviderName.EDGE
-    voice: str = Field(default="en-US-AndrewNeural")
-    speech_rate: float = Field(default=0.95, ge=0.5, le=2.0)
+    #: Kokoro by default: it runs locally, so a new project narrates with no
+    #: network and no account. Edge remains a click away in the Audio tab.
+    tts_provider: TTSProviderName = TTSProviderName.KOKORO
+    voice: str = Field(default="af_bella")
+    speech_rate: float = Field(default=0.90, ge=0.5, le=2.0)
     speech_pitch: float = Field(default=0.0, ge=-50.0, le=50.0)
     voice_volume_db: float = Field(default=-3.0, ge=-40.0, le=10.0)
     music_volume_db: float = Field(default=-30.0, ge=-60.0, le=0.0)

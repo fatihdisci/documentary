@@ -38,7 +38,7 @@ def attach_audio(client: TestClient, slug: str, unit_id: str, seconds: float) ->
 class TestProviders:
     def test_lists_every_provider_with_status(self, client: TestClient) -> None:
         providers = {p["name"]: p for p in client.get("/api/tts/providers").json()["providers"]}
-        assert set(providers) == {"edge", "imported", "elevenlabs"}
+        assert set(providers) == {"edge", "imported", "elevenlabs", "kokoro"}
         assert providers["imported"]["available"] is True
         assert providers["imported"]["offline"] is True
 

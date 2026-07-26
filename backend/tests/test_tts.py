@@ -74,7 +74,7 @@ def fake_provider(monkeypatch: pytest.MonkeyPatch) -> FakeProvider:
 
 class TestRegistry:
     def test_all_providers_are_registered(self) -> None:
-        assert set(provider_names()) == {"edge", "imported", "elevenlabs"}
+        assert set(provider_names()) == {"edge", "imported", "elevenlabs", "kokoro"}
 
     def test_unknown_provider_is_rejected_clearly(self) -> None:
         with pytest.raises(AppError) as exc_info:
@@ -88,7 +88,7 @@ class TestRegistry:
 
     def test_status_summary_never_raises(self) -> None:
         summary = provider_status_summary()
-        assert set(summary) == {"edge", "imported", "elevenlabs"}
+        assert set(summary) == {"edge", "imported", "elevenlabs", "kokoro"}
         for status in summary.values():
             assert status.message
 

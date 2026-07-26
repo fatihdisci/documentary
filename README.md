@@ -43,6 +43,12 @@ cd documentary
 You need FFmpeg on your machine before this step — see [Requirements](#requirements)
 above. `./dev.sh --setup` installs the Python and Node dependencies only.
 
+That includes **Kokoro**, the default narration voice, which runs locally and
+pulls PyTorch with it (~2 GB, a few minutes). To skip it use
+`./dev.sh --setup --no-kokoro` — the app runs fine without it, and you can add
+it later with `backend/.venv/bin/pip install -r backend/requirements-kokoro.txt`.
+Either way the Audio tab shows Kokoro's current state and the exact commands.
+
 ## Run
 
 ### Option A — double-click (macOS, easiest)
@@ -115,10 +121,14 @@ time for the tabs below, which give you the fine controls.
    per scene the intro simply reuses the first scene's image, as before.) Reorder
    scenes by dragging their cards; click **Auto-map images** if you add or
    reorder images afterwards.
-5. **Audio** — pick a TTS provider and voice (Edge TTS is free and needs no
-   API key), then **Generate missing** to synthesize narration for every
-   scene. No internet? Upload your own audio file per scene instead — the app
-   works fully offline that way. This tab also shows the computed video
+5. **Audio** — pick a TTS provider and voice, then **Generate missing** to
+   synthesize narration for every scene. The default is **Kokoro**, an 82M
+   neural voice that runs on your own machine: no API key, no account, and no
+   network once its model has downloaded once. The Audio tab has a Kokoro panel
+   with the setup commands, every voice and its quality grade, and the writing
+   guidance. Prefer something else? Edge TTS is free but needs internet,
+   ElevenLabs takes an API key, or upload your own audio file per scene — the
+   app works fully offline that way too. This tab also shows the computed video
    runtime and the mixing controls (voice/music levels, ducking, loudness), and
    the **Burn subtitles into the video** toggle — on by default, so a finished
    video is captioned without any extra steps (an `.srt` is exported either way).
@@ -210,9 +220,9 @@ and the navigation sidebar. M1–M7 are complete and pushed.
 - **M1 — Foundation** ✅ repo, schema, backend + frontend skeletons, diagnostics
 - **M2 — Projects & content** ✅ project CRUD, scenes, image pipeline, content
   package import with natural-order image mapping
-- **M3 — Audio & subtitles** ✅ TTS provider abstraction (Edge / imported /
-  ElevenLabs), content-hash caching, the timeline as single source of truth,
-  non-uniform subtitle timing
+- **M3 — Audio & subtitles** ✅ TTS provider abstraction (Kokoro / Edge /
+  imported / ElevenLabs), content-hash caching, the timeline as single source
+  of truth, non-uniform subtitle timing
 - **M4 — Motion & text** ✅ Ken Burns pan/zoom with deterministic auto-variation,
   Pillow text cards (replaces `drawtext`, which this FFmpeg build lacks), the
   render smoke test gate — passed

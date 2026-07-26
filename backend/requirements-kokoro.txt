@@ -1,0 +1,16 @@
+# Kokoro — the local, offline narration voice, and the default TTS provider.
+#
+# Kept out of requirements.txt on purpose: this pulls PyTorch and is roughly
+# 2 GB installed, while the app itself is a few tens of MB. Everything works
+# without it — the Audio tab explains the setup and Edge TTS remains one click
+# away — so this stays an explicit choice rather than a surprise download.
+#
+#   ./dev.sh --setup            installs this too
+#   ./dev.sh --setup --no-kokoro   skips it
+#   pip install -r backend/requirements-kokoro.txt    add it later
+#
+# The model weights themselves (~350 MB) are not here: Kokoro downloads them
+# from Hugging Face on first use and caches them under ~/.cache/huggingface.
+
+kokoro>=0.9.4
+soundfile>=0.12

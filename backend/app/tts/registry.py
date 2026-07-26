@@ -8,12 +8,16 @@ from app.tts.base import ProviderStatus, TTSProvider
 from app.tts.edge import EdgeTTSProvider
 from app.tts.elevenlabs import ElevenLabsProvider
 from app.tts.imported import ImportedAudioProvider
+from app.tts.kokoro import KokoroProvider
 
 #: Instantiated once: providers are stateless apart from cached voice lists.
+#: Kokoro is listed but does nothing until its optional dependencies are
+#: installed — constructing it never imports torch.
 _PROVIDERS: dict[str, TTSProvider] = {
     TTSProviderName.EDGE.value: EdgeTTSProvider(),
     TTSProviderName.IMPORTED.value: ImportedAudioProvider(),
     TTSProviderName.ELEVENLABS.value: ElevenLabsProvider(),
+    TTSProviderName.KOKORO.value: KokoroProvider(),
 }
 
 
