@@ -16,6 +16,16 @@ Text: `AMERICA'S LOST PARROT`
 
 Use the thumbnail prompt in `carolina-parakeet-content-package.json`.
 
+The supplied thumbnail has been attached to the scheduled long video.
+
+## YouTube schedule
+
+- Status: Scheduled
+- Long video: [The Carolina Parakeet: America's Lost Native Parrot](https://youtu.be/NYnu9_0EXis) — 26 July 2026, 22:00 TRT
+- Short: [The Last Known Carolina Parakeet](https://youtu.be/7sozsH7SKd0) — 26 July 2026, 23:00 TRT
+- Short: [America Once Had a Native Parrot](https://youtu.be/ZOD13oRNY9c) — 27 July 2026, 18:00 TRT
+- Short: [Why a Bright Bird Was Not Safe](https://youtu.be/zJNosL369s4) — 27 July 2026, 23:00 TRT; subscriber notification off
+
 ## YouTube description
 
 Bright green parrots once crossed the woods and rivers of the eastern United States. The Carolina parakeet was noisy, social and hard to miss. Yet it disappeared before people understood how to save it.

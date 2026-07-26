@@ -59,6 +59,6 @@ For every episode deliver: research summary; sources; at least three titles and 
 
 ## Content tracker
 
-Never re-suggest an animal already produced as a main video. Status values: `Planned`, `Researching`, `Package Ready`, `Images Ready`, `Audio Ready`, `Rendering`, `Published`, `Revisit Candidate`.
+Never re-suggest an animal already produced as a main video. Status values: `Planned`, `Researching`, `Package Ready`, `Images Ready`, `Audio Ready`, `Rendering`, `Scheduled`, `Published`, `Revisit Candidate`.
 
 Initial priority list: Dodo; Tasmanian tiger; Steller’s sea cow; Passenger pigeon; Carolina parakeet; Pinta Island tortoise; Chinese paddlefish; Golden toad; Rocky Mountain locust; Xerces blue butterfly; Southern gastric-brooding frog; Bramble Cay melomys; Sea mink; Labrador duck; Stephens Island wren; Alaotra grebe; Atitlán grebe; Cape Verde giant skink; Round Island burrowing boa; Delcourt’s giant gecko.

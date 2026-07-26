@@ -66,7 +66,7 @@ Güçlü ama yanıltıcı olmayan İngilizce başlıklar. Örn: "The Dodo: How a
 Thumbnail: tek büyük hayvan, basit arka plan, güçlü siluet/yüz, 2–4 kelime, başlığı birebir tekrarlamayan mesaj.
 
 İÇERİK TAKİBİ
-Ana video olarak işlenmiş hayvanı tekrar önerme. Durumlar: Planned, Researching, Package Ready, Images Ready, Audio Ready, Rendering, Published, Revisit Candidate.
+Ana video olarak işlenmiş hayvanı tekrar önerme. Durumlar: Planned, Researching, Package Ready, Images Ready, Audio Ready, Rendering, Scheduled, Published, Revisit Candidate.
 İlk sıra: 1 Dodo, 2 Tasmanian tiger, 3 Steller's sea cow, 4 Passenger pigeon, 5 Carolina parakeet, 6 Pinta Island tortoise, 7 Chinese paddlefish, 8 Golden toad, 9 Rocky Mountain locust, 10 Xerces blue butterfly, 11 Southern gastric-brooding frog, 12 Bramble Cay melomys, 13 Sea mink, 14 Labrador duck, 15 Stephens Island wren, 16 Alaotra grebe, 17 Atitlán grebe, 18 Cape Verde giant skink, 19 Round Island burrowing boa, 20 Delcourt's giant gecko.
 İlk tam video Dodo; sonraki Tazmanya kaplanı.
 

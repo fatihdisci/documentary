@@ -7,6 +7,7 @@
 - Images Ready
 - Audio Ready
 - Rendering
+- Scheduled
 - Published
 - Revisit Candidate
 
@@ -16,7 +17,7 @@
 | 2 | Tasmanian tiger | Thylacinus cynocephalus | Published |  |  |  | Second production video |
 | 3 | Steller's sea cow | Hydrodamalis gigas | Package Ready | 2026-07-24 |  |  | Third production video; 11 images (00-intro + ten scenes) |
 | 4 | Passenger pigeon | Ectopistes migratorius | Package Ready | 2026-07-25 |  |  | Fourth production video; 11 images (00-intro + ten scenes) |
-| 5 | Carolina parakeet | Conuropsis carolinensis | Package Ready | 2026-07-26 |  |  | Fifth production video; 11 images (00-intro + ten scenes) |
+| 5 | Carolina parakeet | Conuropsis carolinensis | Scheduled | 2026-07-26 | 2026-07-26 22:00 TRT | https://youtu.be/NYnu9_0EXis | Fifth production video; 11 images; long video and three related Shorts scheduled |
 | 6 | Pinta Island tortoise | Chelonoidis abingdonii | Planned |  |  |  | Next-episode teaser |
 | 7 | Chinese paddlefish | Psephurus gladius | Planned |  |  |  |  |
 | 8 | Golden toad | Incilius periglenes | Planned |  |  |  |  |
@@ -34,7 +35,7 @@
 | 20 | Delcourt's giant gecko | Gigarcanum delcourti | Planned |  |  |  |  |
 
 ## Rules
-1. Published veya Package Ready durumundaki türleri ana video konusu olarak tekrar önerme.
+1. Published, Scheduled veya Package Ready durumundaki türleri ana video konusu olarak tekrar önerme.
 2. Her video sonrası status, tarih ve Published URL alanlarını güncelle.
 3. Tanınmış ve az bilinen türleri dengeli sırayla yayınla.
 4. Aynı taksonomik gruptan çok sayıda videoyu arka arkaya planlama.
