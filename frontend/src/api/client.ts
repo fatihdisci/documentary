@@ -21,6 +21,17 @@ import type {
   ShortsPreflightResponse,
 } from './shorts-types'
 import type {
+  AssetUploadResponse,
+  ClientSecretUploadResponse,
+  DraftResponse,
+  MediaItem,
+  PublishDraft,
+  PublishHistoryEntry,
+  PublishJob,
+  PublishRequest,
+  YouTubeConnection,
+} from './publishing-types'
+import type {
   GenerateResponse,
   KokoroInfo,
   TimingResponse,
@@ -334,6 +345,80 @@ export const api = {
     request<ShortJob>(`/api/short-jobs/${jobId}/cancel`, { method: 'POST' }),
   retryShortJob: (jobId: string) =>
     request<ShortJob>(`/api/short-jobs/${jobId}/retry`, { method: 'POST' }),
+
+  // --- publishing ---
+  // The YouTube connection is per computer, so it lives outside the project
+  // routes. Everything below it belongs to one project.
+  youtubeStatus: (refresh = false) =>
+    request<YouTubeConnection>(`/api/publishing/youtube/status?refresh=${refresh}`),
+  uploadYoutubeClientSecret: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<ClientSecretUploadResponse>('/api/publishing/youtube/client-secret', {
+      method: 'POST',
+      body: form,
+    })
+  },
+  selectYoutubeClientSecret: (fileName: string) =>
+    request<YouTubeConnection>('/api/publishing/youtube/client-secret/select', {
+      method: 'POST',
+      body: JSON.stringify({ fileName }),
+    }),
+  connectYoutube: () =>
+    request<YouTubeConnection>('/api/publishing/youtube/connect', { method: 'POST' }),
+  disconnectYoutube: () =>
+    request<YouTubeConnection>('/api/publishing/youtube/disconnect', { method: 'DELETE' }),
+
+  publishingMedia: (slug: string) =>
+    request<MediaItem[]>(`/api/projects/${slug}/publishing/media`),
+  getPublishDraft: (slug: string, mediaId: string) =>
+    request<DraftResponse>(
+      `/api/projects/${slug}/publishing/drafts/${encodeURIComponent(mediaId)}`,
+    ),
+  savePublishDraft: (slug: string, mediaId: string, draft: PublishDraft) =>
+    request<DraftResponse>(
+      `/api/projects/${slug}/publishing/drafts/${encodeURIComponent(mediaId)}`,
+      { method: 'PUT', body: JSON.stringify(draft) },
+    ),
+  uploadPublishThumbnail: (slug: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<AssetUploadResponse>(
+      `/api/projects/${slug}/publishing/assets/thumbnail`,
+      { method: 'POST', body: form },
+    )
+  },
+  uploadPublishCaption: (slug: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<AssetUploadResponse>(
+      `/api/projects/${slug}/publishing/assets/caption`,
+      { method: 'POST', body: form },
+    )
+  },
+  publishToYoutube: (slug: string, body: PublishRequest) =>
+    request<PublishJob>(`/api/projects/${slug}/publishing/youtube`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  publishHistory: (slug: string) =>
+    request<PublishHistoryEntry[]>(`/api/projects/${slug}/publishing/history`),
+  refreshPublishHistoryEntry: (slug: string, entryId: string) =>
+    request<PublishHistoryEntry>(
+      `/api/projects/${slug}/publishing/history/${encodeURIComponent(entryId)}/refresh`,
+      { method: 'POST' },
+    ),
+  getPublishJob: (jobId: string) => request<PublishJob>(`/api/publishing/jobs/${jobId}`),
+  activePublishJob: (slug?: string) =>
+    request<PublishJob | null>(
+      slug
+        ? `/api/publishing/jobs/active?slug=${encodeURIComponent(slug)}`
+        : '/api/publishing/jobs/active',
+    ),
+  cancelPublishJob: (jobId: string) =>
+    request<PublishJob>(`/api/publishing/jobs/${jobId}/cancel`, { method: 'POST' }),
+  retryPublishJob: (jobId: string) =>
+    request<PublishJob>(`/api/publishing/jobs/${jobId}/retry`, { method: 'POST' }),
 
   // --- maintenance ---
   listBackups: (slug: string) => request<string[]>(`/api/projects/${slug}/backups`),

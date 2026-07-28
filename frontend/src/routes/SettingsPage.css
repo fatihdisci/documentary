@@ -3,3 +3,40 @@
   border: 1px solid var(--ok); padding: 4px 10px; border-radius: 12px;
 }
 .settings-note { font-size: 12.5px; color: var(--text-muted); }
+
+/* --- Bağlantılar ve servisler ------------------------------------------- */
+
+.connections-card .connection-block {
+  padding: 13px 15px; margin-top: 14px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-input);
+}
+.connections-card .connection-block:first-of-type { margin-top: 8px; }
+
+.connection-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  margin-bottom: 10px;
+}
+.connection-head strong { font-size: 13.5px; }
+.connection-head p { margin: 2px 0 0; font-size: 12.5px; }
+.connection-head .channel-avatar { width: 36px; height: 36px; border-radius: 50%; }
+
+.connection-grid {
+  display: grid; grid-template-columns: max-content 1fr; gap: 3px 16px;
+  margin: 0 0 12px; font-size: 12.5px;
+}
+.connection-grid dt { color: var(--text-muted); }
+.connection-grid dd { margin: 0; word-break: break-all; }
+
+.connection-problem { margin: 0 0 10px; font-size: 12.5px; color: var(--warn); }
+.connection-actions { flex-wrap: wrap; gap: 8px; }
+
+.connection-setup { margin-top: 12px; }
+.connection-setup summary { cursor: pointer; font-size: 12.5px; color: var(--text-muted); }
+.connection-setup ol { margin: 10px 0; padding-left: 20px; font-size: 12.5px; line-height: 1.7; }
+
+/* Kept local rather than relying on another page's stylesheet being loaded. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}

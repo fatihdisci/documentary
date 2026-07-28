@@ -29,7 +29,18 @@ DERIVED_DIRS = (
     "audio/generated",
 )
 
-OTHER_DIRS = ("exports", "exports/shorts", "exports/shorts-source", "backups", "logs")
+OTHER_DIRS = (
+    "exports",
+    "exports/shorts",
+    "exports/shorts-source",
+    "backups",
+    "logs",
+    # Publishing drafts, upload history and the assets picked for an upload.
+    # Never contains a credential: tokens live in the app's secrets directory.
+    "publishing",
+    "publishing/assets/thumbnails",
+    "publishing/assets/captions",
+)
 
 
 @dataclass(frozen=True)
@@ -118,6 +129,20 @@ class ProjectPaths:
         user-facing export list, which only reads the top level.
         """
         return self.root / "exports" / "shorts-source"
+
+    # --- publishing ---
+    @property
+    def publishing(self) -> Path:
+        """Publish drafts and upload history for this project."""
+        return self.root / "publishing"
+
+    @property
+    def publishing_thumbnails(self) -> Path:
+        return self.root / "publishing" / "assets" / "thumbnails"
+
+    @property
+    def publishing_captions(self) -> Path:
+        return self.root / "publishing" / "assets" / "captions"
 
     @property
     def backups(self) -> Path:

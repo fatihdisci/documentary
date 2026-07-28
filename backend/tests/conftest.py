@@ -28,6 +28,21 @@ def isolated_data_dir(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pyt
     get_settings.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def fresh_publish_job_manager() -> Iterator[None]:
+    """Drop the publishing queue singleton between tests.
+
+    It caches a ``Settings``, and every test gets a different data directory, so
+    a manager left over from an earlier test would look for projects in a folder
+    that no longer has any.
+    """
+    from app.publishing.jobs import reset_publish_job_manager
+
+    reset_publish_job_manager()
+    yield
+    reset_publish_job_manager()
+
+
 @pytest.fixture
 def settings():  # noqa: ANN201 - fixture return type is the Settings object
     from app.config import get_settings

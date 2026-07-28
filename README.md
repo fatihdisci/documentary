@@ -162,6 +162,18 @@ time for the tabs below, which give you the fine controls.
    by default for new projects — have them redrawn large at the bottom of the
    vertical frame. Burned-in captions cannot be removed from an old render, so a
    render made without a clean master says so and offers the legacy option.
+10. **Publish** — pick a finished long video or Short, check the metadata (it
+    arrives pre-filled from the project and every field is editable), and upload
+    it to YouTube either immediately or scheduled for a later date. The panel
+    handles the thumbnail, the English `.srt`, live upload progress, and an
+    upload history that records each video the moment it gets an ID — so a video
+    whose thumbnail step failed is never invisible, and retrying never uploads it
+    twice. Connect the account once under **Settings → Bağlantılar ve
+    servisler**; existing OAuth credentials in `~/ExtinctVideoBuilder/secrets/`
+    are detected automatically. Instagram, Facebook and TikTok appear as cards
+    with working draft fields, but their integrations are not built yet and
+    nothing is ever sent to them. See
+    [`docs/publishing.md`](docs/publishing.md).
 
 Projects, images, generated audio and every export live under
 `~/ExtinctVideoBuilder` (see below) — nothing leaves your machine.
@@ -178,14 +190,17 @@ By default everything is under `~/ExtinctVideoBuilder`:
 ├── cache/        derived assets
 ├── music/        your background music library
 ├── logs/         backend.log and per-render logs
+├── secrets/      OAuth client file and YouTube token (0700, files 0600)
 └── settings.json
 ```
 
 Override with `EVB_DATA_DIR`, or change the individual directories on the
 Settings page.
 
-API keys are stored in `secrets.json` with `0600` permissions. They are never
-returned by any endpoint, written to a log, or included in a project bundle.
+API keys are stored in `secrets.json` with `0600` permissions. The YouTube OAuth
+client file and its token live in `secrets/`, created `0700` with `0600` files.
+None of them is ever returned by an endpoint, written to a log — even masked —
+or included in a project bundle or export.
 
 ## Tests
 
@@ -211,6 +226,9 @@ Further docs live in `docs/`:
   failures and the error codes behind common problems
 - [`docs/content-schema.md`](docs/content-schema.md) — the importable content
   package format (narration, titles, image prompts, framing hints)
+- [`docs/publishing.md`](docs/publishing.md) — the **Yayınla** tab: connecting a
+  YouTube account, immediate and scheduled uploads, thumbnails, SRT subtitles,
+  upload history and duplicate protection
 
 ## YouTube channel status
 

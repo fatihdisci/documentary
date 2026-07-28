@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import audio, diagnostics, projects, render, settings_api, shorts
+from app.api import audio, diagnostics, projects, publishing, render, settings_api, shorts
 from app.config import configure_logging, get_settings
 from app.errors import AppError, ErrorCode, ErrorPayload
 
@@ -55,6 +55,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.error("FFmpeg unavailable at startup: %s", exc)
 
     # Loads render history and marks any render that was killed mid-run.
+    from app.publishing.jobs import get_publish_job_manager
     from app.render.jobs import get_job_manager
     from app.shorts.jobs import get_short_job_manager
 
@@ -64,9 +65,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # that was being built when the app stopped.
     short_manager = get_short_job_manager()
     await short_manager.start()
+    # And for uploads, so a video that was being sent to YouTube when the app
+    # stopped is reported as interrupted rather than as still running.
+    publish_manager = get_publish_job_manager()
+    await publish_manager.start()
 
     yield
 
+    await publish_manager.stop()
     await short_manager.stop()
     await manager.stop()
     logger.info("backend shutting down")
@@ -127,6 +133,9 @@ app.include_router(render.router)
 app.include_router(render.jobs_router)
 app.include_router(shorts.router)
 app.include_router(shorts.jobs_router)
+app.include_router(publishing.router)
+app.include_router(publishing.project_router)
+app.include_router(publishing.jobs_router)
 
 
 def mount_frontend() -> None:

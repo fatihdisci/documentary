@@ -15,6 +15,16 @@ frontend/dist/
 .env.local
 secrets.json
 
+# OAuth: client files, tokens and their caches live in
+# ~/ExtinctVideoBuilder/secrets/ and must never be copied into the repo. These
+# patterns are here so that a stray copy is refused rather than committed.
+secrets/
+client_secret_*.json
+youtube-upload-token.json
+youtube-*-token.json
+youtube-channel-cache.json
+oauth-*.json
+
 # Application data (projects, exports, temp, logs) lives outside the repo by
 # default, but ignore it here too in case someone points EVB_DATA_DIR inside.
 data/

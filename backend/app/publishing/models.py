@@ -1,0 +1,428 @@
+"""Wire and storage models for publishing.
+
+Three separate concerns live here, and they are deliberately not merged:
+
+* **Media** — what can be published: a finished long render or a finished Short.
+  Described from files that exist on disk *now*, never from a stale list.
+* **Drafts** — what the user typed. One draft per media file, holding shared
+  fields plus a per-platform block. Editing a draft never touches
+  ``project.metadata``; the project is the seed, not the store.
+* **Jobs** — one upload attempt, persisted on every state change exactly like a
+  render or a Short, so progress survives a reload and a killed job is reported
+  as interrupted rather than sitting in "running" forever.
+
+Nothing in this module can carry a credential. Tokens live in the app's secrets
+directory and are read only by ``publishing/youtube.py``.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timezone
+from enum import Enum
+
+from pydantic import Field
+
+from app.models.base import CamelModel
+from app.models.enums import JobStatus
+
+#: YouTube's own limits, validated on both sides of the wire.
+MAX_TITLE_CHARS = 100
+MAX_DESCRIPTION_BYTES = 5_000
+MAX_TAGS_LENGTH = 500
+
+#: Category 27 is "Education", which is what these documentaries are.
+DEFAULT_CATEGORY_ID = "27"
+DEFAULT_LANGUAGE = "en"
+
+#: The clock the user thinks in. Every scheduled time is entered and displayed in
+#: this zone and converted to an offset-aware RFC 3339 value for the API.
+LOCAL_TIMEZONE = "Europe/Istanbul"
+
+#: Thumbnails: YouTube's own limit is 2 MB.
+MAX_THUMBNAIL_BYTES = 2 * 1_048_576
+#: Captions: generous for an SRT, small enough that nothing silly gets stored.
+MAX_CAPTION_BYTES = 2 * 1_048_576
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class PublishingPlatform(str, Enum):
+    """Platforms the panel knows about.
+
+    Only ``YOUTUBE`` has an implementation. The other three are accepted in
+    drafts so the user's text is not lost, and are rejected by every endpoint
+    that would actually publish something.
+    """
+
+    YOUTUBE = "youtube"
+    INSTAGRAM = "instagram"
+    FACEBOOK = "facebook"
+    TIKTOK = "tiktok"
+
+    @property
+    def is_implemented(self) -> bool:
+        return self is PublishingPlatform.YOUTUBE
+
+
+class MediaKind(str, Enum):
+    LONG = "long"
+    SHORT = "short"
+
+
+class PrivacyStatus(str, Enum):
+    PRIVATE = "private"
+    UNLISTED = "unlisted"
+    PUBLIC = "public"
+
+
+class PublishMode(str, Enum):
+    NOW = "now"
+    SCHEDULE = "schedule"
+
+
+class PublishPhase(str, Enum):
+    """Ordered phases. Progress weighting and the UI's step list both use these."""
+
+    VALIDATE = "validate"
+    AUTHENTICATE = "authenticate"
+    HASH_SOURCE = "hash-source"
+    UPLOAD_VIDEO = "upload-video"
+    SET_THUMBNAIL = "set-thumbnail"
+    UPLOAD_CAPTIONS = "upload-captions"
+    FETCH_STATUS = "fetch-status"
+    COMPLETE = "complete"
+
+
+class AssetStatus(str, Enum):
+    """Outcome of a step that must not fail the video upload behind it."""
+
+    SKIPPED = "skipped"
+    PENDING = "pending"
+    UPLOADED = "uploaded"
+    FAILED = "failed"
+
+
+# --- media ------------------------------------------------------------------
+
+
+class SourceFingerprint(CamelModel):
+    """Identity of the exact file a draft or an upload was bound to.
+
+    Size is the cheap check run on every page load; the SHA-256 is computed once
+    before an upload starts and is what makes duplicate detection and "the source
+    changed" reliable rather than a guess from the filename.
+    """
+
+    filename: str
+    size_bytes: int = 0
+    sha256: str = ""
+
+
+class MediaItem(CamelModel):
+    """One publishable file. Never carries an absolute path."""
+
+    #: ``long:<renderId>`` or ``short:<shortId>``. Stable across restarts.
+    media_id: str
+    kind: MediaKind
+    filename: str
+    #: Download/preview URL under the API, so the page can open the file.
+    url: str
+    project_slug: str
+    project_name: str = ""
+    created_at: datetime
+    duration_seconds: float = 0.0
+    size_bytes: int = 0
+    width: int = 0
+    height: int = 0
+    fps: int = 0
+    quality: str = ""
+    thumbnail_url: str | None = None
+    #: A preview render is a check, not something to publish. Hidden by default.
+    recommended: bool = True
+    #: Present when ``recommended`` is False, or when something is off.
+    note: str | None = None
+    fingerprint: SourceFingerprint
+    #: An English .srt produced beside this render, matched through the render
+    #: job's recorded artifacts — never guessed from the filename.
+    caption_filename: str | None = None
+    caption_url: str | None = None
+    #: True when a draft already exists for this media.
+    has_draft: bool = False
+    #: Set when this exact file already reached YouTube from this computer.
+    published_video_id: str | None = None
+
+
+# --- drafts -----------------------------------------------------------------
+
+
+class YouTubeDraft(CamelModel):
+    """The YouTube block of a draft. Mirrors the API body it will produce."""
+
+    title: str = ""
+    description: str = ""
+    tags: list[str] = Field(default_factory=list)
+    category_id: str = DEFAULT_CATEGORY_ID
+    default_language: str = DEFAULT_LANGUAGE
+    default_audio_language: str = DEFAULT_LANGUAGE
+    privacy_status: PrivacyStatus = PrivacyStatus.PRIVATE
+    publish_mode: PublishMode = PublishMode.NOW
+    #: Local wall-clock time in ``Europe/Istanbul``, e.g. ``2026-08-01T22:00``.
+    #: Deliberately not a UTC instant: the user picks a time in their own day and
+    #: the backend is what binds it to a zone.
+    publish_at_local: str | None = None
+    made_for_kids: bool = False
+    notify_subscribers: bool = True
+    embeddable: bool = True
+    #: Filename inside ``publishing/assets/thumbnails``. Never a path.
+    thumbnail_file: str | None = None
+    #: Filename inside ``publishing/assets/captions``, or an export's own .srt.
+    caption_file: str | None = None
+    #: Where ``caption_file`` lives: an uploaded asset or the render's export.
+    caption_source: str = "none"
+    caption_language: str = DEFAULT_LANGUAGE
+    caption_name: str = "English"
+    caption_is_draft: bool = False
+    upload_captions: bool = False
+
+
+class SocialDraft(CamelModel):
+    """Shared shape for the three platforms that are UI-only for now.
+
+    Stored verbatim so nothing the user typed is lost when the integrations
+    arrive, and read by nothing that talks to a network.
+    """
+
+    caption: str = ""
+    hashtags: list[str] = Field(default_factory=list)
+    account: str = ""
+    publish_mode: PublishMode = PublishMode.NOW
+    publish_at_local: str | None = None
+
+
+class TikTokDraft(SocialDraft):
+    privacy: str = "private"
+    allow_comments: bool = True
+    allow_duet: bool = False
+    allow_stitch: bool = False
+
+
+class CommonDraft(CamelModel):
+    """Fields shared by every platform, seeded from the project's metadata."""
+
+    title: str = ""
+    description: str = ""
+    tags: list[str] = Field(default_factory=list)
+    #: Reference only. Never sent to any platform — the user reads these while
+    #: making the actual thumbnail image.
+    thumbnail_text: str = ""
+    thumbnail_prompt: str = ""
+
+
+class PublishDraft(CamelModel):
+    """Everything the user typed for one media file."""
+
+    media_id: str
+    project_slug: str = ""
+    source_fingerprint: SourceFingerprint
+    common: CommonDraft = Field(default_factory=CommonDraft)
+    youtube: YouTubeDraft = Field(default_factory=YouTubeDraft)
+    instagram: SocialDraft = Field(default_factory=SocialDraft)
+    facebook: SocialDraft = Field(default_factory=SocialDraft)
+    tiktok: TikTokDraft = Field(default_factory=TikTokDraft)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+# --- jobs and history -------------------------------------------------------
+
+
+class PublishJob(CamelModel):
+    """One upload attempt. Persisted on every state change."""
+
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
+    project_slug: str
+    media_id: str
+    platform: PublishingPlatform = PublishingPlatform.YOUTUBE
+    source: SourceFingerprint
+
+    status: JobStatus = JobStatus.QUEUED
+    phase: PublishPhase = PublishPhase.VALIDATE
+    progress: float = Field(default=0.0, ge=0.0, le=1.0)
+    message: str = "Sırada"
+
+    created_at: datetime = Field(default_factory=_now)
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+    #: The process that owns this job, so one killed mid-upload is reported as
+    #: interrupted after a restart rather than staying "running".
+    pid: int | None = None
+
+    #: Written the instant YouTube accepts the video, before anything else runs.
+    #: This is what makes a retry safe: a job with a video id never re-uploads.
+    video_id: str | None = None
+    video_url: str | None = None
+
+    title: str = ""
+    requested_privacy_status: PrivacyStatus = PrivacyStatus.PRIVATE
+    requested_publish_at: datetime | None = None
+    #: What the API reported after the upload, which can differ from what was
+    #: asked for — an unverified project forces videos to private, for one.
+    actual_privacy_status: str | None = None
+    actual_publish_at: datetime | None = None
+    upload_status: str | None = None
+    processing_status: str | None = None
+
+    thumbnail_status: AssetStatus = AssetStatus.SKIPPED
+    thumbnail_error: str | None = None
+    caption_status: AssetStatus = AssetStatus.SKIPPED
+    caption_error: str | None = None
+    caption_track_id: str | None = None
+
+    uploaded_bytes: int = 0
+    total_bytes: int = 0
+
+    warnings: list[str] = Field(default_factory=list)
+    error_code: str | None = None
+    error_message: str | None = None
+    error_details: str | None = None
+    error_suggestion: str | None = None
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.status in {
+            JobStatus.COMPLETED,
+            JobStatus.FAILED,
+            JobStatus.CANCELLED,
+            JobStatus.INTERRUPTED,
+        }
+
+    @property
+    def is_active(self) -> bool:
+        return self.status in {JobStatus.QUEUED, JobStatus.RUNNING}
+
+    @property
+    def elapsed_seconds(self) -> float:
+        if self.started_at is None:
+            return 0.0
+        end = self.finished_at or _now()
+        return max(0.0, (end - self.started_at).total_seconds())
+
+    @property
+    def estimated_remaining_seconds(self) -> float | None:
+        if self.status is not JobStatus.RUNNING or self.progress < 0.05:
+            return None
+        elapsed = self.elapsed_seconds
+        if elapsed <= 0:
+            return None
+        return max(0.0, elapsed / self.progress - elapsed)
+
+
+class PublishJobEvent(CamelModel):
+    """One server-sent progress update."""
+
+    job_id: str
+    status: JobStatus
+    phase: PublishPhase
+    progress: float
+    message: str
+    elapsed_seconds: float
+    estimated_remaining_seconds: float | None = None
+    uploaded_bytes: int = 0
+    total_bytes: int = 0
+    video_id: str | None = None
+    video_url: str | None = None
+    thumbnail_status: AssetStatus = AssetStatus.SKIPPED
+    caption_status: AssetStatus = AssetStatus.SKIPPED
+    error_code: str | None = None
+    error_message: str | None = None
+    error_suggestion: str | None = None
+
+
+class PublishHistoryEntry(CamelModel):
+    """A video that reached the platform. Written the moment it did."""
+
+    entry_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
+    job_id: str = ""
+    project_slug: str
+    media_id: str
+    platform: PublishingPlatform = PublishingPlatform.YOUTUBE
+    filename: str = ""
+    title: str = ""
+    video_id: str = ""
+    video_url: str = ""
+    uploaded_at: datetime = Field(default_factory=_now)
+    requested_publish_at: datetime | None = None
+    actual_publish_at: datetime | None = None
+    privacy_status: str = ""
+    upload_status: str | None = None
+    processing_status: str | None = None
+    thumbnail_status: AssetStatus = AssetStatus.SKIPPED
+    caption_status: AssetStatus = AssetStatus.SKIPPED
+    source: SourceFingerprint = Field(default_factory=lambda: SourceFingerprint(filename=""))
+    warnings: list[str] = Field(default_factory=list)
+
+
+class DraftResponse(CamelModel):
+    """A draft plus the live state the page needs to render around it."""
+
+    draft: PublishDraft
+    media: MediaItem
+    #: True when the file on disk no longer matches what the draft recorded.
+    source_changed: bool = False
+    source_changed_reason: str | None = None
+    #: Set when this fingerprint already has a successful upload on record.
+    duplicate_of: PublishHistoryEntry | None = None
+
+
+# --- requests ---------------------------------------------------------------
+
+
+class PublishRequest(CamelModel):
+    """Ask for one upload. The draft on disk supplies everything else."""
+
+    media_id: str
+    #: Off by default and confirmed in the UI: uploading the same file twice
+    #: makes a second, unrelated video on the channel.
+    allow_duplicate: bool = False
+
+
+class YouTubeConnection(CamelModel):
+    """Everything the Settings page shows about the YouTube connection.
+
+    Contains no client id, client secret, access token or refresh token — only
+    whether the files exist, whether the grant is usable, and which channel it
+    belongs to.
+    """
+
+    client_file_present: bool = False
+    #: Basename only. The full path is never sent to the frontend.
+    client_file_name: str | None = None
+    available_client_files: list[str] = Field(default_factory=list)
+    token_present: bool = False
+    connected: bool = False
+    #: True when the stored grant exists but can no longer be used as-is.
+    needs_reconnect: bool = False
+    expired: bool = False
+    scopes_sufficient: bool = False
+    missing_scopes: list[str] = Field(default_factory=list)
+    channel_id: str | None = None
+    channel_title: str | None = None
+    channel_thumbnail_url: str | None = None
+    checked_at: datetime | None = None
+    #: A complete sentence describing the current state, in Turkish.
+    status_message: str = ""
+    #: Present when something needs fixing.
+    problem: str | None = None
+    suggestion: str | None = None
+
+
+class ClientSecretUploadResponse(CamelModel):
+    connection: YouTubeConnection
+    stored_file_name: str
+
+
+class RefreshStatusResponse(CamelModel):
+    entry: PublishHistoryEntry

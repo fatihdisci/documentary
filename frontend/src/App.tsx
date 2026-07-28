@@ -16,6 +16,7 @@ import { MusicPage } from '@/routes/MusicPage'
 import { StylePage } from '@/routes/StylePage'
 import { ExportPage } from '@/routes/ExportPage'
 import { ShortsPage } from '@/routes/ShortsPage'
+import { PublishingPage } from '@/routes/PublishingPage'
 import { SettingsPage } from '@/routes/SettingsPage'
 import { useProjectStore, flushPendingSave } from '@/store/project'
 import { useThemeStore } from '@/store/theme'
@@ -31,6 +32,7 @@ type Route =
   | 'style'
   | 'export'
   | 'shorts'
+  | 'publishing'
   | 'settings'
   | 'diagnostics'
 
@@ -44,6 +46,7 @@ const NAV: { id: Route; label: string; icon: string; needsProject: boolean; mile
   { id: 'style', label: 'Görünüm', icon: '◐', needsProject: true, milestone: '' },
   { id: 'export', label: 'Videoyu oluştur', icon: '↑', needsProject: true, milestone: '' },
   { id: 'shorts', label: 'Kısa video', icon: '▯', needsProject: true, milestone: '' },
+  { id: 'publishing', label: 'Yayınla', icon: '▶', needsProject: true, milestone: '' },
   { id: 'settings', label: 'Ayarlar', icon: '⚙', needsProject: false, milestone: '' },
   { id: 'diagnostics', label: 'Sistem kontrolü', icon: '✚', needsProject: false, milestone: '' },
 ]
@@ -126,6 +129,8 @@ export default function App() {
         return <ExportPage />
       case 'shorts':
         return <ShortsPage />
+      case 'publishing':
+        return <PublishingPage />
       case 'settings':
         return <SettingsPage />
       case 'diagnostics':

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, describeError } from '@/api/client'
 import type { ApiErrorPayload, AppSettings, SettingsResponse } from '@/api/types'
 import { ErrorBox } from '@/components/ErrorBox'
+import { YouTubeConnectionCard } from '@/components/publishing/YouTubeConnectionCard'
 import './SettingsPage.css'
 
 export function SettingsPage() {
@@ -267,33 +268,49 @@ export function SettingsPage() {
         </label>
       </section>
 
-      <section className="card">
-        <h2>Servis anahtarları</h2>
+      <section className="card connections-card">
+        <h2>Bağlantılar ve servisler</h2>
         <p className="muted">
-          Sadece sizin okuyabileceğiniz bir dosyada saklanır. Anahtarlar hiçbir zaman ekrana
-          yazılmaz, kayıt dosyalarına düşmez ve proje yedeğine eklenmez.
+          Hepsi sadece sizin okuyabileceğiniz dosyalarda saklanır. Anahtarlar ve hesap
+          yetkileri hiçbir zaman ekrana yazılmaz, kayıt dosyalarına düşmez ve proje yedeğine
+          eklenmez.
         </p>
-        <div className="row">
-          <input
-            type="password"
-            value={apiKey}
-            placeholder={keyConfigured ? '•••••••• (kayıtlı)' : 'ElevenLabs anahtarı (isteğe bağlı)'}
-            onChange={(e) => setApiKey(e.target.value)}
-            aria-label="ElevenLabs anahtarı"
-          />
-          <button onClick={() => void saveKey(apiKey)} disabled={!apiKey || busy}>
-            Anahtarı kaydet
-          </button>
-          {keyConfigured && (
-            <button className="danger" onClick={() => void saveKey(null)} disabled={busy}>
-              Anahtarı sil
+
+        <YouTubeConnectionCard />
+
+        <div className="connection-block">
+          <div className="connection-head">
+            <div>
+              <strong>ElevenLabs</strong>
+              <p className="muted">
+                {keyConfigured ? 'Anahtar kayıtlı.' : 'Anahtar girilmedi (zorunlu değil).'}
+              </p>
+            </div>
+          </div>
+          <div className="row">
+            <input
+              type="password"
+              value={apiKey}
+              placeholder={
+                keyConfigured ? '•••••••• (kayıtlı)' : 'ElevenLabs anahtarı (isteğe bağlı)'
+              }
+              onChange={(e) => setApiKey(e.target.value)}
+              aria-label="ElevenLabs anahtarı"
+            />
+            <button onClick={() => void saveKey(apiKey)} disabled={!apiKey || busy}>
+              Anahtarı kaydet
             </button>
-          )}
+            {keyConfigured && (
+              <button className="danger" onClick={() => void saveKey(null)} disabled={busy}>
+                Anahtarı sil
+              </button>
+            )}
+          </div>
+          <p className="hint">
+            Zorunlu değil. Edge seslendirmesi ücretsizdir ve anahtar istemez; dilerseniz kendi
+            ses kayıtlarınızı da yükleyebilirsiniz.
+          </p>
         </div>
-        <p className="hint">
-          Zorunlu değil. Edge seslendirmesi ücretsizdir ve anahtar istemez; dilerseniz kendi ses
-          kayıtlarınızı da yükleyebilirsiniz.
-        </p>
       </section>
 
       <section className="card">

@@ -1,0 +1,178 @@
+/* Publish panel. Reuses the card, status-pill, progress and history primitives
+   from ExportPage.css / App.css and adds only what picking a file, counting
+   characters and stacking platform cards needs. */
+
+.publishing-page .publish-section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 12px;
+}
+.publishing-page .publish-section-head h2 { margin: 0; }
+.publishing-page .checkbox.inline { margin: 0; font-size: 12px; }
+
+.warning-card {
+  border-left: 3px solid var(--warn);
+}
+.warning-card strong { display: block; margin-bottom: 4px; }
+.warning-card p { margin: 4px 0; font-size: 13px; }
+
+/* --- media picker ------------------------------------------------------- */
+
+.media-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;
+}
+.media-card {
+  display: flex; flex-direction: column; gap: 3px; align-items: flex-start;
+  text-align: left; padding: 10px 12px; cursor: pointer; color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-input);
+}
+.media-card:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.media-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+.media-card.not-recommended { opacity: 0.72; }
+
+.media-kind {
+  font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-faint); font-weight: 600;
+}
+.media-name {
+  font-family: var(--mono); font-size: 12px; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.media-meta { font-size: 11.5px; color: var(--text-muted); }
+.media-note { font-size: 11.5px; color: var(--warn); }
+.media-badge {
+  display: inline-block; margin-top: 3px; padding: 1px 7px; border-radius: 10px;
+  font-size: 10.5px; background: var(--bg-hover); color: var(--text-muted);
+}
+.media-badge.published { background: var(--ok-dim); color: var(--ok); }
+.media-open {
+  margin-top: 6px; font-size: 11.5px; color: var(--accent); cursor: pointer;
+}
+.media-open:hover { text-decoration: underline; }
+
+/* --- fields ------------------------------------------------------------- */
+
+.publish-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+.publish-field-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  font-size: 12.5px; font-weight: 500;
+}
+.publish-counter {
+  font-family: var(--mono); font-size: 11px; color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.publish-counter.over { color: var(--fail); font-weight: 700; }
+.publish-field textarea { resize: vertical; min-height: 76px; }
+
+.tag-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 4px 2px 9px; border-radius: 11px; font-size: 12px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+}
+.tag-chip button {
+  all: unset; cursor: pointer; line-height: 1; padding: 0 4px;
+  color: var(--text-muted); font-size: 14px;
+}
+.tag-chip button:hover { color: var(--fail); }
+
+.publish-reference { margin: 6px 0 16px; }
+.publish-reference summary { cursor: pointer; font-size: 12.5px; color: var(--text-muted); }
+.publish-reference[open] summary { margin-bottom: 10px; }
+
+/* --- assets and options ------------------------------------------------- */
+
+.publish-assets {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;
+  margin: 8px 0 16px;
+}
+.publish-asset {
+  padding: 11px 13px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg-input);
+}
+.publish-asset strong { display: block; font-size: 12.5px; margin-bottom: 4px; }
+.publish-asset p { margin: 0 0 8px; font-size: 12px; word-break: break-all; }
+.publish-asset .row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.publish-options {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;
+  margin-bottom: 12px;
+}
+.publish-privacy { border: 0; padding: 0; margin: 0; }
+.publish-privacy legend { font-size: 12.5px; font-weight: 500; padding: 0 0 6px; }
+.publish-privacy label,
+.publish-modes label {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 7px 10px; margin-bottom: 5px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-input); font-size: 13px;
+}
+.publish-privacy label.selected,
+.publish-modes label.selected { border-color: var(--accent); background: var(--accent-dim); }
+.publish-privacy input, .publish-modes input { width: auto; margin: 0; }
+.publish-privacy .hint { flex-basis: 100%; margin: 0; padding-left: 22px; }
+
+.publish-modes { display: flex; gap: 8px; }
+.publish-modes label { flex: 1; margin-bottom: 10px; }
+
+.publish-flags { display: flex; flex-wrap: wrap; gap: 18px; }
+.publish-flags .checkbox { margin: 0; }
+
+/* --- platform cards ----------------------------------------------------- */
+
+.publish-platforms > h2 { margin: 22px 0 12px; }
+.platform-card { margin-bottom: 14px; }
+.platform-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  margin-bottom: 12px;
+}
+.platform-head h3 { margin: 0 0 3px; font-size: 15px; }
+.platform-head p { margin: 0; font-size: 12.5px; }
+.platform-head code { font-size: 11px; }
+.channel-avatar { width: 40px; height: 40px; border-radius: 50%; }
+
+.platform-connect {
+  padding: 11px 13px; margin-bottom: 12px;
+  border: 1px dashed var(--border-strong); border-radius: var(--radius-sm);
+}
+.platform-connect p { margin: 0 0 8px; font-size: 13px; }
+
+.platform-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.platform-actions .hint { margin: 0; }
+
+.publish-progress { margin-top: 12px; }
+.publish-progress .render-head { display: flex; justify-content: space-between; align-items: center; }
+.publish-progress .render-head h4 { margin: 0 0 8px; font-size: 13.5px; }
+.publish-progress button { margin-top: 10px; }
+
+.publish-result { margin-top: 12px; }
+.publish-result h4 { margin: 0 0 10px; font-size: 14px; color: var(--ok); }
+.result-grid {
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px;
+  margin: 0 0 10px; font-size: 12.5px;
+}
+.result-grid dt { color: var(--text-muted); }
+.result-grid dd { margin: 0; word-break: break-all; }
+
+/* --- history and confirm ------------------------------------------------ */
+
+.publish-history th {
+  text-align: left; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--text-faint); font-weight: 600;
+  padding-bottom: 6px;
+}
+.publish-history td { font-size: 12.5px; }
+
+.confirm-summary dl {
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px;
+  margin: 0; font-size: 13px;
+}
+.confirm-summary dt { color: var(--text-muted); }
+.confirm-summary dd { margin: 0; word-break: break-word; }
+.confirm-warning { margin: 12px 0 0; color: var(--warn); font-size: 12.5px; }
+
+/* Kept local rather than relying on another page's stylesheet being loaded. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}

@@ -12,30 +12,32 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from google.auth.transport.requests import Request
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+
+# The OAuth handling this script used to carry itself now lives in the app, so
+# the script and the Publish panel share one client file, one token and one set
+# of scopes. Adding ``backend/`` to the path keeps the script runnable directly:
+#   backend/.venv/bin/python backend/scripts/youtube_schedule.py
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from app.config import get_settings  # noqa: E402
+from app.publishing.youtube import SCOPES, YouTubeCredentials  # noqa: E402
 
 
 ISTANBUL = ZoneInfo("Europe/Istanbul")
 ROOT = Path.home()
 DOWNLOADS = ROOT / "Downloads"
-SECRETS = ROOT / "ExtinctVideoBuilder" / "secrets"
-CLIENT_FILE = SECRETS / "client_secret_190473268387-1uq00dn3lo4e0290k8s8842b8pl99ipi.apps.googleusercontent.com.json"
-TOKEN_FILE = SECRETS / "youtube-upload-token.json"
+SECRETS = get_settings().oauth_secrets_dir
 MANIFEST_FILE = SECRETS / "youtube-carolina-parakeet-schedule.json"
 THUMBNAIL_FILE = DOWNLOADS / "Carolina_Parakeet_YouTube_thumbnail_202607261310.jpeg"
-SCOPE = [
-    "https://www.googleapis.com/auth/youtube.upload",
-    "https://www.googleapis.com/auth/youtube.readonly",
-]
+SCOPE = list(SCOPES)
 
 
 @dataclass(frozen=True)
@@ -48,19 +50,20 @@ class ScheduledVideo:
     notify_subscribers: bool
 
 
-def oauth_credentials() -> Credentials:
-    credentials: Credentials | None = None
-    if TOKEN_FILE.exists():
-        credentials = Credentials.from_authorized_user_file(TOKEN_FILE)
-    if credentials and credentials.expired and credentials.refresh_token:
-        credentials.refresh(Request())
-    if not credentials or not credentials.valid or not credentials.has_scopes(SCOPE):
-        if not CLIENT_FILE.exists():
-            raise FileNotFoundError(f"OAuth client file is missing: {CLIENT_FILE}")
-        flow = InstalledAppFlow.from_client_secrets_file(CLIENT_FILE, SCOPE)
-        credentials = flow.run_local_server(host="localhost", port=0, open_browser=True)
-        TOKEN_FILE.write_text(credentials.to_json(), encoding="utf-8")
-        os.chmod(TOKEN_FILE, 0o600)
+def oauth_credentials():  # noqa: ANN201 - google.oauth2.credentials.Credentials
+    """The same grant the app's Publish panel uses.
+
+    Behaviour is unchanged: an existing token is reused and refreshed, and the
+    browser flow only runs when there is no usable grant. It is the app that now
+    owns finding the client file and writing the token 0600.
+    """
+    store = YouTubeCredentials(get_settings())
+    credentials = store.load_credentials()
+    if credentials is None or not credentials.valid or store.missing_scopes(credentials):
+        store.connect()
+        credentials = store.load_credentials()
+    if credentials is None:  # pragma: no cover - connect() raises before this
+        raise RuntimeError("YouTube authorization did not produce credentials")
     return credentials
 
 

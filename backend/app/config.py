@@ -36,6 +36,9 @@ DEFAULT_DATA_DIR = Path.home() / "ExtinctVideoBuilder"
 #: Filenames that must never be served or bundled.
 SECRETS_FILENAME = "secrets.json"
 SETTINGS_FILENAME = "settings.json"
+#: OAuth client files and tokens. Kept in their own directory, 0700, so nothing
+#: that walks the data directory can pick them up by accident.
+SECRETS_DIRNAME = "secrets"
 
 
 def _to_camel(name: str) -> str:
@@ -90,6 +93,11 @@ class MutableSettings(BaseModel):
     #: Fail a render preflight unless this much headroom remains afterwards.
     disk_safety_margin_mb: int = 1024
 
+    #: Basename of the OAuth client file to use for YouTube, inside ``secrets/``.
+    #: Empty means "detect the newest valid one". Only ever a filename — never a
+    #: path, and never the file's contents.
+    youtube_client_secret_file: str = ""
+
 
 class Settings(BaseSettings):
     """Process-level settings; the data directory is fixed at startup."""
@@ -142,6 +150,11 @@ class Settings(BaseSettings):
     def secrets_file(self) -> Path:
         return self.data_dir / SECRETS_FILENAME
 
+    @property
+    def oauth_secrets_dir(self) -> Path:
+        """Where OAuth client files and tokens live. Never served, never bundled."""
+        return self.data_dir / SECRETS_DIRNAME
+
     def _override_dir(self, field: str, default: Path) -> Path:
         configured = getattr(self.mutable, field, "")
         return Path(configured).expanduser() if configured else default
@@ -167,6 +180,12 @@ class Settings(BaseSettings):
                     f"Cannot create the application directory {directory}.",
                     details=str(exc),
                 ) from exc
+        # Owner-only: this directory holds OAuth client files and refresh tokens.
+        try:
+            self.oauth_secrets_dir.mkdir(parents=True, exist_ok=True)
+            self.oauth_secrets_dir.chmod(0o700)
+        except OSError as exc:  # pragma: no cover - platform/permission edge case
+            logger.warning("could not prepare the secrets directory: %s", exc)
 
     # --- Mutable settings persistence ------------------------------------
 

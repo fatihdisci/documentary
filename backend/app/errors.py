@@ -82,6 +82,28 @@ class ErrorCode(str, Enum):
     #: perfectly fine, and only the Shorts-captioned path is blocked.
     SHORT_CLEAN_SOURCE_STALE = "short_clean_source_stale"
 
+    # Publishing / YouTube. Deliberately fine-grained: "upload failed" is not an
+    # answer the user can act on, but "your token no longer covers captions" is.
+    YOUTUBE_CLIENT_MISSING = "youtube_client_missing"
+    YOUTUBE_CLIENT_INVALID = "youtube_client_invalid"
+    YOUTUBE_AUTH_REQUIRED = "youtube_auth_required"
+    YOUTUBE_AUTH_FAILED = "youtube_auth_failed"
+    YOUTUBE_SCOPE_MISSING = "youtube_scope_missing"
+    YOUTUBE_CHANNEL_NOT_FOUND = "youtube_channel_not_found"
+    YOUTUBE_UPLOAD_FAILED = "youtube_upload_failed"
+    YOUTUBE_QUOTA_EXCEEDED = "youtube_quota_exceeded"
+    YOUTUBE_INVALID_METADATA = "youtube_invalid_metadata"
+    YOUTUBE_SCHEDULE_INVALID = "youtube_schedule_invalid"
+    YOUTUBE_THUMBNAIL_FAILED = "youtube_thumbnail_failed"
+    YOUTUBE_CAPTION_FAILED = "youtube_caption_failed"
+    YOUTUBE_NETWORK_FAILED = "youtube_network_failed"
+    PUBLISHING_MEDIA_NOT_FOUND = "publishing_media_not_found"
+    PUBLISHING_SOURCE_CHANGED = "publishing_source_changed"
+    PUBLISHING_JOB_NOT_FOUND = "publishing_job_not_found"
+    PUBLISHING_DUPLICATE = "publishing_duplicate"
+    PUBLISHING_ASSET_INVALID = "publishing_asset_invalid"
+    PUBLISHING_PLATFORM_UNAVAILABLE = "publishing_platform_unavailable"
+
     # Generic fallback (still requires a real message + fix)
     INTERNAL = "internal"
 
@@ -207,6 +229,78 @@ _DEFAULT_FIXES: dict[ErrorCode, str] = {
     ErrorCode.SHORT_CLEAN_SOURCE_STALE: (
         "Altyazısız kopya ya da altyazı verisi, ait olduğu videoyla artık uyuşmuyor. Uzun "
         "videoyu yeniden oluşturun ve kısa videoyu yeni dosyadan kesin."
+    ),
+    ErrorCode.YOUTUBE_CLIENT_MISSING: (
+        "Ayarlar → Bağlantılar ve servisler bölümünden Google Cloud'dan indirdiğiniz "
+        "OAuth istemci dosyasını (Desktop app) seçin ya da dosyayı "
+        "~/ExtinctVideoBuilder/secrets/ klasörüne kopyalayın."
+    ),
+    ErrorCode.YOUTUBE_CLIENT_INVALID: (
+        "Google Cloud Console'da “OAuth Client ID” oluştururken tür olarak “Desktop app” "
+        "seçin ve indirdiğiniz JSON dosyasını olduğu gibi yükleyin."
+    ),
+    ErrorCode.YOUTUBE_AUTH_REQUIRED: (
+        "Ayarlar → Bağlantılar ve servisler bölümünden “YouTube'a bağlan” düğmesine basın "
+        "ve açılan tarayıcıda doğru YouTube hesabını seçin."
+    ),
+    ErrorCode.YOUTUBE_AUTH_FAILED: (
+        "Bağlantıyı yeniden kurun. Tarayıcıda izin ekranını kapattıysanız “YouTube'a bağlan” "
+        "düğmesine tekrar basın."
+    ),
+    ErrorCode.YOUTUBE_SCOPE_MISSING: (
+        "Altyazı yükleme yetkisi için YouTube hesabınızı yeniden bağlayın: Ayarlar → "
+        "Bağlantılar ve servisler → “Yeniden bağlan”."
+    ),
+    ErrorCode.YOUTUBE_CHANNEL_NOT_FOUND: (
+        "Bağlandığınız Google hesabının bir YouTube kanalı olduğundan emin olun, sonra "
+        "yeniden bağlanın."
+    ),
+    ErrorCode.YOUTUBE_UPLOAD_FAILED: (
+        "Ayrıntılarda YouTube'un verdiği yanıt yazıyor. Sorunu giderip “Tekrar dene” "
+        "düğmesine basın; video yüklendiyse ikinci kez yüklenmez."
+    ),
+    ErrorCode.YOUTUBE_QUOTA_EXCEEDED: (
+        "YouTube'un günlük yükleme kotası doldu. Kota Pasifik saatiyle gece yarısı yenilenir; "
+        "yüklemeyi yarın tekrar deneyin."
+    ),
+    ErrorCode.YOUTUBE_INVALID_METADATA: (
+        "Başlık, açıklama ve etiketleri YouTube sınırlarına göre düzeltip tekrar deneyin."
+    ),
+    ErrorCode.YOUTUBE_SCHEDULE_INVALID: (
+        "Planlanan tarih ve saat gelecekte olmalı. Yeni bir zaman seçin ya da “Hemen yükle” "
+        "seçeneğine geçin."
+    ),
+    ErrorCode.YOUTUBE_THUMBNAIL_FAILED: (
+        "Video YouTube'a yüklendi; yalnızca kapak görseli konulamadı. Görseli değiştirip "
+        "sadece kapak adımını yeniden deneyebilirsiniz."
+    ),
+    ErrorCode.YOUTUBE_CAPTION_FAILED: (
+        "Video YouTube'a yüklendi; yalnızca altyazı eklenemedi. Altyazı dosyasını kontrol edip "
+        "sadece altyazı adımını yeniden deneyebilirsiniz."
+    ),
+    ErrorCode.YOUTUBE_NETWORK_FAILED: (
+        "İnternet bağlantınızı kontrol edip tekrar deneyin. Yükleme kaldığı yerden değil "
+        "baştan başlar, ama yüklenmiş bir video ikinci kez yüklenmez."
+    ),
+    ErrorCode.PUBLISHING_MEDIA_NOT_FOUND: (
+        "Yayınla sekmesini yenileyin; dosya silinmiş ya da taşınmış olabilir."
+    ),
+    ErrorCode.PUBLISHING_SOURCE_CHANGED: (
+        "Seçtiğiniz video, taslak hazırlandığından beri değişmiş. Dosyayı yeniden seçin ve "
+        "bilgileri gözden geçirin."
+    ),
+    ErrorCode.PUBLISHING_JOB_NOT_FOUND: "Geçmişi yenileyin; eski kayıtlar bir süre sonra silinir.",
+    ErrorCode.PUBLISHING_DUPLICATE: (
+        "Bu dosya daha önce YouTube'a yüklenmiş. Geçmişten mevcut videoya gidebilir ya da "
+        "gerçekten ikinci bir video istiyorsanız “Yine de yeni video olarak yükle” seçeneğini "
+        "açabilirsiniz."
+    ),
+    ErrorCode.PUBLISHING_ASSET_INVALID: (
+        "Kapak görseli için JPEG ya da PNG, altyazı için .srt dosyası seçin."
+    ),
+    ErrorCode.PUBLISHING_PLATFORM_UNAVAILABLE: (
+        "Bu platformun bağlantısı henüz hazır değil. Şimdilik yalnızca YouTube'a yükleme "
+        "yapılabiliyor."
     ),
     ErrorCode.INTERNAL: "Ayrıntılı bilgi için arka uç kayıt dosyasına bakın.",
 }
