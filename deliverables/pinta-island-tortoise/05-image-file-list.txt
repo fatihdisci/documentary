@@ -1,0 +1,11 @@
+00-intro.png
+01-opening.png
+02-habitat.png
+03-anatomy.png
+04-behavior.png
+05-ecosystem.png
+06-human-arrival.png
+07-goats.png
+08-rediscovery.png
+09-last-years.png
+10-genetic-legacy.png

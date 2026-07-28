@@ -13,13 +13,13 @@
 
 | No | Species | Scientific Name | Status | Package Date | Publish Date | Published URL | Notes |
 |---:|---|---|---|---|---|---|---|
-| 1 | Dodo | Raphus cucullatus | Published | 2026-07-22 |  |  | First production video; 11 images (00-intro + ten scenes) |
-| 2 | Tasmanian tiger | Thylacinus cynocephalus | Published |  |  |  | Second production video |
-| 3 | Steller's sea cow | Hydrodamalis gigas | Package Ready | 2026-07-24 |  |  | Third production video; 11 images (00-intro + ten scenes) |
-| 4 | Passenger pigeon | Ectopistes migratorius | Package Ready | 2026-07-25 |  |  | Fourth production video; 11 images (00-intro + ten scenes) |
-| 5 | Carolina parakeet | Conuropsis carolinensis | Scheduled | 2026-07-26 | 2026-07-26 22:00 TRT | https://youtu.be/NYnu9_0EXis | Fifth production video; 11 images; long video and three related Shorts scheduled |
-| 6 | Pinta Island tortoise | Chelonoidis abingdonii | Planned |  |  |  | Next-episode teaser |
-| 7 | Chinese paddlefish | Psephurus gladius | Planned |  |  |  |  |
+| 1 | Dodo | Raphus cucullatus | Published | 2026-07-22 | 2026-07-22 12:21 TRT | https://youtu.be/dQO8ZOUp2mk | First production video; 11 images; API status checked 2026-07-28 |
+| 2 | Tasmanian tiger | Thylacinus cynocephalus | Published |  | 2026-07-23 20:00 TRT | https://youtu.be/ZrTH6l6w8hk | Second production video; API status checked 2026-07-28 |
+| 3 | Steller's sea cow | Hydrodamalis gigas | Published | 2026-07-24 | 2026-07-24 20:00 TRT | https://youtu.be/GFAMfAAUqg0 | Third production video; 11 images; API status checked 2026-07-28 |
+| 4 | Passenger pigeon | Ectopistes migratorius | Published | 2026-07-25 | 2026-07-25 20:00 TRT | https://youtu.be/Kqat15AYFvM | Fourth production video; 11 images; API status checked 2026-07-28 |
+| 5 | Carolina parakeet | Conuropsis carolinensis | Published | 2026-07-26 | 2026-07-26 22:00 TRT | https://youtu.be/NYnu9_0EXis | Fifth production video; long video and three related Shorts published |
+| 6 | Pinta Island tortoise | Chelonoidis abingdonii | Scheduled | 2026-07-27 | 2026-07-28 22:00 TRT | https://youtu.be/aDdnYy8JPkU | Sixth production video; 11 images; long video and three related Shorts scheduled |
+| 7 | Chinese paddlefish | Psephurus gladius | Scheduled | 2026-07-28 | 2026-07-30 22:00 TRT | https://youtu.be/XMgmhfdL3MY | Seventh production video; long video, external English SRT, supplied thumbnail, and three related Shorts scheduled |
 | 8 | Golden toad | Incilius periglenes | Planned |  |  |  |  |
 | 9 | Rocky Mountain locust | Melanoplus spretus | Planned |  |  |  |  |
 | 10 | Xerces blue butterfly | Glaucopsyche xerces | Planned |  |  |  |  |

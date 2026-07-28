@@ -212,6 +212,52 @@ Further docs live in `docs/`:
 - [`docs/content-schema.md`](docs/content-schema.md) — the importable content
   package format (narration, titles, image prompts, framing hints)
 
+## YouTube channel status
+
+Last checked through the YouTube API: **28 July 2026, 10:38 TRT**
+
+Channel: **Vanished Earth**
+
+Summary: **20 public videos** and **8 processed videos scheduled for release**
+
+### Scheduled
+
+| Release time (TRT) | Video | Type | Status |
+|---|---|---|---|
+| 28 July 2026, 22:00 | [The Pinta Island Tortoise: The Species That Ended With One](https://youtu.be/aDdnYy8JPkU) | Documentary | Processed; scheduled |
+| 28 July 2026, 23:00 | [When One Death Ended a Species](https://youtu.be/77iw1XUlF18) | Short | Processed; scheduled |
+| 29 July 2026, 18:00 | [The Giant That Shaped Pinta](https://youtu.be/wAyFn95jYdw) | Short | Processed; scheduled |
+| 29 July 2026, 23:00 | [Why This Tortoise Had a Saddle Shell](https://youtu.be/S5ssLbPosWk) | Short | Processed; scheduled |
+| 30 July 2026, 22:00 | [The Chinese Paddlefish: The River Giant We Lost](https://youtu.be/XMgmhfdL3MY) | Documentary | Processed; scheduled; English SRT uploaded |
+| 30 July 2026, 23:00 | [The Last Signal Vanished in Hours](https://youtu.be/7Ygwer506SM) | Short | Processed; scheduled |
+| 31 July 2026, 18:00 | [Why This Giant Fish Had to Keep Moving](https://youtu.be/OARj4lOhGjw) | Short | Processed; scheduled |
+| 31 July 2026, 23:00 | [A Fish Built Like No Other](https://youtu.be/Is-Dl8x8saM) | Short | Processed; scheduled |
+
+### Public
+
+| Published (TRT) | Video | Type | Views at check |
+|---|---|---|---:|
+| 27 July 2026, 23:00 | [Why a Bright Bird Was Not Safe](https://youtu.be/zJNosL369s4) | Short | 13 |
+| 27 July 2026, 18:00 | [America Once Had a Native Parrot](https://youtu.be/ZOD13oRNY9c) | Short | 30 |
+| 26 July 2026, 23:00 | [The Last Known Carolina Parakeet](https://youtu.be/7sozsH7SKd0) | Short | 12 |
+| 26 July 2026, 22:00 | [The Carolina Parakeet: America's Lost Native Parrot](https://youtu.be/NYnu9_0EXis) | Documentary | 18 |
+| 26 July 2026, 06:00 | [How Hunting Became an Industry](https://youtu.be/HnXbVKt2AUQ) | Short | 52 |
+| 26 July 2026, 02:00 | [The Bird That Turned Day Into Night](https://youtu.be/p348McGOTvE) | Short | 112 |
+| 25 July 2026, 23:00 | [Billions Ended With One Bird](https://youtu.be/4DLvtZcYEeg) | Short | 292 |
+| 25 July 2026, 20:00 | [The Passenger Pigeon: How Billions Became None](https://youtu.be/Kqat15AYFvM) | Documentary | 9 |
+| 25 July 2026, 06:00 | [The Kelp Forest Lost Its Giant](https://youtu.be/jfdcqnBkyhc) | Short | 131 |
+| 25 July 2026, 02:00 | [The Only Scientist Who Saw This Giant Alive](https://youtu.be/INucae8Z2l4) | Short | 1,085 |
+| 24 July 2026, 23:00 | [Gone in Just 27 Years](https://youtu.be/te0vqXOHgyI) | Short | 150 |
+| 24 July 2026, 20:00 | [Steller's Sea Cow: The Giant Lost in 27 Years](https://youtu.be/GFAMfAAUqg0) | Documentary | 43 |
+| 24 July 2026, 06:00 | [Protected 59 Days Too Late](https://youtu.be/JqSEFPFzLNM) | Short | 228 |
+| 24 July 2026, 03:00 | [The Bounty That Helped Erase the Thylacine](https://youtu.be/y7yB_enA_gI) | Short | 153 |
+| 23 July 2026, 23:30 | [This Wasn't a Tiger at All](https://youtu.be/SMKdcG8lHhk) | Short | 167 |
+| 23 July 2026, 20:00 | [The Last Tasmanian Tiger We Could Have Saved](https://youtu.be/ZrTH6l6w8hk) | Documentary | 41 |
+| 23 July 2026, 04:00 | [The Dodo Was Almost Dismissed as a Myth](https://youtu.be/8ugM2MT2qJc) | Short | 15 |
+| 22 July 2026, 23:00 | [What Really Killed the Dodo](https://youtu.be/5NGVFhJJMhk) | Short | 17 |
+| 22 July 2026, 20:30 | [Why the Dodo Was Never Afraid of Humans](https://youtu.be/gTQOFpIpS-w) | Short | 29 |
+| 22 July 2026, 12:21 | [The Dodo: How an Island Bird Vanished](https://youtu.be/dQO8ZOUp2mk) | Documentary | 22 |
+
 ## Project status
 
 Built in milestones; see the sections of the app that are live in Diagnostics

@@ -1,0 +1,13 @@
+00-intro.png
+01-opening.png
+02-anatomy.png
+03-hunting.png
+04-journey.png
+05-river-life.png
+06-fishing.png
+07-dam.png
+08-last-sighting.png
+09-search.png
+10-legacy.png
+
+The JSON pins these exact filenames. The intro uses 00-intro.png with useFirstSceneImage=false.
