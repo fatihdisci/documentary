@@ -30,17 +30,49 @@ Start with a species-specific hook. Do not use "Welcome back to the channel."
 The intro has its **own image** (`00-intro.png`), distinct from the first scene —
 never reuse the first scene's picture for the opening.
 
+## Branded opening card (`longIntro`)
+Every long video opens the same way, so the channel is recognisable in the first
+second:
+
+- Style: `typewriter-stamp` — the animal's name types itself out, the scientific
+  name fades in small underneath, a red stamp lands over both.
+- Duration: 2–3 seconds (default 2.6), typing 1.3 s, stamp at 1.7 s.
+- Stamp text: `EXTINCT`, or `EXTINCT IN THE WILD` for an EW species. Stamping the
+  wrong status is a factual error, not a design choice.
+- It is drawn over the intro image, so give that image a relatively calm
+  centre-upper area — the type goes there.
+- It never appears in a Short. Shorts have their own opening line (below).
+
+## Shorts opening hook
+Every Short opens with at most two short lines over the black band above the
+picture, for about 1.4 seconds.
+
+- Short, strong, curious. Documentary tone — never clickbait.
+- The Short must keep the promise the hook makes.
+- Break the line where the sentence breaks; the app shrinks type but never
+  re-breaks a hook.
+- A different hook for every Short; never reuse one.
+- Write in normal case — it is drawn upper case.
+
+Good: `WHEN HE DIED,` / `THE SPECIES ENDED` · `THIS GIANT` / `DISAPPEARED
+FOREVER` · `BILLIONS OF BIRDS.` / `THEN NONE.`
+
 ## Outro
 End with a conservation message, next-episode teaser and one short subscribe call.
 
 ## TTS
-- Preferred provider:
-- Preferred voice:
-- Speech rate:
-- Pitch:
+- Preferred provider: Kokoro (local, no account, no network once downloaded)
+- Preferred voice: af_bella
+- Speech rate: 0.9
+- Pitch: 0
 - Default pronunciation dictionary: Yes
 
 Narration should use short, natural sentences with minimal parentheses.
+
+Every content package states this in its own `tts` block, so a package narrates
+the way it was written without anyone having to remember the settings. Mix
+levels — volumes, loudness, ducking — stay out of the package; they are the
+editor's decision, not the writer's.
 
 ## Text
 - Primary font:
@@ -70,6 +102,9 @@ Keep the animal's physical description consistent across all scenes. Mix portrai
 - Strong face or silhouette
 - 2–4 words maximum
 - Do not repeat the title word for word
+- The thumbnail text and the strongest Short's hook should make the *same
+  promise* without being the same words. The Publish panel shows them side by
+  side for exactly this check.
 
 ## Music
 - Preferred genre: ambient documentary

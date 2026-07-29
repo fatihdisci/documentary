@@ -1,9 +1,15 @@
 # Content package schema
 
 A **content package** is a single JSON file holding everything *authored* about
-one animal video: narration, titles, image prompts and framing hints. It carries
-no file paths, timings or render settings, so importing one never disturbs how
-you have configured the video, style or audio.
+one animal: the video's metadata, its narration, its image prompts and framing
+hints, the branded opening, the narration voice, and a Shorts plan in which
+every Short already carries its own opening hook. It carries no file paths,
+timings or render settings, so importing one never disturbs how you have
+configured the video, style or audio.
+
+It is a turnkey delivery, not a draft. If importing one leaves you having to
+answer "what should the opening say?", "what is the Short's hook?" or "which
+voice reads this?", the package is incomplete.
 
 Download a working example from **Content → Download example template**, or find
 it at `backend/fixtures/dodo-content.json`.
@@ -12,7 +18,7 @@ it at `backend/fixtures/dodo-content.json`.
 
 ```jsonc
 {
-  "contentSchemaVersion": 1,
+  "contentSchemaVersion": 2,
 
   "commonName":      "Dodo",
   "scientificName":  "Raphus cucullatus",
@@ -23,12 +29,16 @@ it at `backend/fixtures/dodo-content.json`.
   "thumbnailText":   "GONE IN 100 YEARS",
   "thumbnailPrompt": "Prompt for generating the thumbnail image.",
 
+  "longIntro": { /* the branded opening, see below */ },
+
   "pronunciation": {
     "Raphus cucullatus": "RAH-fus koo-koo-LAH-tus",
     "Mauritius": "muh-RISH-us"
   },
 
-  "shortsPlan": { /* optional production manifest, see below */ },
+  "tts": { /* which voice reads this, see below */ },
+
+  "shortsPlan": { /* production manifest with per-Short hooks, see below */ },
 
   "intro":  { /* section, see below */ },
   "scenes": [ /* 1-200 scenes, see below */ ],
@@ -38,7 +48,7 @@ it at `backend/fixtures/dodo-content.json`.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `contentSchemaVersion` | int | no | Defaults to `1`. |
+| `contentSchemaVersion` | int | no | Defaults to `2`. A v1 package still imports unchanged. |
 | `commonName` | string | no | Fills the project's animal name. |
 | `scientificName` | string | no | Shown as a subtitle and read by TTS. |
 | `videoTitle` | string | no | Exported to `description.txt`. |
@@ -46,9 +56,90 @@ it at `backend/fixtures/dodo-content.json`.
 | `tags` | string[] | no | |
 | `thumbnailText` | string | no | Overlaid text for your thumbnail. |
 | `thumbnailPrompt` | string | no | Exported to `thumbnail.txt`. |
+| `longIntro` | object | no | The branded opening for the long video; see below. Absent means "keep the project's own". |
 | `pronunciation` | object | no | Applied to narration before synthesis. |
-| `shortsPlan` | object | no | Scene-based Shorts and publishing plan; see below. |
+| `tts` | object | no | Which voice reads this; see below. Absent means "keep the project's voice". |
+| `shortsPlan` | object | no | Scene-based Shorts and publishing plan, each with its own hook; see below. |
 | `scenes` | array | **yes** | At least 1, at most 200. |
+
+## The branded opening (`longIntro`)
+
+Every long video opens the same way: the animal's name types itself out, the
+scientific name fades in small underneath, and a red `EXTINCT` stamp lands over
+both. Roughly two and a half seconds, then it dissolves into the film.
+
+```json
+{
+  "longIntro": {
+    "enabled": true,
+    "introStyle": "typewriter-stamp",
+    "primaryTitle": "Dodo",
+    "secondaryTitle": "Raphus cucullatus",
+    "stampText": "EXTINCT",
+    "duration": 2.6,
+    "typewriterDuration": 1.3,
+    "stampAt": 1.7
+  }
+}
+```
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `enabled` | bool | `true` | Off means the video starts straight on scene one. |
+| `introStyle` | enum | `"typewriter-stamp"` | Or `"plain-title"`: the same layout with no typing and no stamp. |
+| `primaryTitle` | string | `""` | Blank resolves to `commonName` at render time. |
+| `secondaryTitle` | string | `""` | Blank resolves to `scientificName`. |
+| `stampText` | string | `"EXTINCT"` | Blank draws no stamp. Use `"EXTINCT IN THE WILD"` for an EW species — stamping the wrong status is a factual error. |
+| `duration` | 0.8–6.0 | `2.6` | Seconds on screen. The house style is 2–3. |
+| `typewriterDuration` | 0.0–5.0 | `1.3` | How long the name takes to type itself out. |
+| `stampAt` | 0.0–6.0 | `1.7` | When the stamp lands. |
+| `fadeOutSeconds` | 0.0–2.0 | `0.4` | Dissolve at the end. |
+| `primaryColor`, `secondaryColor`, `stampColor` | `#RRGGBB` | white / warm grey / red | Bounded design. Change only when a species genuinely needs it. |
+| `scrimOpacity` | 0.0–1.0 | `0.55` | Dark wash under the card, so the title reads over a bright first frame. |
+
+`typewriterDuration` and `stampAt` must both be less than or equal to
+`duration`; a package that breaks this is rejected with a named field.
+
+Three things are worth knowing about how it behaves:
+
+* **It does not lengthen the video.** The card is composited over the first
+  seconds of the finished picture, not inserted as a section, so the same
+  project renders to the same duration with it on or off.
+* **It never reaches a Short.** The subtitle-free clean master that Shorts are
+  cut from is rendered without it, so a Short that includes the intro section
+  opens with its own hook rather than the long video's title sequence.
+* **It costs a render pass in one case.** A project that renders with burn-in
+  *off* used to publish its export as its own clean master for free; with an
+  opening it can no longer do so, and pays one extra assemble pass. The render
+  log says exactly that, and turning the opening off restores the shortcut.
+
+## Narration voice (`tts`)
+
+What voice this package was written for. Hints, not settings: only the fields
+actually present are applied, so a package can ask for a voice without
+overwriting a speech rate the user has chosen.
+
+```json
+{
+  "tts": {
+    "provider": "kokoro",
+    "voice": "af_bella",
+    "speechRate": 0.9,
+    "notes": "Plain English, no SSML. The scientific name is spoken once, in the intro."
+  }
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `provider` | enum | `kokoro` (local, the default) · `edge` · `elevenlabs` · `imported` |
+| `voice` | string | Provider-specific voice id. |
+| `speechRate` | 0.5–2.0 | |
+| `speechPitch` | -50–50 | |
+| `notes` | string | For the person reviewing the package. Never applied to anything. |
+
+Mix settings — volumes, loudness targets, ducking — are deliberately **not** in
+this block and are never imported. A content package writes words, not a mix.
 
 ## Shorts production plan (`shortsPlan`)
 
@@ -73,6 +164,12 @@ It contains 3–5 vertical-cut recommendations and all viewer-facing copy.
           { "kind": "scene", "number": 10 }
         ],
         "estimatedDurationSeconds": 43,
+        "hook": {
+          "enabled": true,
+          "lines": ["When he died,", "the species ended"],
+          "startSeconds": 0.0,
+          "durationSeconds": 1.4
+        },
         "youtube": {
           "title": "When One Death Ended a Species",
           "alternativeTitles": ["The Last Pinta Tortoise"],
@@ -114,10 +211,44 @@ For Instagram, Facebook and TikTok, keep hashtags out of `caption`; the Publish
 screen appends the `hashtags` array automatically. YouTube hashtags should
 remain in its `description`.
 
-The application keeps the original uploaded JSON beside the project but ignores
-unknown package fields during import. Therefore `shortsPlan` is a ready-to-use
-manifest today, not yet an automatic Shorts selection or publishing-draft
-importer.
+The application keeps the original uploaded JSON beside the project and imports
+the plan itself: the Shorts tab lists each planned Short and applies its
+sections, caption mode and hook in one click, and the Publish tab matches a
+rendered Short back to its plan to seed the per-platform drafts. Unknown fields
+are still ignored, so a package written for a newer build imports what this one
+understands.
+
+### The opening hook (`hook`)
+
+The first beat of a Short: at most two lines, drawn in upper case over the black
+band **above** the picture. It is what decides whether the Short is watched at
+all, so it is authored with the section choice rather than left to the edit.
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `enabled` | bool | `true` | |
+| `lines` | string[] | `[]` | At most two. Each under 42 characters, or the package is rejected. Empty means no hook. |
+| `startSeconds` | 0.0–10.0 | `0.0` | |
+| `durationSeconds` | 0.3–6.0 | `1.4` | |
+
+Rules that matter:
+
+* **Two lines, short, strong, curious — not clickbait.** The documentary tone
+  holds here too, and the Short must keep the promise the hook makes.
+* **The line break is yours.** The app never re-breaks a hook; if it does not
+  fit, the type shrinks. So break where the sentence breaks.
+* **Write it in normal case.** Upper case is applied when drawing.
+* **Give every Short a different hook.** Repeating one across two Shorts wastes
+  both.
+
+Good: `WHEN HE DIED,` / `THE SPECIES ENDED` · `THIS GIANT` / `DISAPPEARED
+FOREVER` · `BILLIONS OF BIRDS.` / `THEN NONE.`
+
+The hook is composited onto the 1080×1920 canvas when the Short is built, above
+the letterboxed picture and clear of the captions below it. It never touches the
+long video, and it is never burned into the file the Short was cut from. It is
+part of the Short's cache key, so changing the words produces a new Short rather
+than serving the old one.
 
 ## Scene
 
@@ -208,8 +339,12 @@ afterwards.
 
 ## Import behaviour
 
-- Importing **never** changes `video`, `style`, `audio`, `music`, `subtitles` or
-  `export` settings.
+- Importing **never** changes `video`, `style`, `music`, `subtitles` or `export`
+  settings. The one thing it can change under `audio` is the narration voice,
+  and only when the package names one in its `tts` block.
+- `longIntro`, `tts` and every `hook` are optional. Absent means "keep what the
+  project already has", which is what lets a package written before they existed
+  import unchanged.
 - **Replace scenes** (default) rebuilds the scene list from the package. Per-scene
   tuning — generated audio, manual durations, motion overrides — is lost.
 - **Update in place** matches scenes by position, so audio and manual timing
@@ -217,6 +352,26 @@ afterwards.
   report says so.
 - Unknown fields are ignored rather than rejected, so a package produced by a
   newer generator still imports what this build understands.
+- The import report says what arrived: how many scenes and images were mapped,
+  whether the branded opening and the narration voice were applied, and how many
+  planned Shorts came with a hook ready to draw.
+
+## Completeness checklist
+
+A package for this channel is finished when all of these are true:
+
+- [ ] `contentSchemaVersion` is `2`.
+- [ ] `videoTitle`, `description`, `tags`, `thumbnailText` and `thumbnailPrompt`
+      are filled in.
+- [ ] `longIntro` names both titles, and `typewriterDuration` and `stampAt` are
+      both within `duration`. The stamp matches the species' real status.
+- [ ] `pronunciation` covers every hard name spoken in the narration.
+- [ ] `tts` names the voice the narration was written for.
+- [ ] Every scene has `narration`, `title` and `imagePrompt`.
+- [ ] `shortsPlan` holds 3–5 Shorts; each has a distinct `hook` of at most two
+      lines, real `sections` numbers, and copy for all four platforms.
+- [ ] There is one more image prompt than there are scenes, and the `imageFile`
+      names match them exactly.
 
 ## Validation errors
 

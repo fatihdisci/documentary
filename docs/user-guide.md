@@ -21,9 +21,11 @@ duplicate, archive or delete projects, and export/import a project bundle (a
 
 ## 3. Content
 
-Fill in every scene at once by importing a **content package** (a JSON file
-with narration, titles, image prompts and framing hints), or edit the fields by
-hand.
+Fill in the whole animal at once by importing a **content package** — one JSON
+file carrying the narration, titles, image prompts and framing hints, plus the
+video metadata, the thumbnail text and prompt, the pronunciation table, the
+narration voice, the branded opening, and the Shorts plan with each Short's
+opening line. Or edit the fields by hand.
 
 - **Download example template** gives you the documented format with a working
   sample (the Dodo). The full schema is in
@@ -31,10 +33,36 @@ hand.
 - **Replace existing scenes** rebuilds scenes from the package (per-scene tuning
   is lost). Unchecked, scenes are updated in place, keeping audio and manual
   durations.
-- Importing never changes your video, style or audio settings.
+- Importing never changes your video, style, music or export settings. The one
+  exception is the narration voice, and only when the package explicitly names
+  one.
+- The import report tells you what arrived: scenes and images mapped, whether
+  the opening and the voice were applied, and how many planned Shorts came with
+  an opening line ready.
 
 This tab also holds the video's metadata: animal name, video title, YouTube
 description, thumbnail text/prompt, and the intro/outro narration.
+
+### Video açılışı — the branded opening
+
+Every long video opens the same way, so the channel is recognisable from the
+first second: the animal's name types itself out, the scientific name fades in
+small underneath, and a red **EXTINCT** stamp lands over both. About two and a
+half seconds, then it dissolves into the film.
+
+- **It does not make the video longer.** The card is drawn *over* the opening
+  seconds of the picture, so nothing moves and no scene is shortened.
+- Leave the two titles blank and the animal's own names are used.
+- Set the stamp to `EXTINCT IN THE WILD`, or switch the style to a plain title,
+  for a species that is not actually extinct.
+- Untick **Açılış kartı kullanılsın** and the video starts straight on scene one.
+- The opening belongs to the long video only. It never appears in a Short — a
+  Short opens with its own line instead (see below).
+
+One thing worth knowing: to keep the opening out of Shorts, the app renders the
+Shorts source separately. If you turn burned-in subtitles *off* and keep the
+opening on, the render does one extra pass and takes longer. Turning the opening
+off removes that cost.
 
 ## 4. Scenes
 
@@ -108,24 +136,31 @@ music and scene transitions come through exactly as they were mixed.
    video again and use the new export.
 2. **Choose your captions.** See [Captions in a Short](#captions-in-a-short)
    below.
-3. **Choose sections.** Cards are numbered the way the video plays: `0 — Intro`,
+3. **Write the opening line.** Two short lines at most, shown over the black
+   band above the picture for the first second and a half — the promise that
+   makes someone stay. If you applied a planned Short it is already filled in
+   from the content package. Leave it empty and no opening line is drawn.
+   It is burned into the Short when it is built, so changing it later means
+   building another Short (the app will, because a different line is a different
+   Short).
+4. **Choose sections.** Cards are numbered the way the video plays: `0 — Intro`,
    `1…N — Scene title`, `N+1 — Outro`. Tick them in the order you want them to
    appear; the badge on each card shows its position, and 6-then-2 really does
    put section 6 first. Non-adjacent picks are fine.
-4. **Trim.** Each selected section gets a start and end field. The bounds come
+5. **Trim.** Each selected section gets a start and end field. The bounds come
    from the render manifest, not from guesswork — the excluded margins are the
    transition each section shares with its neighbours, and cutting inside one
    would duplicate frames. Sections you pick back-to-back and leave untrimmed at
    the join are cut as one continuous span, so the transition between them is
    preserved exactly. Trim at a join and the two become separate cuts joined by
    a hard cut; nothing is faded or invented.
-5. **Watch the duration.** 25–50 seconds is the recommended band. Past **60
+6. **Watch the duration.** 25–50 seconds is the recommended band. Past **60
    seconds** you get a warning, because a Short over a minute can be blocked
    worldwide if any music in it has an active Content ID claim — fine when the
    music is yours or licensed, which is why it is only a warning. Past **three
    minutes** the render is blocked: YouTube only treats vertical or square video
    up to three minutes as a Short.
-6. **Check the preview**, then **Render Short**. Progress streams live and can be
+7. **Check the preview**, then **Render Short**. Progress streams live and can be
    cancelled or retried. Requesting a Short you already built reuses the existing
    file instead of encoding again, and says so.
 

@@ -21,12 +21,12 @@ dependency-free server is what a future Tauri/Electron shell would wrap.
 | Area | What it does |
 |---|---|
 | `api/` | HTTP routers: `projects`, `audio`, `render`, `diagnostics`, `settings_api`. |
-| `models/` | Pydantic schema (`project.py`), enums, and schema migrations. camelCase on the wire, snake_case in Python. |
+| `models/` | Pydantic schema (`project.py`), the importable content package (`content.py`), enums, and schema migrations. camelCase on the wire, snake_case in Python. |
 | `storage/` | The on-disk layout (`layout.py`), path safety (`paths.py`), media I/O (`media.py`), the project repository (`repository.py`), and content-package import. |
 | `tts/` | Provider abstraction (Kokoro / Edge / ElevenLabs / imported) with content-hash caching. Kokoro runs locally and is the default; its dependencies are optional and its absence is reported, never fatal. |
 | `timing/` | The Timeline (`schedule.py`), audio probing, and subtitle cue building. |
 | `synth/` | The basic generated ambient music bed. |
-| `render/` | The render pipeline and its stages. |
+| `render/` | The render pipeline and its stages, including the branded opening (`intro.py`) and the Shorts clean master (`clean_master.py`). |
 | `shorts/` | Cutting a vertical 9:16 Short out of a **finished** long render. Its own models, planner, pipeline and job queue. |
 
 ### The render pipeline (`render/pipeline.py`)
@@ -41,7 +41,7 @@ Fourteen ordered stages:
 6. build subtitle cues
 7. preflight disk space
 8. render scene clips (Pass A, cached per-scene)
-9. assemble with transitions (Pass B)
+9. assemble with transitions (Pass B), compositing the branded opening
 10. mix audio on the same Timeline
 11. encode the final file
 12. validate the output with ffprobe
@@ -51,6 +51,36 @@ Fourteen ordered stages:
 Nothing after stage 5 recomputes a duration or offset. Scene clips are cached by
 a key covering everything that affects their pixels, so re-rendering only redoes
 what changed.
+
+### The branded opening (`render/intro.py`)
+
+The channel's signature first two-and-a-half seconds: the animal's name types
+itself out, the scientific name fades in small underneath, a red `EXTINCT` stamp
+lands over both, and the card dissolves into the film.
+
+It is an **overlay, not a section**, and that is the whole design. It is
+composited during assembly over the picture the Timeline already decided, so it
+adds no entry, no duration and no offset — a project renders to the same length
+with it on or off, and stage 5 never hears about it.
+
+Drawing follows the rule the rest of the app follows: Pillow paints RGBA, FFmpeg
+composites. The typewriter is **one card per revealed state**, not one per frame
+— a name is a couple of dozen characters, so a couple of dozen cards cover the
+animation — and the cards are baked into a single transparent QT RLE track
+exactly as Shorts captions are, so the assemble graph gains one input instead of
+twenty. Cards and the baked track are both content-addressed, so a re-render
+draws and encodes nothing.
+
+Failure is never fatal: an opening that cannot be drawn produces a warning and a
+film without it, because a title card is not worth failing a render over.
+
+**It belongs to long videos only.** `render/clean_master.py` renders the
+Shorts-ready clean master with the opening switched off, so a Short that
+includes the intro section opens with its own hook rather than the long video's
+title sequence. The cost is stated where it lands: a project rendering with
+burn-in *off* used to publish its export as its own clean master for free, and
+with an opening it pays one extra assemble pass instead. The plan's `reason`
+string says so, and turning the opening off restores the shortcut.
 
 ### Shorts (`shorts/`)
 
@@ -170,6 +200,29 @@ The Short's cache key gains a `captions` block — mode, normalised style, clean
 master checksum, cue schema and cue content hash, and a renderer version — only
 in the modes where captions change the output.
 
+### Shorts hooks (`shorts/hooks.py`)
+
+A hook is the first beat of a Short: at most two lines, upper case, drawn over
+the black band **above** the picture. It is authored with the Short, in the
+content package's `shortsPlan`, because it is what decides whether the Short is
+watched at all.
+
+The module is deliberately thin — it is the caption machinery placed at the top
+of the canvas instead of the bottom, reusing `as_text_style` and `render_card`
+rather than starting a second text system. The one behavioural difference is
+fitting: a caption is re-wrapped freely, a hook **shrinks rather than re-breaks**,
+because its line break is a writing decision.
+
+Three properties make it safe:
+
+* it is composed onto the vertical canvas during the compose pass, so it works
+  in every caption mode and is never burned into the long video or into the file
+  the cut came from;
+* it lands above the letterboxed picture while captions land below it, so the
+  two cannot collide whatever the source's aspect ratio;
+* it joins the cache key only when there is one to draw, so a Short whose
+  request carries no hook hashes to exactly the value it always did.
+
 ### Subtitle timing
 
 Cues are placed from **measured word boundaries** whenever the TTS provider
@@ -247,7 +300,8 @@ know, refuse only what is newer than you.
 
 | Schema | Current | Where | Migration |
 |---|---|---|---|
-| `project.json` `schemaVersion` | **2** | `models/project.py` | chained functions in `models/migrations.py` |
+| `project.json` `schemaVersion` | **3** | `models/project.py` | chained functions in `models/migrations.py` |
+| content package `contentSchemaVersion` | **2** | `models/content.py` | none needed — every v2 field is optional |
 | render manifest `schemaVersion` | **2** | `shorts/manifest.py` | none needed — every v2 field is optional |
 | Shorts source package `packageVersion` | 1 | `shorts/manifest.py` | — |
 | cue side-car `schemaVersion` | 1 | `shorts/cues.py` | — |
@@ -260,6 +314,22 @@ every first Short on a re-render. But it costs a second full pass whenever
 subtitles are burned in, so the migration writes it **off** for projects created
 before it existed. Opening an old project never signs it up for extra work; the
 Export tab states the cost either way.
+
+**project v2 → v3** added `longIntro` and a `hook` on every planned Short. Both
+are additive with working defaults, so the migration only has to make the blocks
+exist. It writes the opening **enabled** with blank titles — blank resolves to
+the project's own animal names at render time, so an untouched old project gains
+the same correct opening a new one gets, and one toggle turns it off — and gives
+every planned Short an **empty** hook, which draws nothing, so a Short re-cut
+from an old plan is byte-for-byte the Short it was. The one behavioural change
+for an existing project is the clean master: an opening must never reach the file
+Shorts are cut from, so a project rendering without burned-in subtitles now pays
+a second assemble pass instead of publishing its export as its own clean master.
+
+**Content package v1 → v2** added `longIntro` and `tts` at the top level and a
+`hook` inside every planned Short. No migration exists or is needed: all three
+are optional, and absent means "keep what the project already has", so a v1
+package imports exactly as it did.
 
 **Render manifest v1 → v2** added the optional `shortsSource` package and
 `sourceHasBurnedInSubtitles`. There is no migration and none is needed: a v1

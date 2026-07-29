@@ -12,7 +12,26 @@ A **Shorts** tab turns any completed render into a 1080×1920 vertical clip by
 cutting the sections you pick out of the finished video — no re-render, so the
 narration, music and transitions come through untouched. Captions can either be
 the ones already in the picture, or large Shorts-native ones drawn on the
-vertical canvas.
+vertical canvas, and each Short opens with its own two-line **hook**.
+
+Content production and rendering share one data model. A content package is a
+turnkey delivery for one animal — video metadata, thumbnail text and prompt,
+pronunciation, narration voice, scenes, the branded opening, and a Shorts plan
+whose every Short already carries its hook and its per-platform copy — so
+importing one takes you from a JSON file to a rendered, cut and publishable
+video without a second round of questions.
+
+Two pieces of channel identity are drawn by the app rather than authored per
+video:
+
+* **The long intro.** Every long video opens the same way: the animal's name
+  types itself out, the scientific name fades in small underneath, and a red
+  `EXTINCT` stamp lands over both. It is an overlay on the first seconds of the
+  picture, so it adds no time to the video, and it is deliberately absent from
+  the source Shorts are cut from. One toggle in **Content** turns it off.
+* **The Shorts hook.** Two short lines over the black band above the picture for
+  the first beat of a Short. Written with the plan, editable before the Short is
+  built, composited onto the vertical canvas — never burned into the long video.
 
 ---
 
@@ -108,10 +127,15 @@ time for the tabs below, which give you the fine controls.
 1. **Diagnostics** — confirm the environment is ready (see above). Fix
    anything marked failed before continuing.
 2. **Projects** — click **Create project**, give it a name.
-3. **Content** — import a content package JSON (narration, titles, image
-   prompts for every scene). Use **Download example template** for the
-   documented format and a working sample (the Dodo), or see
-   [`docs/content-schema.md`](docs/content-schema.md).
+3. **Content** — import a content package JSON. One file brings the whole
+   animal: narration, titles and image prompts for every scene, the video
+   metadata, the thumbnail text and prompt, the pronunciation table, the
+   narration voice, the branded opening, and the Shorts plan with each Short's
+   hook. Use **Download example template** for the documented format and a
+   working sample (the Dodo), or see
+   [`docs/content-schema.md`](docs/content-schema.md). The same tab holds the
+   **Video açılışı** card, where the opening's titles, stamp and duration are
+   edited — or switched off.
 4. **Scenes** — upload your images (drag-and-drop works). Give **one more image
    than you have scenes** — e.g. 11 images for a 10-scene video — and the first
    becomes the intro's own picture, so the opening and the first scene no longer
@@ -162,8 +186,15 @@ time for the tabs below, which give you the fine controls.
    by default for new projects — have them redrawn large at the bottom of the
    vertical frame. Burned-in captions cannot be removed from an old render, so a
    render made without a clean master says so and offers the legacy option.
+   **The hook** — two lines shown over the black band above the picture for the
+   first beat — arrives filled in when you apply a planned Short, and can be
+   edited or cleared here. It is burned in when the Short is built, so changing
+   it afterwards means building another Short.
 10. **Publish** — pick a finished long video or Short, check the metadata (it
-    arrives pre-filled from the project and every field is editable), and upload
+    arrives pre-filled from the project — or from the matching planned Short —
+    and every field is editable, with the thumbnail text, the Short's hook and a
+    summary of the long video's opening shown together, since they have to make
+    the same promise), and upload
     it to YouTube either immediately or scheduled for a later date. The panel
     handles the thumbnail, the English `.srt`, live upload progress, and an
     upload history that records each video the moment it gets an ID — so a video
