@@ -10,6 +10,11 @@
  * vertical canvas — so a render that prepared a subtitle-free clean master can
  * instead have large captions drawn on the 9:16 canvas itself. A render that did
  * not prepare one cannot be converted after the fact, and says so here.
+ *
+ * Two things are added onto the vertical canvas rather than taken from the
+ * source: those captions, and the opening hook. The hook arrives with the
+ * authored plan and is editable here — but only *here*, before the Short is
+ * built, because afterwards it is in the pixels.
  */
 
 import { useEffect, useMemo, useState } from 'react'
@@ -21,6 +26,7 @@ import type {
   ShortTimelineSection,
 } from '@/api/shorts-types'
 import type { PlannedShort, PlannedSocialMetadata } from '@/api/project-types'
+import { hookOf } from '@/api/project-types'
 import { captionSupportOf } from '@/api/shorts-types'
 import { useProjectStore } from '@/store/project'
 import { useShortsStore } from '@/store/shorts'
@@ -143,11 +149,12 @@ function TrimInput({
 export function ShortsPage() {
   const { project } = useProjectStore()
   const {
-    sources, selectedRenderId, timeline, selection, captionMode, captionPreset,
+    sources, selectedRenderId, timeline, selection, captionMode, captionPreset, hook,
     preflight, job, event, history,
     error, loading, busy,
     loadSources, selectSource, toggleSection, moveSelection, removeSelection,
-    setTrim, setCaptionMode, setCaptionPreset, refreshPreflight, start, cancel, retry,
+    setTrim, setCaptionMode, setCaptionPreset, setHookLines, refreshPreflight,
+    start, cancel, retry,
     applyPlannedShort, detach, reattachIfRunning, loadHistory, remove, clearError,
   } = useShortsStore()
 
@@ -346,11 +353,19 @@ export function ShortsPage() {
                   <span className="status-pill">#{item.priority}</span>
                 </div>
                 {item.purpose && <p className="planned-purpose">{item.purpose}</p>}
+                {hookOf(item).lines.length > 0 && (
+                  <p className="planned-hook">
+                    {hookOf(item).lines.map((line) => (
+                      <span key={line}>{line}</span>
+                    ))}
+                  </p>
+                )}
                 <p className="muted">
                   Tahmini {item.estimatedDurationSeconds?.toFixed(0) ?? '—'} sn ·{' '}
                   {project.shortsPlan?.captionMode === 'shorts-native'
                     ? 'büyük altyazı'
                     : 'kaynak altyazısı'}
+                  {hookOf(item).lines.length > 0 ? ' · açılış metni hazır' : ''}
                 </p>
                 <button
                   type="button"
@@ -362,6 +377,7 @@ export function ShortsPage() {
                       item.sections,
                       project.shortsPlan?.captionMode ?? 'shorts-native',
                       project.shortsPlan?.captionPreset ?? 'large',
+                      hookOf(item),
                     )
                   }
                 >
@@ -485,6 +501,53 @@ export function ShortsPage() {
                 Bunun yerine videodaki altyazıyı kullan
               </button>
             </div>
+          )}
+        </section>
+      )}
+
+      {/* --- 1c. the opening hook ------------------------------------------ */}
+      {source && (
+        <section className="card hook-card">
+          <div className="section-head">
+            <div>
+              <h2>Açılış metni</h2>
+              <p className="muted">
+                Kısa videonun ilk saniyesinde, görüntünün üstündeki siyah alanda görünür. En
+                fazla iki satır; kısa ve merak uyandırıcı olsun.
+              </p>
+            </div>
+          </div>
+
+          <div className="hook-lines">
+            {[0, 1].map((index) => (
+              <label key={index}>
+                {index === 0 ? '1. satır' : '2. satır'}
+                <input
+                  value={hook.lines[index] ?? ''}
+                  maxLength={42}
+                  disabled={running}
+                  placeholder={index === 0 ? 'WHEN HE DIED,' : 'THE SPECIES ENDED'}
+                  onChange={(e) => {
+                    const next = [hook.lines[0] ?? '', hook.lines[1] ?? '']
+                    next[index] = e.target.value
+                    setHookLines(slug, next)
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+
+          <p className="muted hook-note">
+            Yazdığınız metin büyük harfe çevrilerek çizilir. Boş bırakırsanız açılış metni
+            eklenmez. Uzun video bundan etkilenmez: bu metin yalnızca kısa videonun üstüne,
+            oluşturma sırasında eklenir.
+          </p>
+
+          {preflight?.hook && preflight.hook.lines.length > 0 && (
+            <p className="muted hook-preview">
+              Bu kısa videoda görünecek: “{preflight.hook.lines.join(' / ')}” ·{' '}
+              {preflight.hook.durationSeconds.toFixed(1)} sn
+            </p>
           )}
         </section>
       )}
@@ -771,6 +834,7 @@ export function ShortsPage() {
                 <th scope="col">Bölümler</th>
                 <th scope="col">Dosya</th>
                 <th scope="col">Kaynak</th>
+                <th scope="col">Açılış metni</th>
                 <th scope="col">Altyazı</th>
                 <th scope="col">Süre</th>
                 <th scope="col">Oluşturuldu</th>
@@ -785,6 +849,7 @@ export function ShortsPage() {
                   <td className="history-sections">{entry.sectionNumbers.join(' → ') || '—'}</td>
                   <td className="history-file">{entry.filename}</td>
                   <td className="muted">{entry.sourceVideo}</td>
+                  <td className="muted">{entry.hookLines?.join(' / ') || '—'}</td>
                   <td className="muted">
                     {entry.captionMode === 'shorts-native'
                       ? 'Büyük'

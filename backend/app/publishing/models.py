@@ -283,6 +283,14 @@ class CommonDraft(CamelModel):
     #: making the actual thumbnail image.
     thumbnail_text: str = ""
     thumbnail_prompt: str = ""
+    #: The Short's opening hook, seeded from the authored Shorts plan and shown
+    #: next to the thumbnail text so the two can be read as one promise. Also
+    #: reference only: the hook that is *drawn* was burned in when the Short was
+    #: rendered, so editing it here is a note for the next cut, not a change to
+    #: this file. The panel says so.
+    hook_text: str = ""
+    #: What the long video opens with, for the record. Read-only in the panel.
+    long_intro_summary: str = ""
 
 
 class PublishDraft(CamelModel):

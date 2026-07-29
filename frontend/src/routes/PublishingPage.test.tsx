@@ -634,10 +634,16 @@ describe('metadata editing', () => {
     expect(screen.getByText(/İstanbul saatiyle/)).toBeInTheDocument()
   })
 
-  it('keeps the thumbnail notes out of what gets uploaded', async () => {
+  it('keeps the cover and opening notes out of what gets uploaded', async () => {
     await renderPage()
 
-    expect(screen.getByText(/Thumbnail notları \(YouTube'a gönderilmez\)/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Kapak ve açılış notları \(YouTube'a gönderilmez\)/),
+    ).toBeInTheDocument()
+    // Thumbnail text and the Short's hook are read together: they are the same
+    // promise, made in two places.
+    expect(screen.getByLabelText(/Thumbnail metni/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Short açılış metni/)).toBeInTheDocument()
   })
 })
 

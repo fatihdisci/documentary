@@ -324,6 +324,21 @@ def validate_tiktok_metadata(
     return warnings
 
 
+def _long_intro_summary(project: Project) -> str:
+    """One line describing the opening the long video was rendered with.
+
+    Shown in the publish panel so the person writing the description can see the
+    first thing a viewer sees. Empty when the project has no opening.
+    """
+    if not project.has_long_intro:
+        return ""
+    intro = project.resolved_long_intro()
+    parts = [part for part in (intro.primary_title, intro.secondary_title) if part.strip()]
+    if intro.draws_stamp:
+        parts.append(f"“{intro.stamp_text.strip().upper()}” damgası")
+    return f"{' · '.join(parts)} ({intro.duration:.1f} sn)"
+
+
 def _reel_duration_problems(media: MediaItem, *, minimum: float, maximum: float) -> list[str]:
     duration = media.duration_seconds or 0.0
     if not duration:
@@ -683,6 +698,8 @@ class PublishingService:
                 tags=clean_tags(list(youtube_meta.tags)),
                 thumbnail_text=metadata.thumbnail_text,
                 thumbnail_prompt=metadata.thumbnail_prompt,
+                hook_text=planned.hook.text,
+                long_intro_summary=_long_intro_summary(project),
             )
             youtube = YouTubeDraft(
                 title=title[:MAX_TITLE_CHARS],
@@ -737,6 +754,7 @@ class PublishingService:
             tags=tags,
             thumbnail_text=metadata.thumbnail_text,
             thumbnail_prompt=metadata.thumbnail_prompt,
+            long_intro_summary=_long_intro_summary(project),
         )
         youtube = YouTubeDraft(
             title=title[:MAX_TITLE_CHARS],

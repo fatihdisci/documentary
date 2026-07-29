@@ -97,3 +97,81 @@ describe('ContentPage', () => {
     expect(currentProject().animal.commonName).toBe('Thylacine')
   })
 })
+
+describe('the branded opening', () => {
+  it('shows the channel opening with the animal as its placeholder', () => {
+    seedProject(makeProject())
+    render(<ContentPage />)
+
+    expect(screen.getByText('Video açılışı')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Üst yazı/)).toHaveAttribute('placeholder', 'Dodo')
+    expect(screen.getByLabelText(/Alt yazı/)).toHaveAttribute('placeholder', 'Raphus cucullatus')
+    expect(screen.getByLabelText(/Damga yazısı/)).toHaveValue('EXTINCT')
+  })
+
+  it('can be turned off, which hides the fields', async () => {
+    const user = userEvent.setup()
+    seedProject(makeProject())
+    render(<ContentPage />)
+
+    await user.click(screen.getByLabelText(/Açılış kartı kullanılsın/))
+
+    expect(currentProject().longIntro?.enabled).toBe(false)
+    expect(screen.queryByLabelText(/Damga yazısı/)).not.toBeInTheDocument()
+  })
+
+  it('never lets the typewriter or the stamp outlast the intro', async () => {
+    const user = userEvent.setup()
+    seedProject(makeProject())
+    render(<ContentPage />)
+
+    const duration = screen.getByLabelText(/Süre \(sn\)/)
+    await user.clear(duration)
+    await user.type(duration, '1')
+
+    const intro = currentProject().longIntro!
+    expect(intro.duration).toBe(1)
+    expect(intro.typewriterDuration).toBeLessThanOrEqual(1)
+    expect(intro.stampAt).toBeLessThanOrEqual(1)
+  })
+
+  it('works against a backend that has never heard of it', () => {
+    const { longIntro: _dropped, ...withoutIntro } = makeProject()
+    seedProject(withoutIntro as ReturnType<typeof makeProject>)
+    render(<ContentPage />)
+
+    expect(screen.getByLabelText(/Damga yazısı/)).toHaveValue('EXTINCT')
+  })
+
+  it('reports what a turnkey package brought in', async () => {
+    const user = userEvent.setup()
+    seedProject(makeProject())
+    vi.spyOn(api, 'importContentFile').mockResolvedValue({
+      project: makeProject(),
+      report: {
+        scenesCreated: 10,
+        scenesUpdated: 0,
+        scenesRemoved: 0,
+        imagesMapped: 11,
+        introImage: '00-intro.png',
+        unmappedScenes: [],
+        unusedImages: [],
+        warnings: [],
+        longIntroApplied: true,
+        ttsApplied: true,
+        shortsWithHook: 3,
+      },
+    })
+    vi.spyOn(api, 'getProject').mockResolvedValue({ project: makeProject(), images: [] })
+    render(<ContentPage />)
+
+    await user.upload(
+      screen.getByLabelText('Metin dosyası (JSON)'),
+      new File(['{}'], 'dodo.json', { type: 'application/json' }),
+    )
+
+    expect(await screen.findByText('Video açılışı dosyadan alındı')).toBeInTheDocument()
+    expect(screen.getByText('Seslendirme sesi dosyadan alındı')).toBeInTheDocument()
+    expect(screen.getByText('3 kısa videonun açılış metni hazır')).toBeInTheDocument()
+  })
+})

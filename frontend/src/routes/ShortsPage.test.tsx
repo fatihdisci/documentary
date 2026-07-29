@@ -177,6 +177,7 @@ function resetStore() {
     selection: [],
     captionMode: 'source-burned-in',
     captionPreset: 'standard',
+    hook: { enabled: true, lines: [], startSeconds: 0, durationSeconds: 1.4 },
     preflight: null,
     job: null,
     event: null,
@@ -899,5 +900,136 @@ describe('ShortsPage captions', () => {
       const row = await screen.findByText('the-dodo-short-aaaa1111bbbb2222.mp4')
       expect(row.closest('tr')).toHaveTextContent('Videodaki')
     })
+  })
+})
+
+describe('the opening hook', () => {
+  it('is empty by default and is left out of the request entirely', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const create = vi.spyOn(api, 'createShort').mockResolvedValue(
+      { id: 'job9', status: 'queued' } as unknown as ShortJob,
+    )
+    await openPage()
+
+    await user.click(screen.getByRole('checkbox', { name: '2. bölümü ekle: Scene 2' }))
+    await user.click(screen.getByRole('button', { name: 'Kısa videoyu oluştur' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    // A Short with no hook must hash exactly as it always did, so the field is
+    // absent rather than sent empty.
+    expect(create.mock.calls[0]![1]).not.toHaveProperty('hook')
+  })
+
+  it('sends what was typed, trimmed to two lines', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const create = vi.spyOn(api, 'createShort').mockResolvedValue(
+      { id: 'job9', status: 'queued' } as unknown as ShortJob,
+    )
+    await openPage()
+
+    await user.click(screen.getByRole('checkbox', { name: '2. bölümü ekle: Scene 2' }))
+    await user.type(screen.getByLabelText('1. satır'), 'When he died,')
+    await user.type(screen.getByLabelText('2. satır'), 'the species ended')
+    await user.click(screen.getByRole('button', { name: 'Kısa videoyu oluştur' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0]![1].hook).toEqual({
+      enabled: true,
+      lines: ['When he died,', 'the species ended'],
+      startSeconds: 0,
+      durationSeconds: 1.4,
+    })
+  })
+
+  it('comes with the plan when a planned Short is applied', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    seedProject(
+      makeProject({
+        shortsPlan: {
+          version: 1,
+          captionMode: 'shorts-native',
+          captionPreset: 'large',
+          recommendedReleaseOrder: [],
+          shorts: [
+            {
+              id: 'scenes-two-three',
+              priority: 1,
+              purpose: '',
+              sections: [{ kind: 'scene', number: 2 }],
+              estimatedDurationSeconds: 38,
+              hook: {
+                enabled: true,
+                lines: ['This giant', 'disappeared forever'],
+                startSeconds: 0,
+                durationSeconds: 1.4,
+              },
+              youtube: {
+                title: 'A Bird Without Fear',
+                alternativeTitles: [],
+                description: '',
+                tags: [],
+                hashtags: [],
+                pinnedComment: '',
+              },
+              instagram: { caption: '', hashtags: [], cta: '' },
+              facebook: { caption: '', hashtags: [], cta: '' },
+              tiktok: { caption: '', hashtags: [], cta: '' },
+            },
+          ],
+        },
+      }),
+    )
+    render(<ShortsPage />)
+    await screen.findByRole('radio', { name: /the-dodo_v01\.mp4/ })
+
+    await user.click(screen.getByRole('button', { name: 'Bu planı uygula' }))
+
+    await waitFor(() =>
+      expect(useShortsStore.getState().hook.lines).toEqual([
+        'This giant',
+        'disappeared forever',
+      ]),
+    )
+    expect(screen.getByLabelText('1. satır')).toHaveValue('This giant')
+  })
+
+  it('survives a plan authored before hooks existed', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    seedProject(
+      makeProject({
+        shortsPlan: {
+          version: 1,
+          captionMode: 'shorts-native',
+          captionPreset: 'large',
+          recommendedReleaseOrder: [],
+          shorts: [
+            {
+              id: 'older-plan',
+              priority: 1,
+              purpose: '',
+              sections: [{ kind: 'scene', number: 2 }],
+              estimatedDurationSeconds: 38,
+              youtube: {
+                title: 'An older plan',
+                alternativeTitles: [],
+                description: '',
+                tags: [],
+                hashtags: [],
+                pinnedComment: '',
+              },
+              instagram: { caption: '', hashtags: [], cta: '' },
+              facebook: { caption: '', hashtags: [], cta: '' },
+              tiktok: { caption: '', hashtags: [], cta: '' },
+            },
+          ],
+        },
+      }),
+    )
+    render(<ShortsPage />)
+    await screen.findByRole('radio', { name: /the-dodo_v01\.mp4/ })
+
+    await user.click(screen.getByRole('button', { name: 'Bu planı uygula' }))
+
+    await waitFor(() => expect(useShortsStore.getState().hook.lines).toEqual([]))
   })
 })

@@ -21,6 +21,7 @@ from app.models.enums import (
     DurationMode,
     FitMode,
     IntermediateCodec,
+    IntroStyle,
     MusicSource,
     QualityPreset,
     TextAnimation,
@@ -32,7 +33,11 @@ from app.models.enums import (
 #: v2 added ``export.prepareCleanMasterForShorts``. New projects default it on;
 #: the v1 -> v2 migration turns it *off* for projects that predate it, so opening
 #: an old project never silently doubles its next render.
-SCHEMA_VERSION = 2
+#:
+#: v3 added ``longIntro`` (the branded opening) and a ``hook`` on every planned
+#: Short. Both are pure additions with working defaults, so the v2 -> v3
+#: migration only has to write the block; see models/migrations.py.
+SCHEMA_VERSION = 3
 
 #: Zoom beyond this visibly softens even a 4K source once supersampled.
 MAX_SCALE = 3.0
@@ -69,6 +74,85 @@ class Metadata(Base):
     tags: list[str] = Field(default_factory=list)
 
 
+class LongIntro(Base):
+    """The channel's branded opening, drawn over the first seconds of a long video.
+
+    One identity, every video: the animal's name types itself out, the scientific
+    name fades in small underneath, and a red stamp lands over both. It is an
+    *overlay on the finished picture*, not a section — it adds no time to the
+    timeline, moves no scene boundary and changes no narration, so a project that
+    turns it on renders exactly as long as it did before.
+
+    It belongs to long videos only. The Shorts-ready clean master is rendered
+    without it (see render/clean_master.py), so a Short that includes the intro
+    section never carries the long video's opening card.
+
+    Times are in seconds from the first frame of the video. ``primaryTitle`` and
+    ``secondaryTitle`` fall back to the project's animal names when left empty,
+    which is what makes the block work with no authoring at all.
+    """
+
+    enabled: bool = True
+    intro_style: IntroStyle = IntroStyle.TYPEWRITER_STAMP
+
+    #: Blank means "use animal.commonName" / "use animal.scientificName".
+    primary_title: str = Field(default="", max_length=80)
+    secondary_title: str = Field(default="", max_length=120)
+    stamp_text: str = Field(default="EXTINCT", max_length=24)
+
+    #: Total on-screen time. The house style is a beat under three seconds: long
+    #: enough to read, short enough that nobody skips the video over it.
+    duration: float = Field(default=2.6, ge=0.8, le=6.0)
+    #: How long the name takes to type itself out, from the first character.
+    typewriter_duration: float = Field(default=1.3, ge=0.0, le=5.0)
+    #: When the stamp lands. Ignored by ``plain-title``.
+    stamp_at: float = Field(default=1.7, ge=0.0, le=6.0)
+    #: Dissolve at the end, so the card leaves the picture rather than cutting.
+    fade_out_seconds: float = Field(default=0.4, ge=0.0, le=2.0)
+
+    #: Bounded design. Not surfaced as an editor — the point is that every video
+    #: looks the same — but authorable from a content package if a species needs
+    #: a different accent colour.
+    primary_color: str = Field(default="#FFFFFF", pattern=r"^#[0-9A-Fa-f]{6}$")
+    secondary_color: str = Field(default="#D7D2C8", pattern=r"^#[0-9A-Fa-f]{6}$")
+    stamp_color: str = Field(default="#C0271F", pattern=r"^#[0-9A-Fa-f]{6}$")
+    #: Dark wash under the card, so the title reads over a bright first frame.
+    scrim_opacity: float = Field(default=0.55, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _fits_inside_its_own_duration(self) -> "LongIntro":
+        if self.typewriter_duration > self.duration:
+            raise ValueError("typewriterDuration cannot outlast the intro's duration")
+        if self.stamp_at > self.duration:
+            raise ValueError("stampAt cannot fall after the intro has ended")
+        return self
+
+    def resolved(self, animal: "Animal") -> "LongIntro":
+        """A copy with the titles filled in from the project's animal.
+
+        Everything downstream — the renderer, the panel, the manifest — reads
+        this rather than the raw block, so an untouched intro still says the
+        right name and an authored one is never overwritten.
+        """
+        return self.model_copy(
+            update={
+                "primary_title": self.primary_title or animal.common_name,
+                "secondary_title": self.secondary_title or animal.scientific_name,
+            }
+        )
+
+    @property
+    def draws_stamp(self) -> bool:
+        return self.intro_style is IntroStyle.TYPEWRITER_STAMP and bool(self.stamp_text.strip())
+
+    def is_visible(self, animal: "Animal") -> bool:
+        """Whether this intro would actually put anything on screen."""
+        if not self.enabled:
+            return False
+        resolved = self.resolved(animal)
+        return bool(resolved.primary_title.strip() or resolved.stamp_text.strip())
+
+
 class PlannedSection(Base):
     """A stable story reference; render timestamps do not exist at authoring time."""
 
@@ -99,12 +183,59 @@ class PlannedSocialMetadata(Base):
     cta: str = Field(default="", max_length=500)
 
 
+class ShortHook(Base):
+    """The one-second promise a Short opens with.
+
+    Two short lines, drawn over the black band *above* the picture during the
+    first beat of a Short and nowhere else. It is composed onto the vertical
+    canvas at Shorts-compose time, exactly like a Shorts-native caption, so it is
+    never burned into the long video or into the source the Short was cut from.
+
+    Empty ``lines`` means no hook, which is what every Short built before this
+    existed had; such a Short still renders byte-for-byte as it always did.
+    """
+
+    enabled: bool = True
+    #: At most two lines. Uppercase is applied when drawing, so the author can
+    #: write them naturally.
+    lines: list[str] = Field(default_factory=list, max_length=2)
+    #: When it appears and how long it stays. The house style is "immediately,
+    #: for a beat and a half" — long enough to read, gone before the story moves.
+    start_seconds: float = Field(default=0.0, ge=0.0, le=10.0)
+    duration_seconds: float = Field(default=1.4, ge=0.3, le=6.0)
+
+    @field_validator("lines")
+    @classmethod
+    def _tidy_lines(cls, value: list[str]) -> list[str]:
+        cleaned = [" ".join(line.split()) for line in value]
+        kept = [line for line in cleaned if line]
+        for line in kept:
+            if len(line) > 42:
+                raise ValueError(
+                    "a hook line must stay under 42 characters so it fits on one "
+                    "line of a phone screen"
+                )
+        return kept
+
+    @property
+    def text(self) -> str:
+        return "\n".join(self.lines)
+
+    @property
+    def is_visible(self) -> bool:
+        return self.enabled and bool(self.lines)
+
+
 class PlannedShort(Base):
     id: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9-]*$")
     priority: int = Field(default=1, ge=1, le=100)
     purpose: str = Field(default="", max_length=500)
     sections: list[PlannedSection] = Field(default_factory=list, min_length=1, max_length=20)
     estimated_duration_seconds: float | None = Field(default=None, gt=0, le=180)
+    #: The opening overlay this Short is rendered with. Part of the plan, not a
+    #: publishing afterthought: the hook is what decides whether the Short is
+    #: watched at all, so it is authored with the section choice.
+    hook: ShortHook = Field(default_factory=ShortHook)
     youtube: PlannedYouTubeMetadata = Field(default_factory=PlannedYouTubeMetadata)
     instagram: PlannedSocialMetadata = Field(default_factory=PlannedSocialMetadata)
     facebook: PlannedSocialMetadata = Field(default_factory=PlannedSocialMetadata)
@@ -458,6 +589,10 @@ class Project(Base):
         default_factory=lambda: Section(fade_from_black_seconds=0.0, fade_to_black_seconds=1.5)
     )
 
+    #: The branded opening drawn over the first seconds of the long video. Long
+    #: videos only — it is deliberately absent from the Shorts clean master.
+    long_intro: LongIntro = Field(default_factory=LongIntro)
+
     #: Spelling hints applied to narration before synthesis, e.g.
     #: {"Raphus cucullatus": "RAH-fus koo-koo-LAH-tus"}
     pronunciation: dict[str, str] = Field(default_factory=dict)
@@ -491,6 +626,18 @@ class Project(Base):
         if scene.transition_duration_seconds is not None:
             return scene.transition_duration_seconds
         return self.video.transition_duration_seconds
+
+    def resolved_long_intro(self) -> LongIntro:
+        """The intro as it will actually be drawn, titles filled in."""
+        return self.long_intro.resolved(self.animal)
+
+    @property
+    def has_long_intro(self) -> bool:
+        """Whether this render will draw a branded opening."""
+        return self.long_intro.is_visible(self.animal)
+
+    def planned_short(self, short_id: str) -> PlannedShort | None:
+        return next((item for item in self.shorts_plan.shorts if item.id == short_id), None)
 
     def touch(self) -> None:
         self.updated_at = _now()

@@ -193,6 +193,12 @@ class RenderManifest(CamelModel):
     #: Absent in v1 manifests, where it defaults to the historical behaviour:
     #: burn-in was on by default, and either way those pixels cannot be undone.
     source_has_burned_in_subtitles: bool = True
+    #: Whether the normal export opens with the channel's branded intro. Like the
+    #: captions above, this is about the *export* only: the clean master beside
+    #: it never carries the opening, which is what keeps it out of every Short.
+    #: Absent in manifests written before the opening existed, where False is the
+    #: truth — no such render had one.
+    source_has_long_intro: bool = False
     #: Present only when the render prepared a Shorts-ready clean master. ``None``
     #: on every v1 manifest and on any render that opted out.
     shorts_source: ShortsSourcePackage | None = None
@@ -330,6 +336,7 @@ def build_manifest(
         entries=entries,
         written_at=datetime.now(timezone.utc),
         source_has_burned_in_subtitles=bool(project.subtitles.burn_in and timeline.cues),
+        source_has_long_intro=project.has_long_intro,
         shorts_source=shorts_source,
     )
 

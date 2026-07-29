@@ -23,6 +23,7 @@ import type {
   TextStyle,
   VideoSettings,
 } from '@/api/project-types'
+import { DEFAULT_LONG_INTRO } from '@/api/project-types'
 import { useProjectStore } from '@/store/project'
 
 function textStyle(overrides: Partial<TextStyle> = {}): TextStyle {
@@ -219,6 +220,7 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     intro: section(),
     outro: section(),
     scenes: [],
+    longIntro: { ...DEFAULT_LONG_INTRO },
     pronunciation: {},
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',

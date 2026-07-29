@@ -58,6 +58,7 @@ from app.render.ffmpeg import (
     base_output_args,
     progress_args,
 )
+from app.render.intro import IntroTrack, build_intro_track, overlay_steps as intro_overlay_steps
 from app.render.scene_clip import SceneClip, render_scene_clip, resolve_image
 from app.render.validate import ValidationReport, validate_output
 from app.shorts.cues import build_sidecar, sidecar_path_for, write_sidecar
@@ -335,9 +336,12 @@ class RenderPipeline:
         self._finish_phase(JobPhase.RENDER_TEXT_CARDS)
         self._finish_phase(JobPhase.RENDER_SCENE_CLIPS)
 
-        # 9-11. Assemble, mix and encode.
+        # 9-11. Assemble, mix and encode. The branded opening is drawn here and
+        #       here only: it belongs to the long video, never to the clean
+        #       master a Short is cut from.
+        intro_video = await self._build_long_intro()
         output = self._next_output_path()
-        await self._assemble(timeline, clips, output, capabilities)
+        await self._assemble(timeline, clips, output, capabilities, intro_video=intro_video)
         self._finish_phase(JobPhase.ASSEMBLE)
         self._finish_phase(JobPhase.MIX_AUDIO)
         self._finish_phase(JobPhase.ENCODE)
@@ -577,6 +581,7 @@ class RenderPipeline:
         encode_phase: JobPhase = JobPhase.ENCODE,
         span: tuple[float, float] = (0.0, 1.0),
         label: str = "Video kaydediliyor",
+        intro_video: Path | None = None,
     ) -> None:
         """Join the clips with transitions and mux the mixed audio.
 
@@ -584,6 +589,10 @@ class RenderPipeline:
         clean-master pass calls this with the same timeline, clips of the same
         length and the same audio plan, so both outputs share one mix by
         construction rather than by a second computation.
+
+        ``intro_video`` is the pre-composited branded opening. It is passed for
+        the primary export only — the clean-master pass calls this with ``None``,
+        which is what keeps the opening out of every Short.
         """
         self._check_cancelled()
         ffmpeg = self.settings.require_tool("ffmpeg")
@@ -648,7 +657,8 @@ class RenderPipeline:
             current = "faded"
             self._record(f"[assemble] final fade-out {fade_length:.2f}s at {fade_start:.2f}s")
 
-        steps.append(f"[{current}]format=yuv420p,fps={fps}[v]")
+        steps.append(f"[{current}]fps={fps}[timed]")
+        current = "timed"
 
         # --- audio ---------------------------------------------------------
         music_path: Path | None = None
@@ -671,6 +681,25 @@ class RenderPipeline:
         for path in plan.inputs:
             args += ["-i", str(path)]
         steps.extend(plan.filters)
+
+        # --- the branded opening -------------------------------------------
+        #
+        # Added last so it lands on top of the finished picture, and after the
+        # audio inputs so its input index cannot disturb the mix's own indices.
+        # ``repeatlast=0`` matters: without it FFmpeg would hold the opening's
+        # final frame over the rest of the film.
+        if intro_video is not None:
+            index = len(clips) + len(plan.inputs)
+            args += ["-i", str(intro_video)]
+            steps.append(f"[{current}]format=rgba[introbase]")
+            steps.append(f"[{index}:v]format=rgba[introcard]")
+            steps.append(
+                "[introbase][introcard]overlay=0:0:eof_action=pass:repeatlast=0[introdone]"
+            )
+            current = "introdone"
+            self._record(f"[intro] composited {intro_video.name} over the opening seconds")
+
+        steps.append(f"[{current}]format=yuv420p[v]")
 
         spec = quality_spec(self.quality, hardware=self.project.export.use_hardware_encoder)
         args += [
@@ -699,6 +728,102 @@ class RenderPipeline:
             log_sink=self._record,
             cancel_event=self.cancel_event,
         )
+
+    async def _build_long_intro(self) -> Path | None:
+        """Draw the branded opening and bake it into one transparent track.
+
+        Additive and never fatal. A project without an opening returns None and
+        the assemble graph is exactly what it always was; a project *with* one
+        that somehow cannot be drawn still produces the film, with a warning,
+        rather than failing a render over a title card.
+        """
+        if not self.project.has_long_intro:
+            return None
+
+        self._check_cancelled()
+        try:
+            track = build_intro_track(
+                self.project.resolved_long_intro(),
+                font_family=self.project.style.font_family,
+                width=self.profile.width,
+                height=self.profile.height,
+                output_dir=self.paths.cards / "intro",
+            )
+            if track.is_empty:
+                return None
+            baked = await self._precompose_intro(track)
+        except CancelledRender:
+            raise
+        except Exception as exc:  # noqa: BLE001 - additive; never fails the export
+            logger.warning("could not draw the branded opening: %s", exc)
+            self._record(f"[intro] failed: {exc}")
+            self.warnings.append(
+                "Videonun açılış kartı çizilemedi, bu yüzden video girişsiz oluşturuldu. "
+                "Videonun kendisi bundan etkilenmedi."
+            )
+            return None
+
+        self._record(
+            f"[intro] {len(track.cards)} card(s), {track.duration_seconds:.2f}s, "
+            f"{track.fade_out_seconds:.2f}s fade, baked into {baked.name}"
+        )
+        return baked
+
+    async def _precompose_intro(self, track: IntroTrack) -> Path:
+        """Bake every intro card into one transparent QT RLE track.
+
+        The same trick the Shorts captions use, for the same reason: the opening
+        is two dozen cards and the assemble graph should gain one input, not two
+        dozen. Cached by content, so a re-render draws and encodes nothing.
+        """
+        cache = self.paths.cards / "intro"
+        cache.mkdir(parents=True, exist_ok=True)
+        target = cache / f"intro-track-{track.digest}-{self.profile.fps}.mov"
+        if target.is_file() and target.stat().st_size > 1_000:
+            return target
+
+        total = track.duration_seconds
+        inputs: list[str] = [
+            "-f", "lavfi", "-t", f"{total:.4f}",
+            "-i",
+            f"color=c=black@0.0:s={self.profile.width}x{self.profile.height}:"
+            f"r={self.profile.fps},format=rgba",
+        ]
+        next_index = 1
+
+        def add_input(path: Path) -> int:
+            nonlocal next_index
+            inputs.extend(["-loop", "1", "-t", f"{total:.4f}", "-i", str(path)])
+            used = next_index
+            next_index += 1
+            return used
+
+        steps, current = intro_overlay_steps(track, current="0:v", add_input=add_input)
+        steps.append(f"[{current}]format=rgba[out]")
+
+        partial = target.with_suffix(".partial.mov")
+        partial.unlink(missing_ok=True)
+        args = [
+            self.settings.require_tool("ffmpeg"),
+            "-hide_banner", "-nostdin", "-y", *progress_args(),
+            *inputs,
+            "-filter_complex", ";".join(steps),
+            "-map", "[out]",
+            *base_output_args(fps=self.profile.fps),
+            "-t", f"{total:.4f}",
+            # QT RLE keeps the alpha channel, which H.264 cannot carry.
+            "-c:v", "qtrle",
+            str(partial),
+        ]
+        await self.runner.run(
+            args,
+            stage="long-intro",
+            expected_duration=total,
+            log_sink=self._record,
+            cancel_event=self.cancel_event,
+        )
+        os.replace(partial, target)
+        return target
 
     async def _prepare_shorts_source(
         self,

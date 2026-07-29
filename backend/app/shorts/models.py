@@ -21,6 +21,7 @@ from pydantic import Field
 
 from app.models.base import CamelModel
 from app.models.enums import JobStatus
+from app.models.project import ShortHook
 
 #: The only output geometry version one produces. YouTube treats vertical or
 #: square video up to three minutes as a Short.
@@ -214,6 +215,44 @@ def resolve_caption_style(style: ShortCaptionStyle | None) -> ShortCaptionStyle:
     return base.model_copy(update=overrides)
 
 
+class ShortHookStyle(ShortCaptionStyle):
+    """How a Short's opening hook is drawn.
+
+    A caption style placed at the top of the canvas instead of the bottom, so it
+    inherits the whole caption vocabulary — the fitter, ``as_text_style``, the
+    card renderer — rather than starting a second text system.
+
+    Deliberately **not** exposed as an editor. The hook is channel identity: the
+    author writes two lines, the app draws them the same way every time. The
+    defaults are tuned for 1080x1920:
+
+    * heavy type, upper case, no box — it sits on the black band above the
+      letterboxed picture (which starts at y=656 for a 1920x1080 source), so
+      there is nothing to separate it from;
+    * ``safe_top_inset`` 200 px, clearing the Shorts player's own top chrome.
+    """
+
+    font_size: int = Field(default=78, ge=20, le=160)
+    font_weight: int = Field(default=900, ge=100, le=900)
+    max_lines: int = Field(default=2, ge=1, le=2)
+    max_width_ratio: float = Field(default=0.88, ge=0.4, le=1.0)
+    min_font_scale: float = Field(default=0.62, ge=0.4, le=1.0)
+    line_spacing: float = Field(default=1.16, ge=0.8, le=2.5)
+    letter_spacing: float = Field(default=1.5, ge=-5.0, le=30.0)
+    box: bool = False
+    outline_width: int = Field(default=0, ge=0, le=12)
+    shadow: bool = True
+    shadow_blur: int = Field(default=26, ge=0, le=64)
+    fade_seconds: float = Field(default=0.16, ge=0.0, le=1.0)
+    #: Distance from the top of the canvas to the top of the hook block.
+    safe_top_inset: int = Field(default=200, ge=40, le=900)
+
+
+#: The one hook design the app draws. A constant rather than a request field:
+#: nothing about a hook is per-Short except its words and its timing.
+DEFAULT_HOOK_STYLE = ShortHookStyle()
+
+
 class ShortLayout(CamelModel):
     """Output design. Version one only renders the defaults below."""
 
@@ -254,9 +293,17 @@ class ShortRequest(CamelModel):
     caption_mode: ShortCaptionMode = ShortCaptionMode.SOURCE_BURNED_IN
     #: ``None`` means "the standard preset". Only consulted in ``shorts-native``.
     caption_style: ShortCaptionStyle | None = None
+    #: The opening hook, normally carried straight over from the authored Shorts
+    #: plan. ``None`` — and a hook with no lines — means no hook is drawn, which
+    #: is exactly what every Short built before this existed did.
+    hook: ShortHook | None = None
 
     def resolved_caption_style(self) -> ShortCaptionStyle:
         return resolve_caption_style(self.caption_style)
+
+    @property
+    def draws_hook(self) -> bool:
+        return self.hook is not None and self.hook.is_visible
 
 
 # --- source discovery -------------------------------------------------------
@@ -425,6 +472,9 @@ class ShortsPreflightResponse(CamelModel):
     caption_support: ShortCaptionSupport = Field(default_factory=ShortCaptionSupport)
     #: How many captions would actually be drawn, after clipping to the cuts.
     caption_cue_count: int = 0
+    #: The opening hook this Short would be drawn with, echoed back so the page
+    #: shows what will be burned in rather than what was typed.
+    hook: ShortHook | None = None
 
 
 # --- outputs ----------------------------------------------------------------
@@ -499,6 +549,8 @@ class ShortManifest(CamelModel):
     #: The fully resolved style, not the partial one the request carried.
     caption_style: ShortCaptionStyle | None = None
     captions: ShortCaptionProvenance | None = None
+    #: The opening hook actually drawn on this Short, or None if it had none.
+    hook: ShortHook | None = None
 
     plan: ShortPlan = Field(default_factory=ShortPlan)
     request: ShortRequest
@@ -526,6 +578,9 @@ class ShortRecord(CamelModel):
     artifacts: list[ShortArtifact] = Field(default_factory=list)
     caption_mode: ShortCaptionMode = ShortCaptionMode.SOURCE_BURNED_IN
     caption_preset: ShortCaptionPreset | None = None
+    #: The hook burned into this Short, so the history can show it. Empty for
+    #: every Short built before hooks existed.
+    hook_lines: list[str] = Field(default_factory=list)
 
 
 class ShortJob(CamelModel):

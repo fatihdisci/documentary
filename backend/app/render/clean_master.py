@@ -13,14 +13,21 @@ timeline, and only ever as an extra:
   same artifacts, same UI;
 * the clean master has identical composition, Ken Burns motion, titles, scene
   text, watermark, scrim, fades, transitions, timing, codec profile, frame rate
-  and audio mix, and differs in exactly one respect: no narration subtitles;
+  and audio mix, and differs in exactly two respects: no narration subtitles and
+  no branded opening;
 * it is cached in its own clip namespace, so building it can never evict or
   invalidate the captioned clips the normal export just used.
 
+The branded opening is excluded for the same reason the captions are. It is a
+*long video's* identity card — a Short that happened to include the intro
+section would otherwise open with the long video's title sequence instead of its
+own hook. Since the opening is composited during assembly rather than burned
+into a scene clip, keeping it out costs nothing but a separate assemble pass.
+
 Two shortcuts are taken, both provably safe:
 
-* if the render had no burned-in subtitles at all, the normal export *is* a
-  clean master, and is recorded as one at zero cost;
+* if the render had no burned-in subtitles *and* no branded opening, the normal
+  export *is* a clean master, and is recorded as one at zero cost;
 * if a clean master with the same content key already exists, it is reused.
 """
 
@@ -75,32 +82,47 @@ def plan_clean_master(project: Project, timeline: Timeline) -> CleanMasterPlan:
         )
 
     burned = bool(project.subtitles.burn_in and timeline.cues)
-    if not burned:
+    branded = project.has_long_intro
+    if not burned and not branded:
         return CleanMasterPlan(
             wanted=True,
             reuse_primary_export=True,
             reason=(
-                "this export has no burned-in subtitles, so it is its own clean master; "
-                "no second pass was needed"
+                "this export has no burned-in subtitles and no branded opening, so it is "
+                "its own clean master; no second pass was needed"
             ),
         )
+
+    reasons = []
+    if burned:
+        reasons.append("subtitles are burned into the export")
+    if branded:
+        reasons.append("the export opens with the channel's branded intro")
     return CleanMasterPlan(
         wanted=True,
         reuse_primary_export=False,
-        reason="subtitles are burned into the export, so a subtitle-free pass was rendered",
+        reason=(
+            f"{' and '.join(reasons)}, so a clean pass was rendered without them "
+            "(turning both off would let the export be its own clean master)"
+        ),
     )
 
 
 def clean_master_project(project: Project) -> Project:
-    """A copy of the project with subtitle burn-in off, and nothing else changed.
+    """A copy of the project with burn-in and the branded opening off.
 
     A deep copy on purpose: the render in flight keeps using the real project
     object, and nothing this branch does can reach it. ``export_srt`` and
     ``export_scene_srt`` are left alone because this branch never writes
     artifacts — the user's ``.srt`` files come from the normal export only.
+
+    The opening is also switched off here, not just omitted from the assemble
+    call, so anything that reads this project — the cache key below, a future
+    stage — sees the same truth: this cut of the film has no intro card.
     """
     clone = project.model_copy(deep=True)
     clone.subtitles.burn_in = False
+    clone.long_intro.enabled = False
     return clone
 
 

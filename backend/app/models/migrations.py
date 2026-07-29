@@ -35,9 +35,50 @@ def _v1_to_v2(raw: RawProject) -> RawProject:
     return working
 
 
+def _v2_to_v3(raw: RawProject) -> RawProject:
+    """v3 added the branded opening and a hook on every planned Short.
+
+    Both are additive and both have working defaults, so the migration only has
+    to make the blocks exist. Two decisions are worth stating:
+
+    * ``longIntro`` is written **enabled**, with its titles left blank. Blank
+      titles resolve to the project's own animal names at render time, so an
+      untouched old project gains the same correct opening every new project
+      gets — which is the whole point of a channel identity — and one toggle in
+      Texts turns it off again. It costs no render time: it is an overlay on the
+      first seconds of the picture, not a new section.
+    * Every planned Short gains an empty ``hook``. Empty means "draw nothing", so
+      a Short re-cut from an old plan is byte-for-byte the Short it was before.
+
+    The one thing that does change for an old project is the Shorts clean
+    master: an intro must never reach the file Shorts are cut from, so a project
+    that renders without burned-in subtitles can no longer publish its export as
+    its own clean master and pays a second pass instead. Turning the intro off
+    restores the shortcut, and the render log says so in as many words.
+    """
+    working = dict(raw)
+    long_intro = working.get("longIntro")
+    working["longIntro"] = dict(long_intro) if isinstance(long_intro, dict) else {"enabled": True}
+
+    plan = working.get("shortsPlan")
+    if isinstance(plan, dict):
+        plan = dict(plan)
+        shorts = plan.get("shorts")
+        if isinstance(shorts, list):
+            plan["shorts"] = [
+                {**item, "hook": item.get("hook") or {"lines": []}}
+                if isinstance(item, dict)
+                else item
+                for item in shorts
+            ]
+        working["shortsPlan"] = plan
+    return working
+
+
 #: Maps "from version" -> function producing the next version's dict.
 MIGRATIONS: dict[int, Callable[[RawProject], RawProject]] = {
     1: _v1_to_v2,
+    2: _v2_to_v3,
 }
 
 

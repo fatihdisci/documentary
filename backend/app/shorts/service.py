@@ -394,6 +394,7 @@ class ShortsService:
             caption_style=style if request.caption_mode.needs_clean_master else None,
             caption_support=support,
             caption_cue_count=rendered_cues,
+            hook=request.hook if request.draws_hook else None,
         )
 
     # --- preview frames -------------------------------------------------
@@ -632,6 +633,7 @@ class ShortsService:
             artifacts=artifacts,
             caption_mode=manifest.caption_mode,
             caption_preset=manifest.caption_style.preset if manifest.caption_style else None,
+            hook_lines=list(manifest.hook.lines) if manifest.hook else [],
         )
 
     def _describe(

@@ -9,9 +9,12 @@
  * * **YouTube-specific** — category, languages, privacy, schedule, flags, the
  *   thumbnail image and the caption file.
  *
- * `thumbnailText` and `thumbnailPrompt` are shown but never uploaded anywhere:
- * they are the notes the user wrote while planning the thumbnail, kept in view
- * while they make the real image.
+ * `thumbnailText`, `thumbnailPrompt`, `hookText` and `longIntroSummary` are shown
+ * but never uploaded anywhere: they are what the video *opens with* — the
+ * thumbnail promise, the Short's first line, the branded intro — kept in view
+ * while the description is written, because they have to say the same thing.
+ * The hook shown here was burned in when the Short was rendered, so editing it
+ * is a note for the next cut rather than a change to this file.
  */
 
 import { useRef } from 'react'
@@ -193,21 +196,40 @@ export function MetadataEditor({
       </div>
 
       {/* --- reference only --- */}
-      <details className="publish-reference">
-        <summary>Thumbnail notları (YouTube'a gönderilmez)</summary>
-        <label className="publish-field" htmlFor="publish-thumbnail-text">
-          <span className="publish-field-head">Thumbnail metni</span>
-          <input
-            id="publish-thumbnail-text"
-            value={draft.common.thumbnailText}
-            disabled={busy}
-            onChange={(event) =>
-              onEdit((next) => {
-                next.common.thumbnailText = event.target.value
-              })
-            }
-          />
-        </label>
+      <details className="publish-reference" open={Boolean(draft.common.hookText)}>
+        <summary>Kapak ve açılış notları (YouTube'a gönderilmez)</summary>
+        {/* Thumbnail text and the Short's hook are the same promise in two
+            places, so they are read side by side rather than on two screens. */}
+        <div className="publish-reference-pair">
+          <label className="publish-field" htmlFor="publish-thumbnail-text">
+            <span className="publish-field-head">Thumbnail metni</span>
+            <input
+              id="publish-thumbnail-text"
+              value={draft.common.thumbnailText}
+              disabled={busy}
+              onChange={(event) =>
+                onEdit((next) => {
+                  next.common.thumbnailText = event.target.value
+                })
+              }
+            />
+          </label>
+          <label className="publish-field" htmlFor="publish-hook-text">
+            <span className="publish-field-head">Short açılış metni</span>
+            <textarea
+              id="publish-hook-text"
+              rows={2}
+              value={draft.common.hookText ?? ''}
+              disabled={busy}
+              placeholder={'WHEN HE DIED,\nTHE SPECIES ENDED'}
+              onChange={(event) =>
+                onEdit((next) => {
+                  next.common.hookText = event.target.value
+                })
+              }
+            />
+          </label>
+        </div>
         <label className="publish-field" htmlFor="publish-thumbnail-prompt">
           <span className="publish-field-head">Thumbnail prompt'u</span>
           <textarea
@@ -222,9 +244,16 @@ export function MetadataEditor({
             }
           />
         </label>
+        {draft.common.longIntroSummary && (
+          <p className="hint publish-long-intro">
+            <strong>Video açılışı:</strong> {draft.common.longIntroSummary}
+          </p>
+        )}
         <p className="hint">
-          Bu iki alan yalnızca sizin için burada duruyor; kapak görselini hazırlarken
-          bakabilesiniz diye. YouTube'a metadata olarak gönderilmezler.
+          Bu alanlar yalnızca sizin için burada duruyor; kapak görselini hazırlarken
+          bakabilesiniz diye. YouTube'a metadata olarak gönderilmezler. Açılış metni bu
+          dosyaya oluşturulurken işlendiği için burada değiştirmek videoyu değiştirmez —
+          not olarak kalır, bir sonraki kesimde Kısa Videolar sekmesinde kullanılır.
         </p>
       </details>
 

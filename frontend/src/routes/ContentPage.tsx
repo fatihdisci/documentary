@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { api, describeError } from '@/api/client'
 import type { ApiErrorPayload } from '@/api/types'
 import type { ImportReport } from '@/api/project-types'
+import { longIntroOf } from '@/api/project-types'
 import { useProjectStore } from '@/store/project'
 import { ErrorBox } from '@/components/ErrorBox'
 import './ContentPage.css'
@@ -70,6 +71,8 @@ export function ContentPage() {
     }
   }
 
+  const longIntro = longIntroOf(project)
+
   return (
     <div className="page">
       <header className="page-header">
@@ -135,6 +138,11 @@ export function ContentPage() {
               {report.scenesUpdated > 0 && <li>{report.scenesUpdated} sahne güncellendi</li>}
               <li>{report.imagesMapped} görsel eşleştirildi</li>
               {report.introImage && <li>Giriş görseli: {report.introImage}</li>}
+              {report.longIntroApplied && <li>Video açılışı dosyadan alındı</li>}
+              {report.ttsApplied && <li>Seslendirme sesi dosyadan alındı</li>}
+              {report.shortsWithHook != null && report.shortsWithHook > 0 && (
+                <li>{report.shortsWithHook} kısa videonun açılış metni hazır</li>
+              )}
             </ul>
             {report.warnings.length > 0 && (
               <div className="warnings">
@@ -194,6 +202,96 @@ export function ContentPage() {
             />
           </label>
         </div>
+      </section>
+
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2>Video açılışı</h2>
+            <p className="muted">
+              Uzun videonun ilk saniyelerinde görünen kanal açılışı: hayvanın adı daktilo
+              efektiyle yazılır, altına Latince adı gelir, üstüne kırmızı damga vurulur. Videoyu
+              uzatmaz — görüntünün üzerine eklenir. Kısa videolara girmez.
+            </p>
+          </div>
+        </div>
+
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={longIntro.enabled}
+            onChange={(e) => edit((d) => void (d.longIntro = { ...longIntro, enabled: e.target.checked }))}
+          />
+          Açılış kartı kullanılsın
+          <span className="hint">
+            {longIntro.enabled
+              ? 'Her videonun başında aynı açılış görünür. Kapatırsanız video doğrudan ilk sahneyle başlar.'
+              : 'Kapalı. Bu video doğrudan ilk sahneyle başlar.'}
+          </span>
+        </label>
+
+        {longIntro.enabled && (
+          <div className="field-grid">
+            <label>
+              Üst yazı
+              <input
+                value={longIntro.primaryTitle}
+                placeholder={project.animal.commonName || 'Hayvanın adı'}
+                onChange={(e) =>
+                  edit((d) => void (d.longIntro = { ...longIntro, primaryTitle: e.target.value }))
+                }
+              />
+              <span className="hint">Boş bırakırsanız hayvanın adı kullanılır.</span>
+            </label>
+            <label>
+              Alt yazı
+              <input
+                value={longIntro.secondaryTitle}
+                placeholder={project.animal.scientificName || 'Latince adı'}
+                onChange={(e) =>
+                  edit((d) => void (d.longIntro = { ...longIntro, secondaryTitle: e.target.value }))
+                }
+              />
+              <span className="hint">Boş bırakırsanız Latince ad kullanılır.</span>
+            </label>
+            <label>
+              Damga yazısı
+              <input
+                value={longIntro.stampText}
+                maxLength={24}
+                onChange={(e) =>
+                  edit((d) => void (d.longIntro = { ...longIntro, stampText: e.target.value }))
+                }
+              />
+              <span className="hint">Boş bırakırsanız damga vurulmaz.</span>
+            </label>
+            <label>
+              Süre (sn)
+              <input
+                type="number"
+                step={0.1}
+                min={0.8}
+                max={6}
+                value={longIntro.duration}
+                onChange={(e) =>
+                  edit((d) => {
+                    const duration = Number(e.target.value)
+                    if (!Number.isFinite(duration)) return
+                    // The typing and the stamp must both still fit inside it;
+                    // the schema rejects an intro whose parts outlast it.
+                    d.longIntro = {
+                      ...longIntro,
+                      duration,
+                      typewriterDuration: Math.min(longIntro.typewriterDuration, duration),
+                      stampAt: Math.min(longIntro.stampAt, duration),
+                    }
+                  })
+                }
+              />
+              <span className="hint">Önerilen: 2–3 saniye.</span>
+            </label>
+          </div>
+        )}
       </section>
 
       <section className="card">

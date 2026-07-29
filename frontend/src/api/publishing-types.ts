@@ -117,6 +117,14 @@ export interface CommonDraft {
   /** Reference only; never sent to any platform. */
   thumbnailText: string
   thumbnailPrompt: string
+  /**
+   * The Short's opening hook and a one-line summary of the long video's branded
+   * opening. Both reference only, and both absent from a backend that predates
+   * them. The hook is already burned into a rendered Short, so editing it here
+   * is a note for the next cut.
+   */
+  hookText?: string
+  longIntroSummary?: string
 }
 
 export interface PublishDraft {

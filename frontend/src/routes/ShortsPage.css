@@ -181,6 +181,20 @@
 .caption-blocking { margin-top: 12px; }
 .caption-blocking button { margin-top: 6px; }
 
+/* --- the opening hook --------------------------------------------------- */
+
+.hook-lines { display: flex; gap: 10px; flex-wrap: wrap; }
+.hook-lines label { flex: 1 1 220px; }
+.hook-lines input { text-transform: uppercase; font-weight: 600; letter-spacing: 0.02em; }
+.hook-note, .hook-preview { margin: 8px 0 0; font-size: 12px; }
+/* The authored hook on a plan card, shown the way it will be drawn. */
+.planned-hook {
+  display: flex; flex-direction: column; gap: 1px;
+  margin: 8px 0 4px; padding: 8px 10px;
+  border-left: 2px solid var(--accent); background: var(--bg-panel);
+  font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em;
+}
+
 /* --- 9:16 preview ------------------------------------------------------- */
 
 .preview-row { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }

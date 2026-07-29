@@ -1,55 +1,115 @@
 {
-  "contentSchemaVersion": 1,
+  "contentSchemaVersion": 2,
   "commonName": "Dodo",
   "scientificName": "Raphus cucullatus",
   "videoTitle": "The Dodo: How We Erased a Bird in a Single Lifetime",
   "description": "The dodo vanished from Mauritius less than a century after humans first set foot on the island. This is the story of what it actually was, how it lived, and how quickly it disappeared.\n\nChapters:\n00:00 A bird that never learned to fear\n00:35 An island without predators\n01:10 What the dodo really looked like\n01:45 A diet of fallen fruit\n02:20 The ships arrive\n02:55 Rats, pigs and monkeys\n03:30 The last confirmed sighting\n04:05 Bones in the swamp\n04:40 What the dodo taught us\n05:15 The ones we can still save\n\n#dodo #extinction #naturalhistory",
-  "tags": ["dodo", "extinct animals", "Mauritius", "natural history", "extinction", "documentary"],
+  "tags": [
+    "dodo",
+    "extinct animals",
+    "Mauritius",
+    "natural history",
+    "extinction",
+    "documentary"
+  ],
   "thumbnailText": "GONE IN 100 YEARS",
   "thumbnailPrompt": "Photorealistic dodo standing in dappled forest light on Mauritius, shallow depth of field, golden hour, dramatic rim lighting, 16:9 cinematic composition with empty space on the right for text",
-
+  "longIntro": {
+    "enabled": true,
+    "introStyle": "typewriter-stamp",
+    "primaryTitle": "Dodo",
+    "secondaryTitle": "Raphus cucullatus",
+    "stampText": "EXTINCT",
+    "duration": 2.6,
+    "typewriterDuration": 1.3,
+    "stampAt": 1.7
+  },
   "pronunciation": {
     "Raphus cucullatus": "RAH-fus koo-koo-LAH-tus",
     "Mauritius": "muh-RISH-us",
     "Mascarene": "MASS-kuh-reen"
   },
-
+  "tts": {
+    "provider": "kokoro",
+    "voice": "af_bella",
+    "speechRate": 0.9,
+    "notes": "Plain English, no SSML. The scientific name is spoken once, in the intro."
+  },
   "shortsPlan": {
     "version": 1,
     "captionMode": "shorts-native",
     "captionPreset": "large",
-    "recommendedReleaseOrder": ["last-sighting", "bird-without-fear"],
+    "recommendedReleaseOrder": [
+      "last-sighting",
+      "bird-without-fear"
+    ],
     "shorts": [
       {
         "id": "last-sighting",
         "priority": 1,
         "purpose": "A disappearance hook built around the final confirmed record.",
         "sections": [
-          { "kind": "scene", "number": 8 },
-          { "kind": "scene", "number": 9 }
+          {
+            "kind": "scene",
+            "number": 8
+          },
+          {
+            "kind": "scene",
+            "number": 9
+          }
         ],
         "estimatedDurationSeconds": 42,
+        "hook": {
+          "enabled": true,
+          "lines": [
+            "The last one was seen",
+            "and then nothing"
+          ],
+          "startSeconds": 0.0,
+          "durationSeconds": 1.4
+        },
         "youtube": {
           "title": "The Dodo's Last Confirmed Sighting",
-          "alternativeTitles": ["When the Dodo Vanished"],
+          "alternativeTitles": [
+            "When the Dodo Vanished"
+          ],
           "description": "The last widely accepted dodo sighting came in sixteen sixty-two. What remained after that were bones, fragments and a warning.\n\nWatch the full documentary:\nFULL_VIDEO_URL\n\n#Dodo #ExtinctAnimals #Shorts",
-          "tags": ["dodo", "extinct animals", "Mauritius", "natural history"],
-          "hashtags": ["#Dodo", "#ExtinctAnimals", "#Shorts"],
+          "tags": [
+            "dodo",
+            "extinct animals",
+            "Mauritius",
+            "natural history"
+          ],
+          "hashtags": [
+            "#Dodo",
+            "#ExtinctAnimals",
+            "#Shorts"
+          ],
           "pinnedComment": "Sixteen sixty-two is the last widely accepted sighting, although later reports remain disputed."
         },
         "instagram": {
           "caption": "The dodo disappeared before science had time to understand it.",
-          "hashtags": ["#Dodo", "#ExtinctAnimals", "#NaturalHistory"],
+          "hashtags": [
+            "#Dodo",
+            "#ExtinctAnimals",
+            "#NaturalHistory"
+          ],
           "cta": "Watch the full documentary: FULL_VIDEO_URL"
         },
         "facebook": {
           "caption": "The last widely accepted dodo sighting came in sixteen sixty-two. Later reports remain disputed, but the species had vanished by the end of that century.",
-          "hashtags": ["#Dodo", "#ExtinctAnimals"],
+          "hashtags": [
+            "#Dodo",
+            "#ExtinctAnimals"
+          ],
           "cta": "Watch the full documentary: FULL_VIDEO_URL"
         },
         "tiktok": {
           "caption": "The dodo vanished before science could fully describe it.",
-          "hashtags": ["#Dodo", "#ExtinctAnimals"],
+          "hashtags": [
+            "#Dodo",
+            "#ExtinctAnimals"
+          ],
           "cta": "Watch the full story."
         }
       },
@@ -58,37 +118,72 @@
         "priority": 2,
         "purpose": "Explain the biology behind the dodo's famous lack of fear.",
         "sections": [
-          { "kind": "scene", "number": 1 },
-          { "kind": "scene", "number": 2 }
+          {
+            "kind": "scene",
+            "number": 1
+          },
+          {
+            "kind": "scene",
+            "number": 2
+          }
         ],
         "estimatedDurationSeconds": 39,
+        "hook": {
+          "enabled": true,
+          "lines": [
+            "This bird had never",
+            "met a predator"
+          ],
+          "startSeconds": 0.0,
+          "durationSeconds": 1.4
+        },
         "youtube": {
           "title": "Why the Dodo Had No Fear",
-          "alternativeTitles": ["A Bird That Never Learned to Run"],
+          "alternativeTitles": [
+            "A Bird That Never Learned to Run"
+          ],
           "description": "The dodo evolved on an island without native land predators. Fear was not missing because the bird was foolish. It had never needed it.\n\nWatch the full documentary:\nFULL_VIDEO_URL\n\n#Dodo #Evolution #Shorts",
-          "tags": ["dodo", "evolution", "Mauritius", "extinct birds"],
-          "hashtags": ["#Dodo", "#Evolution", "#Shorts"],
+          "tags": [
+            "dodo",
+            "evolution",
+            "Mauritius",
+            "extinct birds"
+          ],
+          "hashtags": [
+            "#Dodo",
+            "#Evolution",
+            "#Shorts"
+          ],
           "pinnedComment": "The dodo was adapted to its original island ecosystem, not poorly adapted in general."
         },
         "instagram": {
           "caption": "The dodo did not lack intelligence. It evolved in a place where running from land predators was unnecessary.",
-          "hashtags": ["#Dodo", "#Evolution", "#ExtinctAnimals"],
+          "hashtags": [
+            "#Dodo",
+            "#Evolution",
+            "#ExtinctAnimals"
+          ],
           "cta": "Watch the full documentary: FULL_VIDEO_URL"
         },
         "facebook": {
           "caption": "For millions of years, no native land mammal hunted the dodo on Mauritius. Its lack of fear made sense until people and introduced animals arrived.",
-          "hashtags": ["#Dodo", "#NaturalHistory"],
+          "hashtags": [
+            "#Dodo",
+            "#NaturalHistory"
+          ],
           "cta": "Watch the full documentary: FULL_VIDEO_URL"
         },
         "tiktok": {
           "caption": "The dodo was not stupid. It had never needed to fear a land predator.",
-          "hashtags": ["#Dodo", "#Evolution"],
+          "hashtags": [
+            "#Dodo",
+            "#Evolution"
+          ],
           "cta": "Watch the full story."
         }
       }
     ]
   },
-
   "intro": {
     "title": "The Dodo",
     "subtitle": "Raphus cucullatus",
@@ -96,7 +191,6 @@
     "narration": "In 1598, Dutch sailors stepped onto an island no human had ever settled. Waiting for them was a bird that had never seen a predator, and had no reason to run. Within a single human lifetime, it was gone forever.",
     "imagePrompt": "Wide cinematic establishing shot of a misty Mauritius forest at dawn, a lone dodo silhouette in the distance, volumetric light through the canopy, muted colours, 16:9"
   },
-
   "scenes": [
     {
       "title": "A Bird Without Fear",
@@ -199,7 +293,6 @@
       "focusY": 0.45
     }
   ],
-
   "outro": {
     "title": "Raphus cucullatus",
     "subtitle": "c. 8 million years ago — c. 1662",

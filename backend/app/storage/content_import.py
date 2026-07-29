@@ -15,7 +15,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from app.errors import ErrorCode, ValidationError
 from app.models.base import CamelModel
-from app.models.content import ContentPackage, ContentScene, ContentSection
+from app.models.content import ContentPackage, ContentScene, ContentSection, ContentTTS
 from app.models.enums import AnimationPreset
 from app.models.project import Project, Scene, Section, TextTiming
 from app.storage.layout import ProjectPaths
@@ -37,6 +37,12 @@ class ImportReport(CamelModel):
     unmapped_scenes: list[int] = []
     unused_images: list[str] = []
     warnings: list[str] = []
+    #: True when the package carried a branded opening and it was applied.
+    long_intro_applied: bool = False
+    #: How many planned Shorts arrived with a hook ready to draw.
+    shorts_with_hook: int = 0
+    #: True when the package named a narration voice and it was applied.
+    tts_applied: bool = False
 
 
 def parse_content_json(text: str, *, max_bytes: int) -> ContentPackage:
@@ -110,6 +116,14 @@ def apply_content(
     if package.pronunciation:
         project.pronunciation = {**project.pronunciation, **package.pronunciation}
     project.shorts_plan = package.shorts_plan.model_copy(deep=True)
+    report.shorts_with_hook = sum(
+        1 for item in project.shorts_plan.shorts if item.hook.is_visible
+    )
+
+    if package.long_intro is not None:
+        project.long_intro = package.long_intro.model_copy(deep=True)
+        report.long_intro_applied = True
+    report.tts_applied = _apply_tts(project, package.tts)
 
     _apply_section(project.intro, package.intro)
     _apply_section(project.outro, package.outro)
@@ -159,6 +173,27 @@ def apply_content(
         report.images_mapped,
     )
     return report
+
+
+def _apply_tts(project: Project, tts: ContentTTS) -> bool:
+    """Apply the package's narration hints, field by field.
+
+    Only fields the package actually set are touched, so a package that names a
+    voice but no rate leaves the user's rate alone. Mix settings — volumes,
+    loudness, ducking — are never imported: a content package writes words, not
+    a mix.
+    """
+    if tts.is_empty:
+        return False
+    if tts.provider is not None:
+        project.audio.tts_provider = tts.provider
+    if tts.voice:
+        project.audio.voice = tts.voice
+    if tts.speech_rate is not None:
+        project.audio.speech_rate = tts.speech_rate
+    if tts.speech_pitch is not None:
+        project.audio.speech_pitch = tts.speech_pitch
+    return True
 
 
 def _apply_section(section: Section, content: ContentSection) -> None:

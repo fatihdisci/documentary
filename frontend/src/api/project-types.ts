@@ -227,12 +227,42 @@ export interface PlannedSocialMetadata {
   cta: string
 }
 
+/**
+ * The one-second promise a Short opens with.
+ *
+ * Drawn over the black band above the picture during the Short's compose pass —
+ * never burned into the long video, and never into the file the Short was cut
+ * from. Empty `lines` means no hook, which is what every Short built before this
+ * existed had.
+ */
+export interface ShortHook {
+  enabled: boolean
+  /** At most two lines. Upper case is applied when drawing. */
+  lines: string[]
+  startSeconds: number
+  durationSeconds: number
+}
+
+export const EMPTY_HOOK: ShortHook = {
+  enabled: true,
+  lines: [],
+  startSeconds: 0,
+  durationSeconds: 1.4,
+}
+
+/** A backend predating hooks sends no `hook`; treat that as "nothing to draw". */
+export function hookOf(planned: { hook?: ShortHook | null } | null | undefined): ShortHook {
+  return planned?.hook ?? EMPTY_HOOK
+}
+
 export interface PlannedShort {
   id: string
   priority: number
   purpose: string
   sections: PlannedSection[]
   estimatedDurationSeconds: number | null
+  /** Absent on plans authored before hooks existed. */
+  hook?: ShortHook
   youtube: PlannedYouTubeMetadata
   instagram: PlannedSocialMetadata
   facebook: PlannedSocialMetadata
@@ -245,6 +275,58 @@ export interface ShortsPlan {
   captionPreset: 'standard' | 'large' | 'compact'
   recommendedReleaseOrder: string[]
   shorts: PlannedShort[]
+}
+
+export type IntroStyle = 'typewriter-stamp' | 'plain-title'
+
+/**
+ * The channel's branded opening, drawn over the first seconds of a long video.
+ *
+ * An overlay, not a section: turning it on adds no time to the video and moves
+ * no scene. `primaryTitle` and `secondaryTitle` fall back to the project's
+ * animal names when blank, which is why an untouched project still opens
+ * correctly.
+ */
+export interface LongIntro {
+  enabled: boolean
+  introStyle: IntroStyle
+  primaryTitle: string
+  secondaryTitle: string
+  stampText: string
+  /** Seconds. */
+  duration: number
+  typewriterDuration: number
+  stampAt: number
+  fadeOutSeconds: number
+  primaryColor: string
+  secondaryColor: string
+  stampColor: string
+  scrimOpacity: number
+}
+
+/**
+ * What the backend's own defaults are, for a project returned by a build that
+ * predates the opening. Editing then sends a complete block, which the backend
+ * validates like any other.
+ */
+export const DEFAULT_LONG_INTRO: LongIntro = {
+  enabled: true,
+  introStyle: 'typewriter-stamp',
+  primaryTitle: '',
+  secondaryTitle: '',
+  stampText: 'EXTINCT',
+  duration: 2.6,
+  typewriterDuration: 1.3,
+  stampAt: 1.7,
+  fadeOutSeconds: 0.4,
+  primaryColor: '#FFFFFF',
+  secondaryColor: '#D7D2C8',
+  stampColor: '#C0271F',
+  scrimOpacity: 0.55,
+}
+
+export function longIntroOf(project: { longIntro?: LongIntro | null } | null): LongIntro {
+  return project?.longIntro ?? DEFAULT_LONG_INTRO
 }
 
 export interface Project {
@@ -263,6 +345,8 @@ export interface Project {
   intro: Section
   scenes: Scene[]
   outro: Section
+  /** Absent only on projects returned by a backend predating the branded opening. */
+  longIntro?: LongIntro
   pronunciation: Record<string, string>
   /** Absent only on projects returned by a backend predating authored Shorts plans. */
   shortsPlan?: ShortsPlan
@@ -327,6 +411,10 @@ export interface ImportReport {
   unmappedScenes: number[]
   unusedImages: string[]
   warnings: string[]
+  /** All three absent from a backend predating the turnkey content package. */
+  longIntroApplied?: boolean
+  shortsWithHook?: number
+  ttsApplied?: boolean
 }
 
 export interface ImageMapping {

@@ -1,6 +1,7 @@
 /** Shorts wire types (backend/app/shorts/models.py, backend/app/api/shorts.py). */
 
 import type { JobStatus } from './render-types'
+import type { ShortHook } from './project-types'
 
 export type ShortPhase =
   | 'validate-source' | 'plan' | 'cut-segments' | 'concat'
@@ -106,6 +107,12 @@ export interface ShortRequest {
   /** Omitted means `source-burned-in`, which is the pre-captions behaviour. */
   captionMode?: ShortCaptionMode
   captionStyle?: ShortCaptionStyle
+  /**
+   * The opening hook, drawn over the black band above the picture for the first
+   * beat. Omitted means no hook, which is what every Short built before this
+   * existed had — same pixels, same cache key.
+   */
+  hook?: ShortHook
 }
 
 export interface ShortSourceRender {
@@ -218,6 +225,8 @@ export interface ShortsPreflightResponse {
   captionStyle?: ShortCaptionStyle | null
   captionSupport?: ShortCaptionSupport
   captionCueCount?: number
+  /** The hook that would actually be drawn, echoed back. */
+  hook?: ShortHook | null
 }
 
 export interface ShortArtifact {
@@ -246,6 +255,8 @@ export interface ShortRecord {
   artifacts: ShortArtifact[]
   captionMode?: ShortCaptionMode
   captionPreset?: ShortCaptionPreset | null
+  /** The hook burned into this Short. Empty for Shorts built before hooks. */
+  hookLines?: string[]
 }
 
 export interface ShortJob {

@@ -291,8 +291,13 @@ async def import_content_file(
 
 @router.get("/{slug}/content/export", response_model=ContentPackage)
 def export_content(slug: str) -> ContentPackage:
-    """Export the project's authored content back out as a content package."""
-    from app.models.content import ContentScene, ContentSection
+    """Export the project's authored content back out as a content package.
+
+    A round trip: what comes out here imports back into an empty project and
+    produces the same video, the same branded opening, the same Shorts plan with
+    the same hooks, and the same narration voice.
+    """
+    from app.models.content import ContentScene, ContentSection, ContentTTS
 
     project = repo().load(slug)
     return ContentPackage(
@@ -304,6 +309,13 @@ def export_content(slug: str) -> ContentPackage:
         thumbnail_text=project.metadata.thumbnail_text,
         thumbnail_prompt=project.metadata.thumbnail_prompt,
         pronunciation=project.pronunciation,
+        tts=ContentTTS(
+            provider=project.audio.tts_provider,
+            voice=project.audio.voice,
+            speech_rate=project.audio.speech_rate,
+            speech_pitch=project.audio.speech_pitch,
+        ),
+        long_intro=project.long_intro,
         shorts_plan=project.shorts_plan,
         intro=ContentSection(
             title=project.intro.title,

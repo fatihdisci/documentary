@@ -27,7 +27,8 @@ import type {
 import { captionSupportOf } from '@/api/shorts-types'
 import { attachJobStream, type JobStream } from '@/lib/jobStream'
 import type { Selection } from '@/lib/shortsPlan'
-import type { PlannedSection } from '@/api/project-types'
+import type { PlannedSection, ShortHook } from '@/api/project-types'
+import { EMPTY_HOOK } from '@/api/project-types'
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled', 'interrupted'])
 
@@ -43,6 +44,12 @@ interface ShortsState {
   /** Where this Short's captions come from. Defaults to the legacy behaviour. */
   captionMode: ShortCaptionMode
   captionPreset: ShortCaptionPreset
+  /**
+   * The opening hook this Short will be burned with. Filled from the authored
+   * plan when a planned Short is applied, and editable before rendering —
+   * afterwards it is in the pixels, so changing it means a new Short.
+   */
+  hook: ShortHook
   preflight: ShortsPreflightResponse | null
   job: ShortJob | null
   event: ShortJobEvent | null
@@ -60,11 +67,13 @@ interface ShortsState {
   setTrim: (slug: string, unitId: string, edge: 'start' | 'end', value: number | null) => void
   setCaptionMode: (slug: string, mode: ShortCaptionMode) => void
   setCaptionPreset: (slug: string, preset: ShortCaptionPreset) => void
+  setHookLines: (slug: string, lines: string[]) => void
   applyPlannedShort: (
     slug: string,
     sections: PlannedSection[],
     mode: ShortCaptionMode,
     preset: ShortCaptionPreset,
+    hook?: ShortHook,
   ) => void
   refreshPreflight: (slug: string) => Promise<void>
   start: (slug: string) => Promise<void>
@@ -95,6 +104,7 @@ export function requestFor(
   renderId: string,
   selection: Selection[],
   captions?: { mode: ShortCaptionMode; preset: ShortCaptionPreset },
+  hook?: ShortHook,
 ): ShortRequest {
   const request: ShortRequest = {
     sourceRenderId: renderId,
@@ -109,6 +119,11 @@ export function requestFor(
   if (captions && captions.mode !== 'source-burned-in') {
     request.captionMode = captions.mode
     if (captions.mode === 'shorts-native') request.captionStyle = { preset: captions.preset }
+  }
+  // Same rule for the hook: an empty one is left out entirely rather than sent
+  // as "draw nothing", so it cannot change an existing Short's identity.
+  if (hook && hook.enabled && hook.lines.some((line) => line.trim())) {
+    request.hook = { ...hook, lines: hook.lines.map((line) => line.trim()).filter(Boolean) }
   }
   return request
 }
@@ -133,6 +148,7 @@ export const useShortsStore = create<ShortsState>((set, get) => {
     selection: [],
     captionMode: 'source-burned-in',
     captionPreset: 'standard',
+    hook: EMPTY_HOOK,
     preflight: null,
     job: null,
     event: null,
@@ -238,7 +254,12 @@ export const useShortsStore = create<ShortsState>((set, get) => {
       if (get().captionMode === 'shorts-native') schedulePreflight(slug)
     },
 
-    applyPlannedShort: (slug, sections, mode, preset) => {
+    setHookLines: (slug, lines) => {
+      set({ hook: { ...get().hook, lines: lines.slice(0, 2) } })
+      schedulePreflight(slug)
+    },
+
+    applyPlannedShort: (slug, sections, mode, preset, hook) => {
       const timeline = get().timeline
       if (!timeline) return
       const selected: Selection[] = []
@@ -270,6 +291,8 @@ export const useShortsStore = create<ShortsState>((set, get) => {
         selection: selected,
         captionMode: mode,
         captionPreset: preset,
+        // The plan's hook comes with its sections: they were authored together.
+        hook: hook ?? EMPTY_HOOK,
         preflight: null,
         error: null,
       })
@@ -277,7 +300,7 @@ export const useShortsStore = create<ShortsState>((set, get) => {
     },
 
     refreshPreflight: async (slug) => {
-      const { selectedRenderId, selection, captionMode, captionPreset } = get()
+      const { selectedRenderId, selection, captionMode, captionPreset, hook } = get()
       if (!selectedRenderId || selection.length === 0) {
         set({ preflight: null })
         return
@@ -285,7 +308,9 @@ export const useShortsStore = create<ShortsState>((set, get) => {
       try {
         const preflight = await api.shortsPreflight(
           slug,
-          requestFor(selectedRenderId, selection, { mode: captionMode, preset: captionPreset }),
+          requestFor(
+            selectedRenderId, selection, { mode: captionMode, preset: captionPreset }, hook,
+          ),
         )
         set({ preflight, error: null })
       } catch (err) {
@@ -294,13 +319,15 @@ export const useShortsStore = create<ShortsState>((set, get) => {
     },
 
     start: async (slug) => {
-      const { selectedRenderId, selection, captionMode, captionPreset } = get()
+      const { selectedRenderId, selection, captionMode, captionPreset, hook } = get()
       if (!selectedRenderId || selection.length === 0) return
       set({ busy: true, error: null, event: null })
       try {
         const job = await api.createShort(
           slug,
-          requestFor(selectedRenderId, selection, { mode: captionMode, preset: captionPreset }),
+          requestFor(
+            selectedRenderId, selection, { mode: captionMode, preset: captionPreset }, hook,
+          ),
         )
         set({ job })
         if (TERMINAL.has(job.status)) {

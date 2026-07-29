@@ -361,6 +361,11 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
             draft.facebook.hashtags = [...planned.facebook.hashtags]
             draft.tiktok.caption = socialText(planned.tiktok.caption, planned.tiktok.cta)
             draft.tiktok.hashtags = [...planned.tiktok.hashtags]
+            // The hook is part of the plan, so refilling from the plan restores
+            // it alongside the copy it was written with.
+            draft.common.hookText = (planned.hook?.lines ?? []).join('\n')
+            draft.common.thumbnailText = metadata.thumbnailText
+            draft.common.thumbnailPrompt = metadata.thumbnailPrompt
             return
           }
           draft.common.title = metadata.videoTitle || project.project.name

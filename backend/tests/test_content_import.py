@@ -163,18 +163,29 @@ class TestApplyContent:
         assert diet_scene.focus_y == pytest.approx(0.55)
 
     def test_does_not_touch_render_settings(self, repository: ProjectRepository) -> None:
-        """Import brings content, never overrides how the user configured output."""
+        """Import brings content, never overrides how the user configured output.
+
+        The narration voice is the one exception, and only when the package says
+        so out loud: a ``tts`` block is authored content ("read this with this
+        voice"), so it is applied. Everything about *how the video is made* —
+        resolution, frame rate, duration, quality, the mix — stays the user's.
+        """
         project = repository.create("Dodo")
         project.video.fps = 30
         project.video.target_duration_seconds = 420.0
         project.audio.voice = "en-GB-SoniaNeural"
+        project.audio.target_lufs = -14.0
+        project.audio.music_volume_db = -25.0
 
         package = parse_content_json(json.dumps(load_dodo_package()), max_bytes=10_000_000)
         apply_content(project, package, paths=repository.paths_for(project.slug))
 
         assert project.video.fps == 30
         assert project.video.target_duration_seconds == 420.0
-        assert project.audio.voice == "en-GB-SoniaNeural"
+        assert project.audio.target_lufs == -14.0
+        assert project.audio.music_volume_db == -25.0
+        # The example package names its own voice, so that one does change.
+        assert project.audio.voice == package.tts.voice
 
     def test_update_mode_preserves_per_scene_tuning(self, repository: ProjectRepository) -> None:
         project = repository.create("Dodo")
@@ -379,3 +390,73 @@ class TestImageMapping:
         )
 
         assert any("does-not-exist.png" in w for w in report.warnings)
+
+
+class TestTurnkeyPackage:
+    """v2 packages carry the whole animal: opening, voice and Shorts hooks."""
+
+    def test_the_bundled_example_is_a_complete_package(self) -> None:
+        package = parse_content_json(json.dumps(load_dodo_package()), max_bytes=10_000_000)
+        assert package.content_schema_version == 2
+        assert package.long_intro is not None
+        assert package.long_intro.primary_title == "Dodo"
+        assert package.long_intro.stamp_text == "EXTINCT"
+        assert package.tts.voice == "af_bella"
+        assert package.shorts_plan.shorts, "the example must ship a Shorts plan"
+        for planned in package.shorts_plan.shorts:
+            assert planned.hook.is_visible, f"{planned.id} has no hook"
+            assert len(planned.hook.lines) <= 2
+
+    def test_importing_it_fills_the_opening_the_voice_and_the_hooks(
+        self, repository: ProjectRepository
+    ) -> None:
+        project = repository.create("Dodo")
+        paths = repository.paths_for(project.slug)
+        package = parse_content_json(json.dumps(load_dodo_package()), max_bytes=10_000_000)
+
+        report = apply_content(project, package, paths=paths)
+
+        assert project.long_intro.primary_title == "Dodo"
+        assert project.has_long_intro is True
+        assert project.audio.voice == "af_bella"
+        assert [s.hook.lines for s in project.shorts_plan.shorts] == [
+            s.hook.lines for s in package.shorts_plan.shorts
+        ]
+        assert report.long_intro_applied is True
+        assert report.tts_applied is True
+        assert report.shorts_with_hook == len(package.shorts_plan.shorts)
+
+    def test_a_v1_package_leaves_the_projects_own_settings_alone(
+        self, repository: ProjectRepository
+    ) -> None:
+        """No `longIntro` and no `tts` must mean "keep what the project has"."""
+        project = repository.create("Dodo")
+        project.long_intro.primary_title = "MY OWN TITLE"
+        project.audio.voice = "af_heart"
+
+        raw = load_dodo_package()
+        raw.pop("longIntro")
+        raw.pop("tts")
+        raw["contentSchemaVersion"] = 1
+        package = parse_content_json(json.dumps(raw), max_bytes=10_000_000)
+
+        report = apply_content(project, package, paths=repository.paths_for(project.slug))
+
+        assert project.long_intro.primary_title == "MY OWN TITLE"
+        assert project.audio.voice == "af_heart"
+        assert report.long_intro_applied is False
+        assert report.tts_applied is False
+
+    def test_a_package_that_names_only_a_voice_keeps_the_users_rate(
+        self, repository: ProjectRepository
+    ) -> None:
+        project = repository.create("Dodo")
+        project.audio.speech_rate = 1.25
+
+        raw = load_dodo_package()
+        raw["tts"] = {"voice": "af_nicole"}
+        package = parse_content_json(json.dumps(raw), max_bytes=10_000_000)
+        apply_content(project, package, paths=repository.paths_for(project.slug))
+
+        assert project.audio.voice == "af_nicole"
+        assert project.audio.speech_rate == 1.25

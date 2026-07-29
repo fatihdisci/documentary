@@ -63,6 +63,7 @@ from app.shorts.captions import (
     track_digest,
 )
 from app.shorts.cues import CueSidecar, RebasedCue, rebase_cues
+from app.shorts.hooks import HookCard, build_hook_card, overlay_steps as hook_overlay_steps
 from app.shorts.manifest import (
     RenderManifest,
     ShortsSourcePackage,
@@ -70,6 +71,7 @@ from app.shorts.manifest import (
     verify_source,
 )
 from app.shorts.models import (
+    DEFAULT_HOOK_STYLE,
     ShortArtifact,
     ShortCaptionMode,
     ShortCaptionProvenance,
@@ -190,6 +192,10 @@ class ShortsPipeline:
         self._cut = 0
         self._captions: CaptionTrack = CaptionTrack()
         self._rebased: list[RebasedCue] = []
+        #: The opening hook, drawn on the vertical canvas in every caption mode.
+        #: It comes from the authored Shorts plan and is composed here, never
+        #: burned into the source the cut came out of.
+        self._hook: HookCard | None = None
 
     # --- plumbing ---------------------------------------------------------
 
@@ -270,8 +276,11 @@ class ShortsPipeline:
 
             joined = await self._materialize(work)
 
-            # 4. Captions, in native mode only.
+            # 4. Captions, in native mode only — and the opening hook, which is
+            #    drawn in every mode because it is composed onto the canvas
+            #    rather than taken from the source.
             await self._build_captions(work)
+            self._build_hook()
             self._finish_phase(ShortPhase.BUILD_CAPTIONS)
 
             # 5. Lay the horizontal picture on the vertical canvas, then draw the
@@ -540,6 +549,40 @@ class ShortsPipeline:
                 f"[captions] pre-composited into {self._captions.precomposed.name}"
             )
 
+    def _build_hook(self) -> None:
+        """Draw the Short's opening hook, if it has one.
+
+        Independent of caption mode on purpose: a hook is composed onto the
+        vertical canvas, so it works just as well over a cut of the captioned
+        export as over a clean master. A Short whose request carries no hook —
+        every Short built before hooks existed — draws nothing here and produces
+        exactly the pixels it always did.
+        """
+        if self.request.hook is None or not self.request.hook.is_visible:
+            return
+        self._check_cancelled()
+        self._hook = build_hook_card(
+            self.request.hook,
+            DEFAULT_HOOK_STYLE,
+            canvas_width=self.layout.width,
+            canvas_height=self.layout.height,
+            total_duration_seconds=self.plan.total_duration_seconds,
+            output_dir=self.paths.shorts_cache / "hook-cards",
+        )
+        if self._hook is None:
+            self.warnings.append(
+                "Kısa videonun açılış metni, seçilen bölümlerin süresine sığmadığı için "
+                "eklenmedi. Görüntü ve ses bundan etkilenmedi."
+            )
+            return
+        self._record(
+            f"[hook] {len(self.request.hook.lines)} line(s) at "
+            f"{self._hook.fitted_font_size}px, {self._hook.start_seconds:.2f}s -> "
+            f"{self._hook.end_seconds:.2f}s, box "
+            f"{self._hook.card.box_width}x{self._hook.card.box_height} at "
+            f"({self._hook.card.box_x},{self._hook.card.box_y})"
+        )
+
     async def _precompose_captions(self, work: Path) -> Path:
         """Bake every caption card into one transparent QT RLE track."""
         digest = track_digest(
@@ -674,6 +717,18 @@ class ShortsPipeline:
             )
             steps.extend(caption_steps)
 
+        # The hook goes on last, on the black band above the picture. Captions
+        # sit below the picture, so the two never meet whatever the source's
+        # aspect ratio turns out to be.
+        if self._hook is not None:
+            hook_steps, current = hook_overlay_steps(
+                self._hook,
+                style=DEFAULT_HOOK_STYLE,
+                current=current,
+                add_input=add_input,
+            )
+            steps.extend(hook_steps)
+
         steps.append(f"[{current}]format=yuv420p[v]")
 
         args = [
@@ -741,6 +796,7 @@ class ShortsPipeline:
                 else None
             ),
             captions=self._provenance(),
+            hook=self.request.hook if self._hook is not None else None,
             plan=self.plan,
             request=self.request,
             validation=validation.to_dict(),

@@ -26,10 +26,13 @@ import json
 import logging
 
 from app.errors import ErrorCode, ValidationError
+from app.models.project import ShortHook
 from app.shorts.captions import CAPTION_RENDERER_VERSION
 from app.shorts.encode import encoder_fingerprint
+from app.shorts.hooks import HOOK_RENDERER_VERSION
 from app.shorts.manifest import ManifestEntry, RenderManifest
 from app.shorts.models import (
+    DEFAULT_HOOK_STYLE,
     MAX_SHORT_SECONDS,
     MIN_CLIP_SECONDS,
     RECOMMENDED_MAX_SECONDS,
@@ -82,6 +85,7 @@ def build_plan(manifest: RenderManifest, request: ShortRequest) -> ShortPlan:
         request.layout,
         caption_mode=request.caption_mode,
         caption_style=request.resolved_caption_style(),
+        hook=request.hook,
     )
     return plan
 
@@ -285,19 +289,21 @@ def cache_key(
     *,
     caption_mode: ShortCaptionMode = ShortCaptionMode.SOURCE_BURNED_IN,
     caption_style: ShortCaptionStyle | None = None,
+    hook: ShortHook | None = None,
 ) -> str:
     """A deterministic content address for one Short.
 
     Two requests that would produce the same pixels produce the same key; any
-    change to the source file, the cut points, the layout, the captions or the
-    encoder produces a different one. That is what makes reuse safe: a cache hit
-    can never serve a Short built from a video, a caption style or a cue list
-    that has since changed.
+    change to the source file, the cut points, the layout, the captions, the
+    opening hook or the encoder produces a different one. That is what makes
+    reuse safe: a cache hit can never serve a Short built from a video, a caption
+    style, a hook or a cue list that has since changed.
 
-    The ``captions`` block is added **only** when captions actually change the
-    output — that is, in any mode other than the historical one. A request that
-    does not mention captions therefore hashes to exactly the value it always
-    did, and every Short already on disk keeps matching its own request.
+    The ``captions`` and ``hook`` blocks are added **only** when they actually
+    change the output — captions in any mode other than the historical one, the
+    hook only when there is one to draw. A request that mentions neither
+    therefore hashes to exactly the value it always did, and every Short already
+    on disk keeps matching its own request.
     """
     payload: dict[str, object] = {
         "manifestSchema": manifest.schema_version,
@@ -338,6 +344,15 @@ def cache_key(
                 if caption_mode is ShortCaptionMode.SHORTS_NATIVE
                 else None
             ),
+        }
+
+    if hook is not None and hook.is_visible:
+        payload["hook"] = {
+            "renderer": HOOK_RENDERER_VERSION,
+            "lines": list(hook.lines),
+            "start": round(hook.start_seconds, 3),
+            "duration": round(hook.duration_seconds, 3),
+            "style": DEFAULT_HOOK_STYLE.model_dump(mode="json", by_alias=True),
         }
 
     digest = hashlib.sha256(

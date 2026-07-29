@@ -102,6 +102,19 @@ class TextAnimation(str, Enum):
     SLIDE_LEFT = "slide-left"
 
 
+class IntroStyle(str, Enum):
+    """How the long video's first two-to-three seconds are branded.
+
+    ``TYPEWRITER_STAMP`` is the channel's signature opening: the animal's name
+    types itself out, the scientific name fades in small underneath, and a red
+    ``EXTINCT`` stamp lands over both. ``PLAIN_TITLE`` is the same layout without
+    the typewriter or the stamp, for a species that is not extinct.
+    """
+
+    TYPEWRITER_STAMP = "typewriter-stamp"
+    PLAIN_TITLE = "plain-title"
+
+
 class AudioSource(str, Enum):
     """Where a scene's narration audio came from.
 
