@@ -28,6 +28,8 @@ it at `backend/fixtures/dodo-content.json`.
     "Mauritius": "muh-RISH-us"
   },
 
+  "shortsPlan": { /* optional production manifest, see below */ },
+
   "intro":  { /* section, see below */ },
   "scenes": [ /* 1-200 scenes, see below */ ],
   "outro":  { /* section */ }
@@ -45,7 +47,77 @@ it at `backend/fixtures/dodo-content.json`.
 | `thumbnailText` | string | no | Overlaid text for your thumbnail. |
 | `thumbnailPrompt` | string | no | Exported to `thumbnail.txt`. |
 | `pronunciation` | object | no | Applied to narration before synthesis. |
+| `shortsPlan` | object | no | Scene-based Shorts and publishing plan; see below. |
 | `scenes` | array | **yes** | At least 1, at most 200. |
+
+## Shorts production plan (`shortsPlan`)
+
+New channel packages include this optional production manifest so the editor
+does not have to describe the scene joins and ask for publication text later.
+It contains 3–5 vertical-cut recommendations and all viewer-facing copy.
+
+```json
+{
+  "shortsPlan": {
+    "version": 1,
+    "captionMode": "shorts-native",
+    "captionPreset": "large",
+    "recommendedReleaseOrder": ["last-survivor"],
+    "shorts": [
+      {
+        "id": "last-survivor",
+        "priority": 1,
+        "purpose": "The emotional final-survivor hook.",
+        "sections": [
+          { "kind": "scene", "number": 9 },
+          { "kind": "scene", "number": 10 }
+        ],
+        "estimatedDurationSeconds": 43,
+        "youtube": {
+          "title": "When One Death Ended a Species",
+          "alternativeTitles": ["The Last Pinta Tortoise"],
+          "description": "Lonesome George was the last known pure Pinta tortoise. When he died, a species ended.\n\nWatch the full documentary:\nFULL_VIDEO_URL\n\n#LonesomeGeorge #ExtinctAnimals #Shorts",
+          "tags": ["lonesome george", "pinta tortoise", "extinct animals"],
+          "hashtags": ["#LonesomeGeorge", "#ExtinctAnimals", "#Shorts"],
+          "pinnedComment": "George was the last known pure Pinta tortoise, not the last Galápagos giant tortoise."
+        },
+        "instagram": {
+          "caption": "One animal became the final symbol of an entire lost lineage. Full documentary: FULL_VIDEO_URL",
+          "hashtags": ["#LonesomeGeorge", "#ExtinctAnimals"],
+          "cta": "Watch the full documentary."
+        },
+        "facebook": {
+          "caption": "Lonesome George was the last known pure Pinta tortoise. Full documentary: FULL_VIDEO_URL",
+          "hashtags": ["#LonesomeGeorge", "#ExtinctAnimals"],
+          "cta": "Watch the full documentary."
+        },
+        "tiktok": {
+          "caption": "One death ended a species.",
+          "hashtags": ["#LonesomeGeorge", "#ExtinctAnimals"],
+          "cta": "Watch the full story."
+        }
+      }
+    ]
+  }
+}
+```
+
+`sections` uses stable story references, not guessed timestamps: use
+`{ "kind": "intro" }`, `{ "kind": "scene", "number": 1 }`, or
+`{ "kind": "outro" }`. Prefer adjacent source-order sections so their
+transition can survive the Short render. The duration is an estimate from the
+narration; choose exact safe ranges only after the final render measures audio.
+Use `FULL_VIDEO_URL` until the long video is live. Do not put a final filename,
+render ID or guessed timecodes in the package.
+
+For Instagram, Facebook and TikTok, keep hashtags out of `caption`; the Publish
+screen appends the `hashtags` array automatically. YouTube hashtags should
+remain in its `description`.
+
+The application keeps the original uploaded JSON beside the project but ignores
+unknown package fields during import. Therefore `shortsPlan` is a ready-to-use
+manifest today, not yet an automatic Shorts selection or publishing-draft
+importer.
 
 ## Scene
 

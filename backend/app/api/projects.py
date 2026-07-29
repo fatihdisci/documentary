@@ -304,6 +304,7 @@ def export_content(slug: str) -> ContentPackage:
         thumbnail_text=project.metadata.thumbnail_text,
         thumbnail_prompt=project.metadata.thumbnail_prompt,
         pronunciation=project.pronunciation,
+        shorts_plan=project.shorts_plan,
         intro=ContentSection(
             title=project.intro.title,
             subtitle=project.intro.subtitle,

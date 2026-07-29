@@ -14,6 +14,81 @@
     "Mascarene": "MASS-kuh-reen"
   },
 
+  "shortsPlan": {
+    "version": 1,
+    "captionMode": "shorts-native",
+    "captionPreset": "large",
+    "recommendedReleaseOrder": ["last-sighting", "bird-without-fear"],
+    "shorts": [
+      {
+        "id": "last-sighting",
+        "priority": 1,
+        "purpose": "A disappearance hook built around the final confirmed record.",
+        "sections": [
+          { "kind": "scene", "number": 8 },
+          { "kind": "scene", "number": 9 }
+        ],
+        "estimatedDurationSeconds": 42,
+        "youtube": {
+          "title": "The Dodo's Last Confirmed Sighting",
+          "alternativeTitles": ["When the Dodo Vanished"],
+          "description": "The last widely accepted dodo sighting came in sixteen sixty-two. What remained after that were bones, fragments and a warning.\n\nWatch the full documentary:\nFULL_VIDEO_URL\n\n#Dodo #ExtinctAnimals #Shorts",
+          "tags": ["dodo", "extinct animals", "Mauritius", "natural history"],
+          "hashtags": ["#Dodo", "#ExtinctAnimals", "#Shorts"],
+          "pinnedComment": "Sixteen sixty-two is the last widely accepted sighting, although later reports remain disputed."
+        },
+        "instagram": {
+          "caption": "The dodo disappeared before science had time to understand it.",
+          "hashtags": ["#Dodo", "#ExtinctAnimals", "#NaturalHistory"],
+          "cta": "Watch the full documentary: FULL_VIDEO_URL"
+        },
+        "facebook": {
+          "caption": "The last widely accepted dodo sighting came in sixteen sixty-two. Later reports remain disputed, but the species had vanished by the end of that century.",
+          "hashtags": ["#Dodo", "#ExtinctAnimals"],
+          "cta": "Watch the full documentary: FULL_VIDEO_URL"
+        },
+        "tiktok": {
+          "caption": "The dodo vanished before science could fully describe it.",
+          "hashtags": ["#Dodo", "#ExtinctAnimals"],
+          "cta": "Watch the full story."
+        }
+      },
+      {
+        "id": "bird-without-fear",
+        "priority": 2,
+        "purpose": "Explain the biology behind the dodo's famous lack of fear.",
+        "sections": [
+          { "kind": "scene", "number": 1 },
+          { "kind": "scene", "number": 2 }
+        ],
+        "estimatedDurationSeconds": 39,
+        "youtube": {
+          "title": "Why the Dodo Had No Fear",
+          "alternativeTitles": ["A Bird That Never Learned to Run"],
+          "description": "The dodo evolved on an island without native land predators. Fear was not missing because the bird was foolish. It had never needed it.\n\nWatch the full documentary:\nFULL_VIDEO_URL\n\n#Dodo #Evolution #Shorts",
+          "tags": ["dodo", "evolution", "Mauritius", "extinct birds"],
+          "hashtags": ["#Dodo", "#Evolution", "#Shorts"],
+          "pinnedComment": "The dodo was adapted to its original island ecosystem, not poorly adapted in general."
+        },
+        "instagram": {
+          "caption": "The dodo did not lack intelligence. It evolved in a place where running from land predators was unnecessary.",
+          "hashtags": ["#Dodo", "#Evolution", "#ExtinctAnimals"],
+          "cta": "Watch the full documentary: FULL_VIDEO_URL"
+        },
+        "facebook": {
+          "caption": "For millions of years, no native land mammal hunted the dodo on Mauritius. Its lack of fear made sense until people and introduced animals arrived.",
+          "hashtags": ["#Dodo", "#NaturalHistory"],
+          "cta": "Watch the full documentary: FULL_VIDEO_URL"
+        },
+        "tiktok": {
+          "caption": "The dodo was not stupid. It had never needed to fear a land predator.",
+          "hashtags": ["#Dodo", "#Evolution"],
+          "cta": "Watch the full story."
+        }
+      }
+    ]
+  },
+
   "intro": {
     "title": "The Dodo",
     "subtitle": "Raphus cucullatus",

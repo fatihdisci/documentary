@@ -235,6 +235,58 @@ describe('ShortsPage', () => {
     expect(card).toHaveTextContent('12.0 MB')
   })
 
+  it('shows an authored Shorts plan and applies its scene selection', async () => {
+    const user = userEvent.setup()
+    seedProject(
+      makeProject({
+        shortsPlan: {
+          version: 1,
+          captionMode: 'shorts-native',
+          captionPreset: 'large',
+          recommendedReleaseOrder: ['scenes-two-three'],
+          shorts: [
+            {
+              id: 'scenes-two-three',
+              priority: 1,
+              purpose: 'A compact extinction hook.',
+              sections: [
+                { kind: 'scene', number: 2 },
+                { kind: 'scene', number: 3 },
+              ],
+              estimatedDurationSeconds: 38,
+              youtube: {
+                title: 'Why the Dodo Had No Fear',
+                alternativeTitles: ['A Bird Without Fear'],
+                description: 'The complete Short description.',
+                tags: ['dodo'],
+                hashtags: ['#Dodo'],
+                pinnedComment: 'The dodo was not foolish.',
+              },
+              instagram: { caption: 'Instagram copy', hashtags: ['#Dodo'], cta: '' },
+              facebook: { caption: 'Facebook copy', hashtags: [], cta: '' },
+              tiktok: { caption: 'TikTok copy', hashtags: [], cta: '' },
+            },
+          ],
+        },
+      }),
+    )
+    render(<ShortsPage />)
+    await screen.findByRole('radio', { name: /the-dodo_v01\.mp4/ })
+
+    expect(screen.getAllByText('Why the Dodo Had No Fear').length).toBeGreaterThan(0)
+    expect(screen.getByText('2. sahne → 3. sahne')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Bu planı uygula' }))
+
+    await waitFor(() =>
+      expect(useShortsStore.getState().selection.map((item) => item.unitId)).toEqual([
+        'scene-2',
+        'scene-3',
+      ]),
+    )
+    expect(useShortsStore.getState().captionMode).toBe('shorts-native')
+    expect(useShortsStore.getState().captionPreset).toBe('large')
+  })
+
   it('explains what to do when there is no completed render', async () => {
     vi.spyOn(api, 'shortsSources').mockResolvedValue([])
     seedProject(makeProject())

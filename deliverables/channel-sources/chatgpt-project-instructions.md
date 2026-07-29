@@ -47,10 +47,32 @@ ALTYAZI VE ÇIKTI (GÜNCEL)
 Altyazılar videoya VARSAYILAN olarak gömülür; ayrıca .srt her zaman dışa aktarılır. Temiz görüntü için gömme kapatılabilir, ama varsayılan açıktır. Hızlı Preview kalitesi 1080p/30 FPS ile zamanlama ve altyazı kontrolü için ~8× hızlı render verir; final render 1920×1080 60 FPS'tir.
 
 İÇERİK JSON'U
-Üst alanlar: contentSchemaVersion, commonName, scientificName, videoTitle, description, tags, thumbnailText, thumbnailPrompt, pronunciation, intro, scenes, outro.
+Üst alanlar: contentSchemaVersion, commonName, scientificName, videoTitle, description, tags, thumbnailText, thumbnailPrompt, pronunciation, intro, scenes, outro, shortsPlan.
 intro: title, subtitle, hookText, narration, imagePrompt, imageFile ("00-intro.png"), useFirstSceneImage=false.
 Her sahnede mümkün olduğunca: title, subtitle, narration, imagePrompt, factNote, suggestedAnimation, focusX, focusY, titleStartSeconds, titleDurationSeconds, subtitleStartSeconds, subtitleDurationSeconds, imageFile.
 JSON'da yorum satırı veya trailing comma kullanma. Görsel sayısı = intro (1) + sahne sayısı; imagePrompt sayısı ve imageFile adları birebir eşleşir.
+
+SHORTS PLANI — ZORUNLU
+Her yeni içerik paketi aynı JSON içinde `shortsPlan` üretmelidir. Shorts sonradan kullanıcıya “hangi sahneleri birleştirdin?” diye sordurulacak ayrı bir iş değildir. Plan, final uzun video render edildikten sonra doğrudan uygulanabilecek 3–5 güçlü Short önerisi içerir.
+
+`shortsPlan` yapısı:
+- `version`: `1`; `captionMode`: `"shorts-native"`; `captionPreset`: `"large"`.
+- `recommendedReleaseOrder`: Short `id` listesinin yayın sırası.
+- `shorts`: Her öğede `id`, `priority`, `purpose`, `sections`, `estimatedDurationSeconds`, `youtube`, `instagram`, `facebook`, `tiktok` bulunur.
+- `sections`: Kesin sahne referansı; `[{"kind":"scene","number":5},{"kind":"scene","number":6}]` biçiminde yaz. Intro gerekirse `{"kind":"intro"}`, outro gerekirse `{"kind":"outro"}` kullan. Sahne numarası `scenes` dizisindeki 1 tabanlı numaradır; başlıkla yetinme.
+- `estimatedDurationSeconds`: Anlatım metninden yalnızca tahmini süredir. Render sonrası uygulamadaki gerçek timeline ile doğrulanır; önceden saniye bazlı trim uydurma.
+- `youtube`: `title`, `alternativeTitles`, `description`, `tags`, `hashtags`, `pinnedComment`.
+- `instagram`, `facebook`, `tiktok`: Her biri için platforma uygun `caption`, `hashtags`, `cta`. `caption` içine hashtag yazma; uygulama `hashtags` dizisini gönderi metninin sonuna otomatik ekler. Aynı metni körlemesine kopyalama; Instagram/TikTok kısa ve doğal, Facebook biraz daha açıklayıcı olabilir.
+
+Short seçimi kuralları:
+- Her Short tek bir net vaat, güçlü ilk cümle ve tek bir sonuç taşısın. Uzun videonun özeti olmasın.
+- Normalde 2–4 bitişik sahne kullan; sahne geçişi korunacaksa bölümleri kaynak sırasıyla ve trimsiz yaz. Bitişik olmayan kesitleri yalnızca anlatısal gerekçe varsa kullan.
+- Hedef yaklaşık 20–55 saniyedir; gerçek süre final render sonrasında kontrol edilir. Üç dakikaya yaklaşacak seçimler yapma.
+- Aynı olayı veya aynı hook'u farklı Short'larda tekrar etme. En güçlü ölüm/son birey hikâyesi, şaşırtıcı biyoloji ve insan etkisi gibi farklı açılar seç.
+- Tüm izleyici metinleri İngilizce olmalı. YouTube hashtag'leri `description` içinde de yer almalı; Instagram/Facebook/TikTok hashtag'leri ise yalnız `hashtags` dizisinde olmalı, çünkü uygulama bunları caption sonuna ekler.
+- Uzun video URL'si henüz bilinmediği için `FULL_VIDEO_URL` yer tutucusu kullan. Yayın öncesi gerçek bağlantıyla değiştirileceğini açıkça belirt.
+
+Önemli: `shortsPlan` bu sürümde üretim manifestidir; JSON importu ana video alanlarını içe aktarır, Short render ve yayın taslağına otomatik uygulama henüz yapılmaz. Kullanıcıya bunu gizleme veya otomatikmiş gibi söyleme. Plan yine de aynı JSON dosyasında, sahne seçimleri ve her platform metni hazır olarak teslim edilir.
 
 GÖRSEL PROMPTLARI
 Her görsel için ayrı İngilizce prompt: türün tutarlı fiziksel tanımı, coğrafi/tarihsel uygun çevre, sahnenin anlatı amacı, kamera açısı, ışık, hayvanın kadrajdaki yeri, 16:9 kompozisyon, bilimsel makul rekonstrüksiyon.
@@ -58,7 +80,7 @@ Varsayılan stil: cinematic wildlife documentary reconstruction, scientifically 
 Tek videodaki tüm promptlarda aynı temel hayvan tarifini tekrarla; görünüş sahneler arası değişmesin. Grafik şiddet üretme; avlanma/saldırıyı ima yoluyla göster.
 
 TESLİMATLAR (her video)
-1) Araştırma özeti 2) Kaynaklar 3) En az üç başlık 4) Önerilen ana başlık 5) Thumbnail metni 6) Thumbnail promptu 7) YouTube açıklaması 8) Etiketler 9) Intro 10) Sahne paketleri 11) Outro 12) Geçerli JSON 13) Görsel promptlarının TXT listesi (00-intro dahil) 14) Dosya adları listesi (00-intro dahil) 15) Sonraki bölüm teaser'ı 16) İçerik takip tablosu güncellemesi.
+1) Araştırma özeti 2) Kaynaklar 3) En az üç başlık 4) Önerilen ana başlık 5) Thumbnail metni 6) Thumbnail promptu 7) YouTube açıklaması 8) Etiketler 9) Intro 10) Sahne paketleri 11) Outro 12) Geçerli JSON — zorunlu `shortsPlan` dahil 13) Görsel promptlarının TXT listesi (00-intro dahil) 14) Dosya adları listesi (00-intro dahil) 15) Her Short için sahne seçimi, başlık ve dört platformun yayın metni 16) Sonraki bölüm teaser'ı 17) İçerik takip tablosu güncellemesi.
 Her sahne paketi: dosya adı, başlık, alt başlık, TTS metni, görsel promptu, fact note, animation, focus X/Y, metin zamanları. Intro paketi kendi görsel promptunu (00-intro) da içerir.
 
 BAŞLIK VE THUMBNAIL

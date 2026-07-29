@@ -22,7 +22,7 @@ from app.publishing.models import PublishDraft, PublishMode, SourceFingerprint
 from app.publishing.repository import PublishingRepository
 from app.publishing.service import PublishingService
 from app.shorts.manifest import ManifestProfile, sha256_file
-from app.shorts.models import ShortManifest
+from app.shorts.models import ShortManifest, ShortPlan, ShortSegmentPlan
 from app.storage.layout import ProjectPaths
 from app.storage.repository import ProjectRepository
 from tests.shorts_factories import make_manifest, write_manifest
@@ -110,6 +110,7 @@ def add_short(
     short_id: str = "short00000001",
     filename: str = "the-dodo-short-abc123.mp4",
     payload: bytes = VIDEO_BYTES + b"short",
+    section_numbers: list[int] | None = None,
 ) -> tuple[Path, str]:
     """A finished Short plus its manifest, exactly as the Shorts pipeline writes."""
     paths.ensure()
@@ -131,6 +132,20 @@ def add_short(
         size_bytes=video.stat().st_size,
         sha256=checksum,
         request={"sourceRenderId": "render0001", "segments": []},
+        plan=ShortPlan(
+            segments=[
+                ShortSegmentPlan(
+                    unit_id=f"scene-{number}",
+                    number=number,
+                    title=f"Scene {number}",
+                    kind="scene",
+                    start_seconds=float(number * 10),
+                    end_seconds=float(number * 10 + 10),
+                    duration_seconds=10.0,
+                )
+                for number in (section_numbers or [])
+            ]
+        ),
     )
     (paths.shorts_exports / f"{video.stem}.json").write_text(
         manifest.model_dump_json(indent=2), "utf-8"

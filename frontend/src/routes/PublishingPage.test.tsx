@@ -42,6 +42,7 @@ function longMedia(overrides: Partial<MediaItem> = {}): MediaItem {
     captionUrl: '/api/projects/the-dodo/exports/the-dodo_v01.srt',
     hasDraft: false,
     publishedVideoId: null,
+    contentPlanId: null,
     ...overrides,
   }
 }
@@ -84,7 +85,7 @@ function draft(overrides: Partial<PublishDraft> = {}): PublishDraft {
       title: 'The Dodo: A Bird That Never Learned to Run',
       description: 'A documentary about the dodo.',
       tags: ['dodo', 'extinct animals'],
-      categoryId: '27',
+      categoryId: '15',
       defaultLanguage: 'en',
       defaultAudioLanguage: 'en',
       privacyStatus: 'private',
@@ -411,7 +412,8 @@ async function renderPage() {
 
 describe('media selection', () => {
   it('lists both long videos and Shorts with their details', async () => {
-    await renderPage()
+    render(<PublishingPage />)
+    await screen.findByText('the-dodo-short-aaaa1111.mp4')
 
     expect(screen.getAllByText('the-dodo_v01.mp4').length).toBeGreaterThan(0)
     expect(screen.getByText('the-dodo-short-aaaa1111.mp4')).toBeInTheDocument()
@@ -466,6 +468,75 @@ describe('media selection', () => {
 })
 
 describe('metadata editing', () => {
+  it('shows the matching Shorts plan and its prefilled platform copy', async () => {
+    const plannedProject = makeProject({
+      shortsPlan: {
+        version: 1,
+        captionMode: 'shorts-native',
+        captionPreset: 'large',
+        recommendedReleaseOrder: ['scenes-two-three'],
+        shorts: [
+          {
+            id: 'scenes-two-three',
+            priority: 1,
+            purpose: 'A compact extinction hook.',
+            sections: [
+              { kind: 'scene', number: 2 },
+              { kind: 'scene', number: 3 },
+            ],
+            estimatedDurationSeconds: 38,
+            youtube: {
+              title: 'Why the Dodo Had No Fear',
+              alternativeTitles: ['A Bird Without Fear'],
+              description: 'YouTube planned description',
+              tags: ['dodo short'],
+              hashtags: ['#Dodo'],
+              pinnedComment: 'The dodo was not foolish.',
+            },
+            instagram: { caption: 'Instagram planned copy', hashtags: ['#Dodo'], cta: '' },
+            facebook: { caption: 'Facebook planned copy', hashtags: [], cta: '' },
+            tiktok: { caption: 'TikTok planned copy', hashtags: [], cta: '' },
+          },
+        ],
+      },
+    })
+    seedProject(plannedProject)
+    const media = shortMedia({ contentPlanId: 'scenes-two-three' })
+    const plannedDraft = draft({
+      mediaId: media.mediaId,
+      youtube: {
+        ...draft().youtube,
+        title: 'Why the Dodo Had No Fear',
+        description: 'YouTube planned description',
+        tags: ['dodo short'],
+      },
+      instagram: {
+        ...draft().instagram,
+        caption: 'Instagram planned copy',
+        hashtags: ['#Dodo'],
+      },
+      facebook: { ...draft().facebook, caption: 'Facebook planned copy' },
+      tiktok: { ...draft().tiktok, caption: 'TikTok planned copy' },
+    })
+    vi.mocked(api.publishingMedia).mockResolvedValue([media])
+    vi.mocked(api.getPublishDraft).mockResolvedValue(
+      draftResponse({ draft: plannedDraft, media }),
+    )
+
+    render(<PublishingPage />)
+    await screen.findByText('the-dodo-short-aaaa1111.mp4')
+
+    expect(screen.getByText('JSON’daki Shorts planı uygulandı')).toBeInTheDocument()
+    expect(screen.getByText(/2. sahne → 3. sahne/)).toBeInTheDocument()
+    expect(screen.getByText(/A Bird Without Fear/)).toBeInTheDocument()
+    expect(screen.getByText(/The dodo was not foolish/)).toBeInTheDocument()
+    expect(titleInput()).toHaveValue('Why the Dodo Had No Fear')
+    expect(descriptionInput()).toHaveValue('YouTube planned description')
+    expect(screen.getByDisplayValue('Instagram planned copy')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Facebook planned copy')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('TikTok planned copy')).toBeInTheDocument()
+  })
+
   it('fills the fields from the project metadata', async () => {
     await renderPage()
 
@@ -475,7 +546,7 @@ describe('metadata editing', () => {
     expect(descriptionInput()).toHaveValue('A documentary about the dodo.')
     expect(screen.getByText('dodo')).toBeInTheDocument()
     expect(screen.getByText('extinct animals')).toBeInTheDocument()
-    expect(screen.getByLabelText('Kategori')).toHaveValue('27')
+    expect(screen.getByLabelText('Kategori')).toHaveValue('15')
     expect(screen.getByLabelText('Varsayılan metadata dili')).toHaveValue('en')
     expect(screen.getByLabelText('Varsayılan ses dili')).toHaveValue('en')
   })

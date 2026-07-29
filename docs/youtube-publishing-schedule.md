@@ -33,5 +33,5 @@ YouTube limits viewers to three upload/live notifications from the same channel 
 
 - Viewer-facing metadata is English.
 - Upload videos as private with a scheduled `publishAt` time.
-- Include title, description, tags, category `Education`, default language `en`, and `selfDeclaredMadeForKids: false` unless the individual video is specifically made for children.
+- Include title, description, tags, category `Pets & Animals` (`15`), default language `en`, and `selfDeclaredMadeForKids: false` unless the individual video is specifically made for children.
 - Before retrying an interrupted upload, check the existing channel videos to avoid duplicates.

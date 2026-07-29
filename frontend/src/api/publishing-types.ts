@@ -61,6 +61,7 @@ export interface MediaItem {
   captionUrl: string | null
   hasDraft: boolean
   publishedVideoId: string | null
+  contentPlanId: string | null
 }
 
 export interface YouTubeDraft {

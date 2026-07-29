@@ -141,7 +141,7 @@ def upload(youtube, item: ScheduledVideo) -> dict[str, str]:
             "title": item.title,
             "description": item.description,
             "tags": item.tags,
-            "categoryId": "27",
+            "categoryId": "15",
             "defaultLanguage": "en",
         },
         "status": {

@@ -81,6 +81,22 @@ With exactly one image per scene (no spare), the intro falls back to reusing the
 first scene's image, exactly as before — so ten-image projects are unaffected.
 Set `useFirstSceneImage: true` on the intro to force the old shared-image behavior.
 
+## Shorts production manifest
+
+Every new content-package JSON for this channel must also carry a `shortsPlan`.
+It is the hand-off for 3–5 planned Shorts: ordered references to the source
+sections (`intro`, one-based `scene` numbers, or `outro`), a clear editorial
+angle, estimated duration, and publication-ready English copy for YouTube,
+Instagram, Facebook and TikTok. The plan uses `shorts-native` / `large`
+captions, prefers two to four adjacent scenes, and uses `FULL_VIDEO_URL` until
+the long video has a public link.
+
+Do not invent render timestamps or filenames in this plan. TTS creates the
+actual duration, so final safe ranges come from the completed render timeline.
+The app currently retains the original uploaded JSON but ignores `shortsPlan`
+when importing content; it is a complete production manifest, not automatic UI
+prefill yet.
+
 ## Development guidance
 - Inspect the current repository before suggesting code changes.
 - Preserve the local-first architecture.

@@ -109,6 +109,7 @@ def apply_content(
         project.metadata.tags = list(package.tags)
     if package.pronunciation:
         project.pronunciation = {**project.pronunciation, **package.pronunciation}
+    project.shorts_plan = package.shorts_plan.model_copy(deep=True)
 
     _apply_section(project.intro, package.intro)
     _apply_section(project.outro, package.outro)

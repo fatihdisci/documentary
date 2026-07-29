@@ -15,6 +15,7 @@ from pydantic import ConfigDict, Field, field_validator
 
 from app.models.base import CamelModel, to_camel
 from app.models.enums import AnimationPreset
+from app.models.project import ShortsPlan
 
 CONTENT_SCHEMA_VERSION = 1
 
@@ -94,6 +95,7 @@ class ContentPackage(ContentBase):
     #: Applied to narration before synthesis, e.g.
     #: {"Raphus cucullatus": "RAH-fus koo-koo-LAH-tus"}
     pronunciation: dict[str, str] = Field(default_factory=dict)
+    shorts_plan: ShortsPlan = Field(default_factory=ShortsPlan)
 
     @field_validator("scenes")
     @classmethod

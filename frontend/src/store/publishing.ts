@@ -322,14 +322,47 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
       }
     },
 
-    /** Throw away the YouTube text and take the project's metadata again. */
+    /** Restore authored metadata: the matching Shorts plan wins for a planned cut. */
     refillFromProject: async (slug) => {
-      const { selectedMediaId } = get()
+      const { selectedMediaId, selectedMedia, history } = get()
       if (!selectedMediaId) return
       try {
         const project = await api.getProject(slug)
         const metadata = project.project.metadata
+        const planned = project.project.shortsPlan?.shorts.find(
+          (item) => item.id === selectedMedia?.contentPlanId,
+        )
+        const fullVideoUrl =
+          history.find(
+            (entry) =>
+              entry.platform === 'youtube' &&
+              entry.mediaId.startsWith('long:') &&
+              Boolean(entry.videoUrl),
+          )?.videoUrl ?? null
+        const expand = (text: string) =>
+          text.replaceAll('FULL_VIDEO_URL', fullVideoUrl ?? 'FULL_VIDEO_URL')
+        const socialText = (caption: string, cta: string) =>
+          [caption, cta].map((part) => expand(part.trim())).filter(Boolean).join('\n\n')
         get().editDraft((draft) => {
+          if (planned) {
+            const title = planned.youtube.title || metadata.videoTitle || project.project.name
+            draft.common.title = title
+            draft.common.description = expand(planned.youtube.description)
+            draft.common.tags = [...planned.youtube.tags]
+            draft.youtube.title = title.slice(0, 100)
+            draft.youtube.description = expand(planned.youtube.description)
+            draft.youtube.tags = [...planned.youtube.tags]
+            draft.instagram.caption = socialText(
+              planned.instagram.caption,
+              planned.instagram.cta,
+            )
+            draft.instagram.hashtags = [...planned.instagram.hashtags]
+            draft.facebook.caption = socialText(planned.facebook.caption, planned.facebook.cta)
+            draft.facebook.hashtags = [...planned.facebook.hashtags]
+            draft.tiktok.caption = socialText(planned.tiktok.caption, planned.tiktok.cta)
+            draft.tiktok.hashtags = [...planned.tiktok.hashtags]
+            return
+          }
           draft.common.title = metadata.videoTitle || project.project.name
           draft.common.description = metadata.description
           draft.common.tags = [...metadata.tags]

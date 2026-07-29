@@ -202,7 +202,7 @@ costs two characters more than it looks; the counter accounts for that.
 Tags are added with Enter or a comma, removed with the × on the chip, and empty
 or repeated tags are dropped automatically.
 
-Other fields: **Kategori** (default `27`, Education), **Varsayılan metadata
+Other fields: **Kategori** (default `15`, Pets & Animals), **Varsayılan metadata
 dili** and **Varsayılan ses dili** (default `en`), **Çocuklara özel içerik**,
 **Abonelere bildirim gönder**, **Yerleştirmeye izin ver** and **Gizlilik**
 (Gizli / Liste dışı / Herkese açık).

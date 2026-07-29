@@ -207,6 +207,46 @@ export interface ExportSettings {
   prepareCleanMasterForShorts: boolean
 }
 
+export interface PlannedSection {
+  kind: 'intro' | 'scene' | 'outro'
+  number: number | null
+}
+
+export interface PlannedYouTubeMetadata {
+  title: string
+  alternativeTitles: string[]
+  description: string
+  tags: string[]
+  hashtags: string[]
+  pinnedComment: string
+}
+
+export interface PlannedSocialMetadata {
+  caption: string
+  hashtags: string[]
+  cta: string
+}
+
+export interface PlannedShort {
+  id: string
+  priority: number
+  purpose: string
+  sections: PlannedSection[]
+  estimatedDurationSeconds: number | null
+  youtube: PlannedYouTubeMetadata
+  instagram: PlannedSocialMetadata
+  facebook: PlannedSocialMetadata
+  tiktok: PlannedSocialMetadata
+}
+
+export interface ShortsPlan {
+  version: number
+  captionMode: 'source-burned-in' | 'shorts-native' | 'off'
+  captionPreset: 'standard' | 'large' | 'compact'
+  recommendedReleaseOrder: string[]
+  shorts: PlannedShort[]
+}
+
 export interface Project {
   schemaVersion: number
   projectId: string
@@ -224,6 +264,8 @@ export interface Project {
   scenes: Scene[]
   outro: Section
   pronunciation: Record<string, string>
+  /** Absent only on projects returned by a backend predating authored Shorts plans. */
+  shortsPlan?: ShortsPlan
   createdAt: string
   updatedAt: string
 }

@@ -27,6 +27,7 @@ from zoneinfo import ZoneInfo
 from app.config import Settings, get_settings
 from app.errors import AppError, ConflictError, ErrorCode, NotFoundError, ValidationError
 from app.models.enums import JobStatus
+from app.models.project import Project
 from app.publishing.models import (
     LOCAL_TIMEZONE,
     MAX_CAPTION_BYTES,
@@ -363,7 +364,7 @@ class PublishingService:
 
         items = [
             *self._long_media(slug, project.name, paths),
-            *self._short_media(slug, project.name, paths),
+            *self._short_media(slug, project, paths),
         ]
         for item in items:
             item.has_draft = item.media_id in drafts
@@ -476,7 +477,7 @@ class PublishingService:
             )
         return items
 
-    def _short_media(self, slug: str, project_name: str, paths: ProjectPaths) -> list[MediaItem]:
+    def _short_media(self, slug: str, project: Project, paths: ProjectPaths) -> list[MediaItem]:
         directory = paths.shorts_exports
         if not directory.is_dir():
             return []
@@ -509,7 +510,7 @@ class PublishingService:
                     filename=manifest.filename,
                     url=f"/api/projects/{slug}/shorts/exports/{manifest.filename}",
                     project_slug=slug,
-                    project_name=project_name,
+                    project_name=project.name,
                     created_at=created,
                     duration_seconds=manifest.duration_seconds,
                     size_bytes=size,
@@ -524,9 +525,26 @@ class PublishingService:
                         size_bytes=size,
                         sha256=manifest.sha256 if size == manifest.size_bytes else "",
                     ),
+                    content_plan_id=self._content_plan_id(project, manifest),
                 )
             )
         return items
+
+    @staticmethod
+    def _content_plan_id(project: Project, manifest: ShortManifest) -> str | None:
+        """Match a rendered Short back to its authored scene sequence."""
+        actual = [
+            (segment.kind, segment.number if segment.kind == "scene" else None)
+            for segment in manifest.plan.segments
+        ]
+        for planned in project.shorts_plan.shorts:
+            expected = [
+                (section.kind, section.number if section.kind == "scene" else None)
+                for section in planned.sections
+            ]
+            if expected == actual:
+                return planned.id
+        return None
 
     def _render_job_statuses(self, slug: str) -> dict[str, JobStatus]:
         from app.render.jobs import get_job_manager
@@ -634,6 +652,82 @@ class PublishingService:
         """
         project = self.projects.load(slug)
         metadata = project.metadata
+        planned = next(
+            (
+                item
+                for item in project.shorts_plan.shorts
+                if item.id == media.content_plan_id
+            ),
+            None,
+        )
+        if planned is not None:
+            published_long = next(
+                (
+                    entry.video_url
+                    for entry in PublishingRepository(self.paths_for(slug)).load_history()
+                    if entry.platform == PublishingPlatform.YOUTUBE
+                    and entry.media_id.startswith("long:")
+                    and entry.video_url
+                ),
+                None,
+            )
+
+            def expand(text: str) -> str:
+                return text.replace("FULL_VIDEO_URL", published_long or "FULL_VIDEO_URL")
+
+            youtube_meta = planned.youtube
+            title = youtube_meta.title or metadata.video_title or project.name
+            common = CommonDraft(
+                title=title,
+                description=expand(youtube_meta.description),
+                tags=clean_tags(list(youtube_meta.tags)),
+                thumbnail_text=metadata.thumbnail_text,
+                thumbnail_prompt=metadata.thumbnail_prompt,
+            )
+            youtube = YouTubeDraft(
+                title=title[:MAX_TITLE_CHARS],
+                description=expand(youtube_meta.description),
+                tags=clean_tags(list(youtube_meta.tags)),
+            )
+
+            def social_text(caption: str, cta: str, limit: int) -> str:
+                value = "\n\n".join(
+                    expand(part.strip()) for part in (caption, cta) if part.strip()
+                )
+                return value[:limit]
+
+            return PublishDraft(
+                media_id=media.media_id,
+                project_slug=slug,
+                source_fingerprint=media.fingerprint,
+                common=common,
+                youtube=youtube,
+                instagram=InstagramDraft(
+                    caption=social_text(
+                        planned.instagram.caption,
+                        planned.instagram.cta,
+                        MAX_INSTAGRAM_CAPTION_CHARS,
+                    ),
+                    hashtags=clean_tags(list(planned.instagram.hashtags)),
+                ),
+                facebook=FacebookDraft(
+                    caption=social_text(
+                        planned.facebook.caption,
+                        planned.facebook.cta,
+                        MAX_FACEBOOK_DESCRIPTION_CHARS,
+                    ),
+                    hashtags=clean_tags(list(planned.facebook.hashtags)),
+                ),
+                tiktok=TikTokDraft(
+                    caption=social_text(
+                        planned.tiktok.caption,
+                        planned.tiktok.cta,
+                        MAX_TIKTOK_TITLE_CHARS,
+                    ),
+                    hashtags=clean_tags(list(planned.tiktok.hashtags)),
+                ),
+            )
+
         tags = clean_tags(list(metadata.tags))
         title = metadata.video_title or project.name
 

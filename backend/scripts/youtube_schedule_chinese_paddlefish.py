@@ -140,7 +140,7 @@ def upload(youtube, item: ScheduledVideo) -> dict[str, str]:
     if item.publish_at <= datetime.now(ISTANBUL):
         raise ValueError(f"Publish time is not in the future: {item.publish_at.isoformat()}")
     body = {
-        "snippet": {"title": item.title, "description": item.description, "tags": item.tags, "categoryId": "27", "defaultLanguage": "en"},
+        "snippet": {"title": item.title, "description": item.description, "tags": item.tags, "categoryId": "15", "defaultLanguage": "en"},
         "status": {"privacyStatus": "private", "publishAt": item.publish_at.isoformat(), "selfDeclaredMadeForKids": False, "embeddable": True},
     }
     mime_type = mimetypes.guess_type(item.path.name)[0] or "video/mp4"

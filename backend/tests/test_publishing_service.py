@@ -11,6 +11,8 @@ import pytest
 
 from app.errors import AppError, ValidationError
 from app.publishing.models import MAX_TAGS_LENGTH, PublishMode
+from app.models.project import ShortsPlan
+from app.storage.repository import ProjectRepository
 from app.publishing.repository import PublishingRepository
 from app.publishing.service import (
     PublishingService,
@@ -129,9 +131,53 @@ def test_draft_is_seeded_from_the_project_metadata(settings) -> None:
     assert response.draft.youtube.description == project.metadata.description
     assert response.draft.youtube.tags == project.metadata.tags
     assert response.draft.common.thumbnail_text == "GONE IN 80 YEARS"
-    assert response.draft.youtube.category_id == "27"
+    assert response.draft.youtube.category_id == "15"
     assert response.draft.youtube.default_language == "en"
     assert response.draft.youtube.default_audio_language == "en"
+
+
+def test_planned_short_seeds_every_platform_draft(settings) -> None:
+    project, paths = make_project(settings)
+    project.shorts_plan = ShortsPlan.model_validate(
+        {
+            "shorts": [
+                {
+                    "id": "scenes-two-three",
+                    "sections": [
+                        {"kind": "scene", "number": 2},
+                        {"kind": "scene", "number": 3},
+                    ],
+                    "youtube": {
+                        "title": "Why the Dodo Had No Fear",
+                        "description": "The full story: FULL_VIDEO_URL",
+                        "tags": ["dodo short"],
+                        "pinnedComment": "The dodo was not foolish.",
+                    },
+                    "instagram": {
+                        "caption": "A bird without fear.",
+                        "hashtags": ["Dodo"],
+                        "cta": "Watch the full documentary.",
+                    },
+                    "facebook": {"caption": "The dodo evolved without land predators."},
+                    "tiktok": {"caption": "Why did the dodo have no fear?"},
+                }
+            ]
+        }
+    )
+    ProjectRepository(settings).save(project)
+    add_short(paths, slug=project.slug, section_numbers=[2, 3])
+
+    response = PublishingService(settings).get_draft(project.slug, "short:short00000001")
+
+    assert response.media.content_plan_id == "scenes-two-three"
+    assert response.draft.youtube.title == "Why the Dodo Had No Fear"
+    assert response.draft.youtube.description == "The full story: FULL_VIDEO_URL"
+    assert response.draft.instagram.caption == (
+        "A bird without fear.\n\nWatch the full documentary."
+    )
+    assert response.draft.instagram.hashtags == ["Dodo"]
+    assert response.draft.facebook.caption == "The dodo evolved without land predators."
+    assert response.draft.tiktok.caption == "Why did the dodo have no fear?"
 
 
 def test_editing_a_draft_never_changes_the_project_metadata(settings) -> None:

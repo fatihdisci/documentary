@@ -47,15 +47,33 @@ Do not place the animal in the centre of every image. Prefer left/right thirds, 
 
 ## JSON and scene requirements
 
-Valid JSON only: no comments and no trailing commas. Required top-level fields: `contentSchemaVersion`, `commonName`, `scientificName`, `videoTitle`, `description`, `tags`, `thumbnailText`, `thumbnailPrompt`, `pronunciation`, `intro`, `scenes`, `outro`.
+Valid JSON only: no comments and no trailing commas. Required top-level fields: `contentSchemaVersion`, `commonName`, `scientificName`, `videoTitle`, `description`, `tags`, `thumbnailText`, `thumbnailPrompt`, `pronunciation`, `intro`, `scenes`, `outro`. Every newly authored channel package must also include the `shortsPlan` production manifest.
 
 Each scene should include `title`, `subtitle`, `narration`, `imagePrompt`, `factNote`, `suggestedAnimation`, `focusX`, `focusY`, `titleStartSeconds`, `titleDurationSeconds`, `subtitleStartSeconds`, `subtitleDurationSeconds`, and `imageFile`. Image filenames must match the prompts exactly, be short ASCII names, and contain no spaces or parentheses. Suggested convention: `00-intro.png`, then `01-opening.png`, `02-habitat.png`, and onward.
 
 Subtitles are embedded by default and an external SRT is always exported. Embedded subtitles may be disabled for a clean visual version.
 
+### Shorts plan — mandatory hand-off
+
+Put three to five Short proposals in `shortsPlan` in the same JSON. Each proposal
+must identify its source with ordered section references, for example
+`[{"kind":"scene","number":2},{"kind":"scene","number":3}]`, rather
+than vague scene titles. Include: a stable `id`, priority, editorial purpose,
+estimated duration, YouTube title/alternatives/description/tags/hashtags/pinned
+comment, and distinct Instagram, Facebook and TikTok captions, hashtags and
+calls to action. Use `shorts-native` captions with the `large` preset.
+Keep social hashtags out of `caption`; the publishing layer appends the
+`hashtags` array automatically. Keep YouTube hashtags in its description.
+
+Prefer two to four adjacent scenes per Short and target roughly 20–55 seconds.
+The estimate is not a timecode: the final render's measured timeline is
+authoritative for trimming. Use `FULL_VIDEO_URL` in copy until the long video is
+published. The current app preserves the uploaded source JSON but does not yet
+apply `shortsPlan` automatically to the Shorts or Publish screens.
+
 ## Delivery checklist
 
-For every episode deliver: research summary; sources; at least three titles and a recommended title; thumbnail text and prompt; YouTube description; tags; intro; scene packages; outro; import-ready JSON; a TXT list of every prompt including `00-intro`; exact filename list; next-episode teaser; and a content-tracker update.
+For every episode deliver: research summary; sources; at least three titles and a recommended title; thumbnail text and prompt; YouTube description; tags; intro; scene packages; outro; import-ready JSON including `shortsPlan`; a TXT list of every prompt including `00-intro`; exact filename list; ready-to-use publishing copy for every planned Short; next-episode teaser; and a content-tracker update.
 
 ## Content tracker
 

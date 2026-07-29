@@ -31,8 +31,9 @@ MAX_TITLE_CHARS = 100
 MAX_DESCRIPTION_BYTES = 5_000
 MAX_TAGS_LENGTH = 500
 
-#: Category 27 is "Education", which is what these documentaries are.
-DEFAULT_CATEGORY_ID = "27"
+#: Category 15 is "Pets & Animals", the closest YouTube category for the
+#: wildlife and extinct-animal documentaries produced by this application.
+DEFAULT_CATEGORY_ID = "15"
 DEFAULT_LANGUAGE = "en"
 
 #: The clock the user thinks in. Every scheduled time is entered and displayed in
@@ -200,6 +201,8 @@ class MediaItem(CamelModel):
     has_draft: bool = False
     #: Set when this exact file already reached YouTube from this computer.
     published_video_id: str | None = None
+    #: The authored `shortsPlan` item whose section sequence produced this file.
+    content_plan_id: str | None = None
 
 
 # --- drafts -----------------------------------------------------------------

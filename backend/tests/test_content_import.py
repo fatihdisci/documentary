@@ -81,6 +81,35 @@ class TestParsing:
         package = parse_content_json(json.dumps(payload), max_bytes=10_000_000)
         assert len(package.scenes) == 10
 
+    def test_shorts_plan_is_validated_and_parsed(self) -> None:
+        payload = load_dodo_package()
+        payload["shortsPlan"] = {
+            "version": 1,
+            "captionMode": "shorts-native",
+            "captionPreset": "large",
+            "recommendedReleaseOrder": ["fearless-bird"],
+            "shorts": [
+                {
+                    "id": "fearless-bird",
+                    "priority": 1,
+                    "purpose": "A compact behaviour hook.",
+                    "sections": [
+                        {"kind": "scene", "number": 2},
+                        {"kind": "scene", "number": 3},
+                    ],
+                    "youtube": {"title": "Why the Dodo Had No Fear"},
+                    "instagram": {"caption": "A bird without fear."},
+                    "facebook": {"caption": "The dodo evolved without land predators."},
+                    "tiktok": {"caption": "Why did the dodo have no fear?"},
+                }
+            ],
+        }
+
+        package = parse_content_json(json.dumps(payload), max_bytes=10_000_000)
+
+        assert package.shorts_plan.shorts[0].sections[1].number == 3
+        assert package.shorts_plan.shorts[0].youtube.title == "Why the Dodo Had No Fear"
+
 
 class TestApplyContent:
     def test_populates_the_whole_project(self, repository: ProjectRepository) -> None:
@@ -99,6 +128,29 @@ class TestApplyContent:
         assert project.intro.narration
         assert project.outro.hook_text == "Next: The Thylacine"
         assert project.pronunciation["Mauritius"] == "muh-RISH-us"
+
+    def test_import_persists_the_shorts_plan(self, repository: ProjectRepository) -> None:
+        project = repository.create("Dodo")
+        payload = load_dodo_package()
+        payload["shortsPlan"] = {
+            "shorts": [
+                {
+                    "id": "scenes-two-three",
+                    "sections": [
+                        {"kind": "scene", "number": 2},
+                        {"kind": "scene", "number": 3},
+                    ],
+                    "youtube": {"title": "A Planned Short"},
+                }
+            ]
+        }
+        package = parse_content_json(json.dumps(payload), max_bytes=10_000_000)
+
+        apply_content(project, package, paths=repository.paths_for(project.slug))
+        saved = repository.save(project)
+
+        assert saved.shorts_plan.shorts[0].id == "scenes-two-three"
+        assert saved.shorts_plan.shorts[0].youtube.title == "A Planned Short"
 
     def test_carries_framing_hints_onto_scenes(self, repository: ProjectRepository) -> None:
         project = repository.create("Dodo")

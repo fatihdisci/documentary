@@ -91,6 +91,9 @@ export function PublishingPage() {
   }
 
   const scheduled = draft?.youtube.publishMode === 'schedule'
+  const selectedPlan = project.shortsPlan?.shorts.find(
+    (item) => item.id === selectedMedia?.contentPlanId,
+  )
   const blockedReason = (() => {
     if (!draft || !selectedMedia) return 'Önce bir video seçin.'
     if (sourceChanged) return 'Seçili dosya değişmiş; bilgileri gözden geçirin.'
@@ -200,16 +203,51 @@ export function PublishingPage() {
       )}
 
       {draft && selectedMedia && (
-        <MetadataEditor
-          draft={draft}
-          media={selectedMedia}
-          slug={slug}
-          busy={busy}
-          onEdit={editDraft}
-          onRefill={() => void refillFromProject(slug)}
-          onThumbnailFile={(file) => void attachThumbnail(slug, file)}
-          onCaptionFile={(file) => void attachCaption(slug, file)}
-        />
+        <>
+          {selectedPlan && (
+            <section className="card planned-publish-card">
+              <strong>JSON’daki Shorts planı uygulandı</strong>
+              <p>
+                {selectedPlan.sections
+                  .map((section) =>
+                    section.kind === 'scene'
+                      ? `${section.number}. sahne`
+                      : section.kind === 'intro'
+                        ? 'Intro'
+                        : 'Outro',
+                  )
+                  .join(' → ')}
+                {selectedPlan.purpose ? ` — ${selectedPlan.purpose}` : ''}
+              </p>
+              {selectedPlan.youtube.alternativeTitles.length > 0 && (
+                <p className="hint">
+                  Alternatif başlıklar: {selectedPlan.youtube.alternativeTitles.join(' · ')}
+                </p>
+              )}
+              {selectedPlan.youtube.pinnedComment && (
+                <p className="hint">
+                  <strong>Sabit yorum:</strong> {selectedPlan.youtube.pinnedComment}
+                </p>
+              )}
+              {draft.youtube.description.includes('FULL_VIDEO_URL') && (
+                <p className="connection-problem">
+                  ⚠ Uzun video henüz YouTube yayın geçmişinde bulunamadı. Yayınlamadan önce
+                  FULL_VIDEO_URL yer tutucusunu gerçek bağlantıyla değiştirin.
+                </p>
+              )}
+            </section>
+          )}
+          <MetadataEditor
+            draft={draft}
+            media={selectedMedia}
+            slug={slug}
+            busy={busy}
+            onEdit={editDraft}
+            onRefill={() => void refillFromProject(slug)}
+            onThumbnailFile={(file) => void attachThumbnail(slug, file)}
+            onCaptionFile={(file) => void attachCaption(slug, file)}
+          />
+        </>
       )}
 
       <section className="publish-platforms">

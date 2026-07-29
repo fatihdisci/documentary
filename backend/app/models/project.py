@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -66,6 +67,74 @@ class Metadata(Base):
     thumbnail_text: str = Field(default="", max_length=200)
     thumbnail_prompt: str = Field(default="", max_length=4_000)
     tags: list[str] = Field(default_factory=list)
+
+
+class PlannedSection(Base):
+    """A stable story reference; render timestamps do not exist at authoring time."""
+
+    kind: Literal["intro", "scene", "outro"]
+    number: int | None = Field(default=None, ge=1, le=200)
+
+    @model_validator(mode="after")
+    def _number_matches_kind(self) -> "PlannedSection":
+        if self.kind == "scene" and self.number is None:
+            raise ValueError("number is required for a planned scene")
+        if self.kind != "scene" and self.number is not None:
+            raise ValueError("number is only valid for a planned scene")
+        return self
+
+
+class PlannedYouTubeMetadata(Base):
+    title: str = Field(default="", max_length=100)
+    alternative_titles: list[str] = Field(default_factory=list)
+    description: str = Field(default="", max_length=5_000)
+    tags: list[str] = Field(default_factory=list)
+    hashtags: list[str] = Field(default_factory=list)
+    pinned_comment: str = Field(default="", max_length=10_000)
+
+
+class PlannedSocialMetadata(Base):
+    caption: str = Field(default="", max_length=5_000)
+    hashtags: list[str] = Field(default_factory=list)
+    cta: str = Field(default="", max_length=500)
+
+
+class PlannedShort(Base):
+    id: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    priority: int = Field(default=1, ge=1, le=100)
+    purpose: str = Field(default="", max_length=500)
+    sections: list[PlannedSection] = Field(default_factory=list, min_length=1, max_length=20)
+    estimated_duration_seconds: float | None = Field(default=None, gt=0, le=180)
+    youtube: PlannedYouTubeMetadata = Field(default_factory=PlannedYouTubeMetadata)
+    instagram: PlannedSocialMetadata = Field(default_factory=PlannedSocialMetadata)
+    facebook: PlannedSocialMetadata = Field(default_factory=PlannedSocialMetadata)
+    tiktok: PlannedSocialMetadata = Field(default_factory=PlannedSocialMetadata)
+
+
+class ShortsPlan(Base):
+    version: int = Field(default=1, ge=1, le=1)
+    caption_mode: Literal["source-burned-in", "shorts-native", "off"] = "shorts-native"
+    caption_preset: Literal["standard", "large", "compact"] = "large"
+    recommended_release_order: list[str] = Field(default_factory=list)
+    shorts: list[PlannedShort] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def _references_known_ids(self) -> "ShortsPlan":
+        ids = [item.id for item in self.shorts]
+        if len(ids) != len(set(ids)):
+            raise ValueError("planned Short ids must be unique")
+        sequences = [
+            tuple((section.kind, section.number) for section in item.sections)
+            for item in self.shorts
+        ]
+        if len(sequences) != len(set(sequences)):
+            raise ValueError("planned Shorts must not use the same section sequence")
+        unknown = set(self.recommended_release_order) - set(ids)
+        if unknown:
+            raise ValueError(
+                "recommendedReleaseOrder contains unknown ids: " + ", ".join(sorted(unknown))
+            )
+        return self
 
 
 class VideoSettings(Base):
@@ -392,6 +461,7 @@ class Project(Base):
     #: Spelling hints applied to narration before synthesis, e.g.
     #: {"Raphus cucullatus": "RAH-fus koo-koo-LAH-tus"}
     pronunciation: dict[str, str] = Field(default_factory=dict)
+    shorts_plan: ShortsPlan = Field(default_factory=ShortsPlan)
 
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)

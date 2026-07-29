@@ -151,7 +151,7 @@ class TestSuccessfulUpload:
         snippet = call["body"]["snippet"]
         status = call["body"]["status"]
         assert snippet["title"] == "The Dodo: A Bird That Never Learned to Run"
-        assert snippet["categoryId"] == "27"
+        assert snippet["categoryId"] == "15"
         assert snippet["defaultLanguage"] == "en"
         assert snippet["defaultAudioLanguage"] == "en"
         assert status["privacyStatus"] == "unlisted"

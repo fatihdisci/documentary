@@ -38,11 +38,11 @@ interface Props {
 
 /** YouTube's category list, trimmed to the ones a documentary would use. */
 const CATEGORIES: { id: string; label: string }[] = [
+  { id: '15', label: 'Evcil hayvanlar ve hayvanlar' },
   { id: '27', label: 'Eğitim' },
   { id: '22', label: 'İnsanlar ve bloglar' },
   { id: '24', label: 'Eğlence' },
   { id: '25', label: 'Haber ve politika' },
-  { id: '15', label: 'Evcil hayvanlar ve hayvanlar' },
   { id: '28', label: 'Bilim ve teknoloji' },
   { id: '19', label: 'Seyahat ve etkinlikler' },
 ]
@@ -74,7 +74,9 @@ export function MetadataEditor({
       <div className="publish-section-head">
         <h2>2. Bilgileri düzenleyin</h2>
         <button type="button" onClick={onRefill} disabled={busy}>
-          Proje metadatasından tekrar doldur
+          {media.contentPlanId
+            ? 'Shorts planından tekrar doldur'
+            : 'Proje metadatasından tekrar doldur'}
         </button>
       </div>
 

@@ -20,6 +20,7 @@ import type {
   ShortPhase,
   ShortTimelineSection,
 } from '@/api/shorts-types'
+import type { PlannedShort, PlannedSocialMetadata } from '@/api/project-types'
 import { captionSupportOf } from '@/api/shorts-types'
 import { useProjectStore } from '@/store/project'
 import { useShortsStore } from '@/store/shorts'
@@ -70,6 +71,26 @@ function formatBytes(bytes: number): string {
 
 function StatusPill({ status }: { status: ShortJob['status'] }) {
   return <span className={`status-pill status-${status}`}>{STATUS_LABEL[status] ?? status}</span>
+}
+
+function plannedSectionsLabel(item: PlannedShort): string {
+  return item.sections
+    .map((section) =>
+      section.kind === 'scene'
+        ? `${section.number}. sahne`
+        : section.kind === 'intro'
+          ? 'Intro'
+          : 'Outro',
+    )
+    .join(' → ')
+}
+
+function plannedSocialCopy(metadata: PlannedSocialMetadata): string {
+  return [
+    metadata.caption,
+    metadata.cta,
+    metadata.hashtags.join(' '),
+  ].filter((part) => part.trim()).join('\n\n')
 }
 
 /** A number input that only commits a value the backend would also accept. */
@@ -127,7 +148,7 @@ export function ShortsPage() {
     error, loading, busy,
     loadSources, selectSource, toggleSection, moveSelection, removeSelection,
     setTrim, setCaptionMode, setCaptionPreset, refreshPreflight, start, cancel, retry,
-    detach, reattachIfRunning, loadHistory, remove, clearError,
+    applyPlannedShort, detach, reattachIfRunning, loadHistory, remove, clearError,
   } = useShortsStore()
 
   const slug = project?.slug ?? null
@@ -164,6 +185,17 @@ export function ShortsPage() {
   }
 
   const source = sources.find((entry) => entry.renderId === selectedRenderId) ?? null
+  const releaseOrder = project.shortsPlan?.recommendedReleaseOrder ?? []
+  const plannedShorts = [...(project.shortsPlan?.shorts ?? [])].sort((left, right) => {
+    const leftIndex = releaseOrder.indexOf(left.id)
+    const rightIndex = releaseOrder.indexOf(right.id)
+    if (leftIndex >= 0 || rightIndex >= 0) {
+      if (leftIndex < 0) return 1
+      if (rightIndex < 0) return -1
+      return leftIndex - rightIndex
+    }
+    return left.priority - right.priority
+  })
   const fps = timeline?.fps ?? 30
   const total = preflight?.totalDurationSeconds ?? plan.totalSeconds
   const maxSeconds = timeline?.maxSeconds ?? 180
@@ -292,6 +324,77 @@ export function ShortsPage() {
           </div>
         )}
       </section>
+
+      {plannedShorts.length > 0 && (
+        <section className="card planned-shorts-card">
+          <div className="section-head">
+            <div>
+              <h2>Hazır Shorts planı</h2>
+              <p className="muted">
+                İçerik JSON’undaki sahne seçimleri ve platform metinleri.
+              </p>
+            </div>
+          </div>
+          <div className="planned-shorts-list">
+            {plannedShorts.map((item) => (
+              <article className="planned-short" key={item.id}>
+                <div className="planned-short-head">
+                  <div>
+                    <strong>{item.youtube.title || item.id}</strong>
+                    <p>{plannedSectionsLabel(item)}</p>
+                  </div>
+                  <span className="status-pill">#{item.priority}</span>
+                </div>
+                {item.purpose && <p className="planned-purpose">{item.purpose}</p>}
+                <p className="muted">
+                  Tahmini {item.estimatedDurationSeconds?.toFixed(0) ?? '—'} sn ·{' '}
+                  {project.shortsPlan?.captionMode === 'shorts-native'
+                    ? 'büyük altyazı'
+                    : 'kaynak altyazısı'}
+                </p>
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={!timeline || running}
+                  onClick={() =>
+                    applyPlannedShort(
+                      slug,
+                      item.sections,
+                      project.shortsPlan?.captionMode ?? 'shorts-native',
+                      project.shortsPlan?.captionPreset ?? 'large',
+                    )
+                  }
+                >
+                  Bu planı uygula
+                </button>
+                <details className="planned-copy">
+                  <summary>Platform metinlerini göster</summary>
+                  <dl>
+                    <dt>YouTube başlığı</dt>
+                    <dd>{item.youtube.title || '—'}</dd>
+                    <dt>Alternatif başlıklar</dt>
+                    <dd>{item.youtube.alternativeTitles.join(' · ') || '—'}</dd>
+                    <dt>YouTube açıklaması</dt>
+                    <dd className="preline">{item.youtube.description || '—'}</dd>
+                    <dt>YouTube etiketleri</dt>
+                    <dd>{item.youtube.tags.join(', ') || '—'}</dd>
+                    <dt>YouTube hashtag’leri</dt>
+                    <dd>{item.youtube.hashtags.join(' ') || '—'}</dd>
+                    <dt>Instagram</dt>
+                    <dd className="preline">{plannedSocialCopy(item.instagram) || '—'}</dd>
+                    <dt>Facebook</dt>
+                    <dd className="preline">{plannedSocialCopy(item.facebook) || '—'}</dd>
+                    <dt>TikTok</dt>
+                    <dd className="preline">{plannedSocialCopy(item.tiktok) || '—'}</dd>
+                    <dt>Sabit yorum</dt>
+                    <dd>{item.youtube.pinnedComment || '—'}</dd>
+                  </dl>
+                </details>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* --- 1b. captions --------------------------------------------------- */}
       {source && (

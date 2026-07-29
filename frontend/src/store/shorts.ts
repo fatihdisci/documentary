@@ -27,6 +27,7 @@ import type {
 import { captionSupportOf } from '@/api/shorts-types'
 import { attachJobStream, type JobStream } from '@/lib/jobStream'
 import type { Selection } from '@/lib/shortsPlan'
+import type { PlannedSection } from '@/api/project-types'
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled', 'interrupted'])
 
@@ -59,6 +60,12 @@ interface ShortsState {
   setTrim: (slug: string, unitId: string, edge: 'start' | 'end', value: number | null) => void
   setCaptionMode: (slug: string, mode: ShortCaptionMode) => void
   setCaptionPreset: (slug: string, preset: ShortCaptionPreset) => void
+  applyPlannedShort: (
+    slug: string,
+    sections: PlannedSection[],
+    mode: ShortCaptionMode,
+    preset: ShortCaptionPreset,
+  ) => void
   refreshPreflight: (slug: string) => Promise<void>
   start: (slug: string) => Promise<void>
   cancel: () => Promise<void>
@@ -229,6 +236,44 @@ export const useShortsStore = create<ShortsState>((set, get) => {
     setCaptionPreset: (slug, preset) => {
       set({ captionPreset: preset })
       if (get().captionMode === 'shorts-native') schedulePreflight(slug)
+    },
+
+    applyPlannedShort: (slug, sections, mode, preset) => {
+      const timeline = get().timeline
+      if (!timeline) return
+      const selected: Selection[] = []
+      for (const planned of sections) {
+        const section = timeline.sections.find(
+          (candidate) =>
+            candidate.kind === planned.kind &&
+            (planned.kind !== 'scene' || candidate.number === planned.number),
+        )
+        if (!section) {
+          set({
+            error: {
+              code: 'short_plan_section_missing',
+              message: 'Planlanan bölümlerden biri bu videoda bulunamadı.',
+              details:
+                planned.kind === 'scene'
+                  ? `${planned.number}. sahne bulunamadı`
+                  : `${planned.kind} bölümü bulunamadı`,
+              suggestion: 'İçerik JSON’unu ve final videoyu aynı proje sürümünden oluşturun.',
+              logPath: null,
+              context: {},
+            },
+          })
+          return
+        }
+        selected.push({ unitId: section.unitId, startSeconds: null, endSeconds: null })
+      }
+      set({
+        selection: selected,
+        captionMode: mode,
+        captionPreset: preset,
+        preflight: null,
+        error: null,
+      })
+      schedulePreflight(slug)
     },
 
     refreshPreflight: async (slug) => {
