@@ -6,7 +6,15 @@
  * a suggested fix and a log path — never a bare "request failed".
  */
 
-import type { ApiErrorPayload, DiagnosticsReport, SettingsResponse, AppSettings } from './types'
+import type {
+  ApiErrorPayload,
+  AppSettings,
+  BundleContents,
+  BundleImportResult,
+  DiagnosticsReport,
+  ExportedBundle,
+  SettingsResponse,
+} from './types'
 import type {
   ExportEntry,
   PreflightResponse,
@@ -24,11 +32,19 @@ import type {
   AssetUploadResponse,
   ClientSecretUploadResponse,
   DraftResponse,
+  MediaHostStatus,
   MediaItem,
+  MetaAppCredentials,
+  MetaConnection,
+  OAuthStart,
+  ObjectStorageSettings,
   PublishDraft,
   PublishHistoryEntry,
   PublishJob,
   PublishRequest,
+  SocialPlatform,
+  TikTokAppCredentials,
+  TikTokConnection,
   YouTubeConnection,
 } from './publishing-types'
 import type {
@@ -109,6 +125,41 @@ function isErrorPayload(value: unknown): value is ApiErrorPayload {
   )
 }
 
+/** Build the same `ApiError` `request()` throws, for callers that fetch raw. */
+async function toApiError(response: Response, path: string): Promise<ApiError> {
+  let payload: ApiErrorPayload
+  try {
+    const body: unknown = await response.json()
+    payload = isErrorPayload(body)
+      ? body
+      : {
+          code: `http_${response.status}`,
+          message: `The server returned HTTP ${response.status} for ${path}.`,
+          details: JSON.stringify(body, null, 2),
+          suggestion: 'This is unexpected. Check the backend log for details.',
+          logPath: null,
+          context: {},
+        }
+  } catch {
+    payload = {
+      code: `http_${response.status}`,
+      message: `The server returned HTTP ${response.status} (${response.statusText}) for ${path}.`,
+      details: null,
+      suggestion: 'Check that the backend is running and healthy.',
+      logPath: null,
+      context: {},
+    }
+  }
+  return new ApiError(response.status, payload)
+}
+
+/** The filename a `Content-Disposition: attachment` header names, if any. */
+function filenameFrom(response: Response): string | null {
+  const header = response.headers.get('Content-Disposition')
+  const match = header?.match(/filename="?([^";]+)"?/)
+  return match?.[1] ?? null
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -118,32 +169,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
   })
 
-  if (!response.ok) {
-    let payload: ApiErrorPayload
-    try {
-      const body: unknown = await response.json()
-      payload = isErrorPayload(body)
-        ? body
-        : {
-            code: `http_${response.status}`,
-            message: `The server returned HTTP ${response.status} for ${path}.`,
-            details: JSON.stringify(body, null, 2),
-            suggestion: 'This is unexpected. Check the backend log for details.',
-            logPath: null,
-            context: {},
-          }
-    } catch {
-      payload = {
-        code: `http_${response.status}`,
-        message: `The server returned HTTP ${response.status} (${response.statusText}) for ${path}.`,
-        details: null,
-        suggestion: 'Check that the backend is running and healthy.',
-        logPath: null,
-        context: {},
-      }
-    }
-    throw new ApiError(response.status, payload)
-  }
+  if (!response.ok) throw await toApiError(response, path)
 
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
@@ -161,6 +187,57 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ key, value }),
     }),
+
+  // --- moving an installation to another computer ---
+  /**
+   * Ask for a sealed bundle.
+   *
+   * Comes back as bytes, not JSON: the file is saved straight to disk and its
+   * contents never sit in a variable this page could read.
+   */
+  exportSettingsBundle: async (
+    passphrase: string,
+    includeCredentials: boolean,
+  ): Promise<ExportedBundle> => {
+    const response = await fetch('/api/settings/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passphrase, includeCredentials }),
+    })
+    if (!response.ok) throw await toApiError(response, '/api/settings/export')
+    return {
+      blob: await response.blob(),
+      filename: filenameFrom(response) ?? 'evb-ayarlar.evbkey',
+      contents: {
+        secrets: Number(response.headers.get('X-Evb-Bundle-Secrets') ?? 0),
+        credentialFiles: Number(response.headers.get('X-Evb-Bundle-Credential-Files') ?? 0),
+      },
+    }
+  },
+  /** What a bundle holds, before the user has to type anything. */
+  inspectSettingsBundle: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<BundleContents>('/api/settings/import/inspect', {
+      method: 'POST',
+      body: form,
+    })
+  },
+  importSettingsBundle: (
+    file: File,
+    passphrase: string,
+    options: { overwrite: boolean; includePaths: boolean },
+  ) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('passphrase', passphrase)
+    form.append('overwrite', String(options.overwrite))
+    form.append('includePaths', String(options.includePaths))
+    return request<BundleImportResult>('/api/settings/import', {
+      method: 'POST',
+      body: form,
+    })
+  },
 
   // --- projects ---
   listProjects: () => request<ProjectSummary[]>('/api/projects'),
@@ -401,6 +478,58 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  /** Queue one upload to Instagram, Facebook or TikTok. Its own job each time. */
+  publishToPlatform: (slug: string, platform: SocialPlatform, body: PublishRequest) =>
+    request<PublishJob>(`/api/projects/${slug}/publishing/${platform}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  // --- Meta (Instagram + Facebook), one connection for both ---
+  metaStatus: () => request<MetaConnection>('/api/publishing/meta/status'),
+  /** Write-only: no endpoint returns the App ID or the App Secret. */
+  saveMetaAppCredentials: (body: MetaAppCredentials) =>
+    request<MetaConnection>('/api/publishing/meta/app-credentials', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  clearMetaAppCredentials: () =>
+    request<MetaConnection>('/api/publishing/meta/app-credentials', { method: 'DELETE' }),
+  /** Returns the URL to open; Meta redirects back to the backend's callback. */
+  startMetaConnect: () =>
+    request<OAuthStart>('/api/publishing/meta/connect', { method: 'POST' }),
+  selectMetaPage: (pageId: string) =>
+    request<MetaConnection>('/api/publishing/meta/page', {
+      method: 'POST',
+      body: JSON.stringify({ pageId }),
+    }),
+  disconnectMeta: () =>
+    request<MetaConnection>('/api/publishing/meta/disconnect', { method: 'DELETE' }),
+
+  // --- TikTok ---
+  tiktokStatus: (refresh = false) =>
+    request<TikTokConnection>(`/api/publishing/tiktok/status?refresh=${refresh}`),
+  saveTiktokAppCredentials: (body: TikTokAppCredentials) =>
+    request<TikTokConnection>('/api/publishing/tiktok/app-credentials', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  clearTiktokAppCredentials: () =>
+    request<TikTokConnection>('/api/publishing/tiktok/app-credentials', { method: 'DELETE' }),
+  startTiktokConnect: () =>
+    request<OAuthStart>('/api/publishing/tiktok/connect', { method: 'POST' }),
+  disconnectTiktok: () =>
+    request<TikTokConnection>('/api/publishing/tiktok/disconnect', { method: 'DELETE' }),
+
+  // --- temporary media hosting (only Instagram and Facebook need it) ---
+  mediaHostStatus: () => request<MediaHostStatus>('/api/publishing/media-host/status'),
+  saveMediaHostSettings: (body: ObjectStorageSettings) =>
+    request<MediaHostStatus>('/api/publishing/media-host/settings', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  clearMediaHostKeys: () =>
+    request<MediaHostStatus>('/api/publishing/media-host/keys', { method: 'DELETE' }),
   publishHistory: (slug: string) =>
     request<PublishHistoryEntry[]>(`/api/projects/${slug}/publishing/history`),
   refreshPublishHistoryEntry: (slug: string, entryId: string) =>

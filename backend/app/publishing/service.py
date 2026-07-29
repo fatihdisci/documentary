@@ -31,18 +31,26 @@ from app.publishing.models import (
     LOCAL_TIMEZONE,
     MAX_CAPTION_BYTES,
     MAX_DESCRIPTION_BYTES,
+    MAX_FACEBOOK_DESCRIPTION_CHARS,
+    MAX_INSTAGRAM_CAPTION_CHARS,
+    MAX_INSTAGRAM_HASHTAGS,
     MAX_TAGS_LENGTH,
     MAX_THUMBNAIL_BYTES,
+    MAX_TIKTOK_TITLE_CHARS,
     MAX_TITLE_CHARS,
     CommonDraft,
     DraftResponse,
+    FacebookDraft,
+    InstagramDraft,
     MediaItem,
     MediaKind,
     PublishDraft,
     PublishHistoryEntry,
     PublishMode,
     PublishingPlatform,
+    SocialDraft,
     SourceFingerprint,
+    TikTokDraft,
     YouTubeDraft,
 )
 from app.publishing.repository import PublishingRepository
@@ -191,6 +199,141 @@ def validate_youtube_metadata(draft: YouTubeDraft) -> list[str]:
             "Başlık 70 karakterden uzun; arama sonuçlarında sonu görünmeyebilir."
         )
     return warnings
+
+
+# --- the other three platforms ----------------------------------------------
+
+
+def compose_caption(social: SocialDraft) -> str:
+    """The text one post actually carries: the caption plus its hashtags.
+
+    Hashtags are kept as a separate field in the editor because they are a list
+    with their own rules, and joined here because every one of these platforms
+    takes a single string. A tag the user already wrote with a ``#`` is not
+    given a second one.
+    """
+    caption = social.caption.strip()
+    tags = [
+        tag if tag.startswith("#") else f"#{tag.replace(' ', '')}"
+        for tag in clean_tags(list(social.hashtags))
+    ]
+    if not tags:
+        return caption
+    return f"{caption}\n\n{' '.join(tags)}".strip()
+
+
+def validate_instagram_metadata(draft: InstagramDraft, media: MediaItem) -> list[str]:
+    """Meta's Reels limits, checked before anything is uploaded anywhere.
+
+    A Reel that is too long or too short is refused by Meta *after* the file has
+    been hosted, downloaded and transcoded — several minutes later. Checking the
+    numbers the app already knows turns that into an instant, fixable message.
+    """
+    problems: list[str] = []
+    caption = compose_caption(draft)
+    if len(caption) > MAX_INSTAGRAM_CAPTION_CHARS:
+        problems.append(
+            f"Açıklama {len(caption)} karakter; Instagram en fazla "
+            f"{MAX_INSTAGRAM_CAPTION_CHARS} karakter kabul eder."
+        )
+    if len(draft.hashtags) > MAX_INSTAGRAM_HASHTAGS:
+        problems.append(
+            f"{len(draft.hashtags)} hashtag var; Instagram en fazla "
+            f"{MAX_INSTAGRAM_HASHTAGS} tanesini kabul eder."
+        )
+    problems.extend(_reel_duration_problems(media, minimum=3.0, maximum=15 * 60))
+
+    if problems:
+        raise ValidationError(
+            ErrorCode.PUBLISHING_ASSET_INVALID,
+            problems[0] if len(problems) == 1 else "Instagram bilgileri sınırları aşıyor.",
+            details="\n".join(problems),
+        )
+
+    warnings: list[str] = []
+    if media.width and media.height and media.width > media.height:
+        warnings.append(
+            "Video yatay. Instagram Reels dikey (9:16) videolar için tasarlanmıştır; yatay bir "
+            "video kırpılarak gösterilebilir."
+        )
+    return warnings
+
+
+def validate_facebook_metadata(draft: SocialDraft, media: MediaItem) -> list[str]:
+    problems: list[str] = []
+    description = compose_caption(draft)
+    if len(description) > MAX_FACEBOOK_DESCRIPTION_CHARS:
+        problems.append(
+            f"Açıklama {len(description)} karakter; Facebook en fazla "
+            f"{MAX_FACEBOOK_DESCRIPTION_CHARS} karakter kabul eder."
+        )
+    problems.extend(_reel_duration_problems(media, minimum=3.0, maximum=90 * 60))
+
+    if problems:
+        raise ValidationError(
+            ErrorCode.PUBLISHING_ASSET_INVALID,
+            problems[0] if len(problems) == 1 else "Facebook bilgileri sınırları aşıyor.",
+            details="\n".join(problems),
+        )
+
+    warnings: list[str] = []
+    if media.width and media.height and media.width > media.height:
+        warnings.append(
+            "Video yatay. Facebook Reels dikey videolar içindir; yatay bir video kırpılabilir."
+        )
+    return warnings
+
+
+def validate_tiktok_metadata(
+    draft: TikTokDraft, media: MediaItem, *, allowed_privacy: list[str]
+) -> list[str]:
+    """TikTok's limits, plus the privacy levels this account may actually use.
+
+    ``allowed_privacy`` comes from TikTok's own creator-info query, so an
+    unaudited app is stopped here with an explanation rather than at the post
+    call with a code.
+    """
+    problems: list[str] = []
+    title = compose_caption(draft)
+    if len(title) > MAX_TIKTOK_TITLE_CHARS:
+        problems.append(
+            f"Başlık {len(title)} karakter; TikTok en fazla {MAX_TIKTOK_TITLE_CHARS} "
+            "karakter kabul eder."
+        )
+    if allowed_privacy and draft.privacy.upper() not in {
+        option.upper() for option in allowed_privacy
+    }:
+        raise ConflictError(
+            ErrorCode.TIKTOK_PRIVACY_NOT_ALLOWED,
+            f"“{draft.privacy}” gizliliği bu hesap için kullanılamıyor.",
+            details="TikTok'un bildirdiği seçenekler: " + ", ".join(allowed_privacy),
+        )
+    if problems:
+        raise ValidationError(
+            ErrorCode.PUBLISHING_ASSET_INVALID,
+            problems[0],
+            details="\n".join(problems),
+        )
+
+    warnings: list[str] = []
+    if media.duration_seconds and media.duration_seconds > 10 * 60:
+        warnings.append(
+            "Video 10 dakikadan uzun; TikTok hesabınızın yükleme sınırına takılabilir."
+        )
+    return warnings
+
+
+def _reel_duration_problems(media: MediaItem, *, minimum: float, maximum: float) -> list[str]:
+    duration = media.duration_seconds or 0.0
+    if not duration:
+        return []
+    if duration < minimum:
+        return [f"Video {duration:.1f} saniye; en az {minimum:.0f} saniye olmalı."]
+    if duration > maximum:
+        return [
+            f"Video {duration / 60:.0f} dakika; en fazla {maximum / 60:.0f} dakika olabilir."
+        ]
+    return []
 
 
 class PublishingService:
@@ -437,19 +580,51 @@ class PublishingService:
         else:
             draft = stored
 
+        return self._draft_response(repository, draft, media, media_id)
+
+    def _draft_response(
+        self,
+        repository: PublishingRepository,
+        draft: PublishDraft,
+        media: MediaItem,
+        media_id: str,
+    ) -> DraftResponse:
+        """One draft plus everything the panel renders around it."""
         changed, reason = self._source_changed(draft, media)
-        duplicate = (
-            repository.find_upload(sha256=media.fingerprint.sha256)
-            if media.fingerprint.sha256
-            else repository.find_by_media_id(media_id)
-        )
+        duplicates = {
+            platform.value: entry
+            for platform in PublishingPlatform
+            if (entry := self.find_duplicate(repository, media, media_id, platform)) is not None
+        }
         return DraftResponse(
             draft=draft,
             media=media,
             source_changed=changed,
             source_changed_reason=reason,
-            duplicate_of=duplicate,
+            duplicate_of=duplicates.get(PublishingPlatform.YOUTUBE.value),
+            duplicates=duplicates,
         )
+
+    @staticmethod
+    def find_duplicate(
+        repository: PublishingRepository,
+        media: MediaItem,
+        media_id: str,
+        platform: PublishingPlatform,
+    ) -> PublishHistoryEntry | None:
+        """A finished upload of the same bytes to *this* platform.
+
+        Falls back to the media id when the checksum is unknown — which happens
+        when the file on disk no longer matches its manifest — so the warning
+        does not silently disappear in exactly the case that deserves it most.
+        """
+        if media.fingerprint.sha256:
+            found = repository.find_upload(
+                sha256=media.fingerprint.sha256, platform=platform.value
+            )
+            if found is not None:
+                return found
+        return repository.find_by_media_id(media_id, platform=platform.value)
 
     def seed_draft(self, slug: str, media: MediaItem) -> PublishDraft:
         """Build a draft from ``project.metadata`` without saving it.
@@ -481,12 +656,25 @@ class PublishingService:
             youtube.caption_source = "export"
             youtube.upload_captions = True
 
+        # The social platforms take one block of text, so the description is a
+        # better starting point than the title alone. The tags become hashtags
+        # because that is what they are on those platforms.
+        social_caption = f"{title}\n\n{metadata.description}".strip()
+        instagram = InstagramDraft(caption=social_caption[:MAX_INSTAGRAM_CAPTION_CHARS], hashtags=tags)
+        facebook = FacebookDraft(
+            caption=social_caption[:MAX_FACEBOOK_DESCRIPTION_CHARS], hashtags=tags
+        )
+        tiktok = TikTokDraft(caption=title[:MAX_TIKTOK_TITLE_CHARS], hashtags=tags)
+
         return PublishDraft(
             media_id=media.media_id,
             project_slug=slug,
             source_fingerprint=media.fingerprint,
             common=common,
             youtube=youtube,
+            instagram=instagram,
+            facebook=facebook,
+            tiktok=tiktok,
         )
 
     def save_draft(self, slug: str, media_id: str, draft: PublishDraft) -> DraftResponse:
@@ -529,23 +717,15 @@ class PublishingService:
         if draft.youtube.caption_file:
             self.caption_path(slug, draft.youtube.caption_file, draft.youtube.caption_source)
 
-        if not draft.source_fingerprint.filename:
-            draft.source_fingerprint = media.fingerprint
+        # Saving binds the draft to the file that is selected *now*. That is what
+        # the "kaynak dosya değişmiş" warning asks the user to do: review the
+        # metadata and save it again. Without this the warning would never clear
+        # and the file could never be uploaded — the draft would stay bound to a
+        # version of the export that no longer exists on disk.
+        draft.source_fingerprint = media.fingerprint
 
         repository.save_draft(draft)
-        changed, reason = self._source_changed(draft, media)
-        duplicate = (
-            repository.find_upload(sha256=media.fingerprint.sha256)
-            if media.fingerprint.sha256
-            else repository.find_by_media_id(media_id)
-        )
-        return DraftResponse(
-            draft=draft,
-            media=media,
-            source_changed=changed,
-            source_changed_reason=reason,
-            duplicate_of=duplicate,
-        )
+        return self._draft_response(repository, draft, media, media_id)
 
     def _source_changed(self, draft: PublishDraft, media: MediaItem) -> tuple[bool, str | None]:
         """Whether the file this draft was written for is still that file."""
@@ -643,13 +823,24 @@ class PublishingService:
     # --- upload preparation ----------------------------------------------
 
     def prepare_upload(
-        self, slug: str, media_id: str, *, allow_duplicate: bool
+        self,
+        slug: str,
+        media_id: str,
+        *,
+        allow_duplicate: bool,
+        platform: PublishingPlatform = PublishingPlatform.YOUTUBE,
+        allowed_privacy: list[str] | None = None,
     ) -> tuple[MediaItem, PublishDraft, Path, list[str]]:
-        """Everything a YouTube job needs, validated before a job exists.
+        """Everything one platform's job needs, validated before a job exists.
 
         Runs the checks the user can still fix cheaply — metadata limits, the
         schedule, missing assets, a duplicate — so they come back as a 4xx on the
         request rather than as a job that fails a second later.
+
+        Every check that follows is scoped to *one* platform. That is the whole
+        point: a file already on YouTube must still be publishable to Instagram,
+        and a Reel that Meta rejected must not make the YouTube upload look
+        suspect.
         """
         media = self.get_media(slug, media_id)
         repository = self.repository(slug)
@@ -662,6 +853,46 @@ class PublishingService:
                 suggestion="Yayınla panelinde bilgileri doldurup tekrar deneyin.",
             )
 
+        if platform is PublishingPlatform.YOUTUBE:
+            warnings = self._prepare_youtube(slug, repository, stored)
+        elif platform is PublishingPlatform.INSTAGRAM:
+            warnings = validate_instagram_metadata(stored.instagram, media)
+        elif platform is PublishingPlatform.FACEBOOK:
+            warnings = validate_facebook_metadata(stored.facebook, media)
+        else:
+            warnings = validate_tiktok_metadata(
+                stored.tiktok, media, allowed_privacy=allowed_privacy or []
+            )
+
+        video = self.media_path(slug, media_id)
+        changed, reason = self._source_changed(stored, media)
+        if changed:
+            raise ConflictError(
+                ErrorCode.PUBLISHING_SOURCE_CHANGED,
+                "Seçtiğiniz video, yayın bilgileri hazırlandığından beri değişmiş.",
+                details=reason,
+            )
+
+        if not allow_duplicate:
+            duplicate = self.find_duplicate(repository, media, media_id, platform)
+            if duplicate is not None:
+                raise ConflictError(
+                    ErrorCode.PUBLISHING_DUPLICATE,
+                    f"Bu dosya daha önce {platform.label}'a yüklenmiş.",
+                    details=(
+                        f"{duplicate.title}\n{duplicate.video_url}\n"
+                        f"yüklenme: {duplicate.uploaded_at.isoformat()}"
+                    ),
+                    video_id=duplicate.video_id,
+                    video_url=duplicate.video_url,
+                )
+
+        return media, stored, video, warnings
+
+    def _prepare_youtube(
+        self, slug: str, repository: PublishingRepository, stored: PublishDraft
+    ) -> list[str]:
+        """The YouTube-only half of ``prepare_upload``, unchanged in behaviour."""
         warnings = validate_youtube_metadata(stored.youtube)
         if stored.youtube.publish_mode is PublishMode.SCHEDULE:
             resolve_publish_at(stored.youtube.publish_at_local)
@@ -679,35 +910,7 @@ class PublishingService:
             self.caption_path(
                 slug, stored.youtube.caption_file, stored.youtube.caption_source
             )
-
-        video = self.media_path(slug, media_id)
-        changed, reason = self._source_changed(stored, media)
-        if changed:
-            raise ConflictError(
-                ErrorCode.PUBLISHING_SOURCE_CHANGED,
-                "Seçtiğiniz video, yayın bilgileri hazırlandığından beri değişmiş.",
-                details=reason,
-            )
-
-        if not allow_duplicate:
-            duplicate = None
-            if media.fingerprint.sha256:
-                duplicate = repository.find_upload(sha256=media.fingerprint.sha256)
-            if duplicate is None:
-                duplicate = repository.find_by_media_id(media_id)
-            if duplicate is not None:
-                raise ConflictError(
-                    ErrorCode.PUBLISHING_DUPLICATE,
-                    "Bu dosya daha önce YouTube'a yüklenmiş.",
-                    details=(
-                        f"{duplicate.title}\n{duplicate.video_url}\n"
-                        f"yüklenme: {duplicate.uploaded_at.isoformat()}"
-                    ),
-                    video_id=duplicate.video_id,
-                    video_url=duplicate.video_url,
-                )
-
-        return media, stored, video, warnings
+        return warnings
 
 
 def validate_srt(data: bytes, original_name: str) -> str:

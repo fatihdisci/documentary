@@ -1,15 +1,18 @@
-"""Publishing endpoints: connection, media, drafts, assets, uploads, history.
+"""Publishing endpoints: connections, media, drafts, assets, uploads, history.
 
-Split into three routers for the same reason the rest of the API is:
+Split into four routers for the same reason the rest of the API is:
 
-* ``/api/publishing/youtube`` — the account connection, which is per computer,
-  not per project.
+* ``/api/publishing/youtube`` — the YouTube account connection, which is per
+  computer, not per project.
+* ``/api/publishing/meta`` and ``/api/publishing/tiktok`` — the same, for the
+  other three destinations. Meta is one connection serving two platforms.
 * ``/api/projects/{slug}/publishing`` — everything that belongs to one project.
 * ``/api/publishing/jobs`` — one upload's live progress, by job id.
 
-Every OAuth operation is blocking, so it goes through ``anyio.to_thread`` rather
-than stalling the event loop; and no response on any of these routes carries a
-client id, client secret or token — see ``publishing/youtube.py``.
+Every OAuth and network operation is blocking, so it goes through
+``anyio.to_thread`` rather than stalling the event loop; and no response on any
+of these routes carries a client id, client secret, app secret or token — see
+``publishing/youtube.py``, ``publishing/meta.py`` and ``publishing/tiktok.py``.
 """
 
 from __future__ import annotations
@@ -19,28 +22,47 @@ import logging
 
 import anyio.to_thread
 from fastapi import APIRouter, File, Query, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 
 from app.config import get_settings
 from app.errors import ErrorCode, ValidationError
 from app.models.base import CamelModel
+from app.publishing.hosting import (
+    ACCESS_KEY_SECRET,
+    SECRET_KEY_SECRET,
+    media_host_status,
+)
 from app.publishing.jobs import get_publish_job_manager
+from app.publishing.meta import MetaCredentials
 from app.publishing.models import (
     ClientSecretUploadResponse,
     DraftResponse,
+    MediaHostStatus,
     MediaItem,
+    MetaAppCredentials,
+    MetaConnection,
+    MetaPageSelection,
+    OAuthStart,
+    ObjectStorageSettings,
     PublishDraft,
     PublishHistoryEntry,
     PublishJob,
     PublishRequest,
+    PublishingPlatform,
+    TikTokAppCredentials,
+    TikTokConnection,
     YouTubeConnection,
 )
 from app.publishing.service import PublishingService
+from app.publishing.tiktok import TikTokCredentials
 from app.publishing.youtube import YouTubeCredentials
 
 logger = logging.getLogger("evb.api.publishing")
 
 router = APIRouter(prefix="/api/publishing/youtube", tags=["publishing"])
+meta_router = APIRouter(prefix="/api/publishing/meta", tags=["publishing"])
+tiktok_router = APIRouter(prefix="/api/publishing/tiktok", tags=["publishing"])
+hosting_router = APIRouter(prefix="/api/publishing/media-host", tags=["publishing"])
 project_router = APIRouter(prefix="/api/projects/{slug}/publishing", tags=["publishing"])
 jobs_router = APIRouter(prefix="/api/publishing/jobs", tags=["publishing"])
 
@@ -51,6 +73,14 @@ def service() -> PublishingService:
 
 def credentials() -> YouTubeCredentials:
     return YouTubeCredentials()
+
+
+def meta_credentials() -> MetaCredentials:
+    return MetaCredentials()
+
+
+def tiktok_credentials() -> TikTokCredentials:
+    return TikTokCredentials()
 
 
 class AssetUploadResponse(CamelModel):
@@ -134,6 +164,233 @@ async def disconnect_youtube() -> YouTubeConnection:
     return await anyio.to_thread.run_sync(store.disconnect)
 
 
+# --- Meta -------------------------------------------------------------------
+
+
+@meta_router.get("/status", response_model=MetaConnection)
+async def meta_status() -> MetaConnection:
+    """Connection state. Contains no App ID, App Secret or access token."""
+    store = meta_credentials()
+    return await anyio.to_thread.run_sync(store.status)
+
+
+@meta_router.post("/app-credentials", response_model=MetaConnection)
+async def set_meta_app_credentials(payload: MetaAppCredentials) -> MetaConnection:
+    """Store the App ID and App Secret. Neither is ever readable again.
+
+    Write-only on purpose: the response reports *presence*, and no endpoint
+    exists that returns either value.
+    """
+    store = meta_credentials()
+    await anyio.to_thread.run_sync(
+        lambda: store.store_app_credentials(
+            payload.app_id, payload.app_secret, replace=payload.replace
+        )
+    )
+    return await anyio.to_thread.run_sync(store.status)
+
+
+@meta_router.delete("/app-credentials", response_model=MetaConnection)
+async def clear_meta_app_credentials() -> MetaConnection:
+    """Forget the app credentials and the grant that depends on them."""
+    store = meta_credentials()
+    await anyio.to_thread.run_sync(store.forget_app_credentials)
+    return await anyio.to_thread.run_sync(store.status)
+
+
+@meta_router.post("/connect", response_model=OAuthStart)
+async def start_meta_connect() -> OAuthStart:
+    """The URL to open in the user's browser. Meta redirects back to us."""
+    store = meta_credentials()
+    return await anyio.to_thread.run_sync(store.start_authorization)
+
+
+@meta_router.get("/callback", response_class=HTMLResponse)
+async def meta_callback(
+    code: str | None = Query(default=None),
+    state: str | None = Query(default=None),
+    error: str | None = Query(default=None),
+    error_description: str | None = Query(default=None),
+) -> HTMLResponse:
+    """Where Meta sends the browser back.
+
+    Returns a page, not JSON: a human is looking at it. The panel finds out by
+    re-reading the status, so nothing here has to talk to the frontend.
+    """
+    if error or not code or not state:
+        return _callback_page(
+            "Meta bağlantısı tamamlanmadı",
+            error_description or error or "Yetkilendirme kodu alınamadı.",
+            ok=False,
+        )
+    store = meta_credentials()
+    try:
+        connection = await anyio.to_thread.run_sync(
+            lambda: store.complete_authorization(code, state)
+        )
+    except Exception as exc:  # noqa: BLE001 - the browser must get a readable page
+        logger.warning("Meta callback failed: %s", type(exc).__name__)
+        message = getattr(exc, "message", None) or "Bağlantı tamamlanamadı."
+        return _callback_page("Meta bağlantısı tamamlanmadı", str(message), ok=False)
+    return _callback_page("Meta bağlantısı kuruldu", connection.status_message, ok=True)
+
+
+@meta_router.post("/page", response_model=MetaConnection)
+async def select_meta_page(selection: MetaPageSelection) -> MetaConnection:
+    """Choose which Facebook Page (and its Instagram account) to publish to."""
+    store = meta_credentials()
+    return await anyio.to_thread.run_sync(lambda: store.select_page(selection.page_id))
+
+
+@meta_router.delete("/disconnect", response_model=MetaConnection)
+async def disconnect_meta() -> MetaConnection:
+    """Delete the stored grant. The App ID and App Secret are kept."""
+    store = meta_credentials()
+    return await anyio.to_thread.run_sync(store.disconnect)
+
+
+# --- TikTok -----------------------------------------------------------------
+
+
+@tiktok_router.get("/status", response_model=TikTokConnection)
+async def tiktok_status(refresh: bool = Query(default=False)) -> TikTokConnection:
+    store = tiktok_credentials()
+    return await anyio.to_thread.run_sync(lambda: store.status(refresh_creator=refresh))
+
+
+@tiktok_router.post("/app-credentials", response_model=TikTokConnection)
+async def set_tiktok_app_credentials(payload: TikTokAppCredentials) -> TikTokConnection:
+    store = tiktok_credentials()
+    await anyio.to_thread.run_sync(
+        lambda: store.store_app_credentials(
+            payload.client_key, payload.client_secret, replace=payload.replace
+        )
+    )
+    return await anyio.to_thread.run_sync(lambda: store.status(refresh_creator=False))
+
+
+@tiktok_router.delete("/app-credentials", response_model=TikTokConnection)
+async def clear_tiktok_app_credentials() -> TikTokConnection:
+    store = tiktok_credentials()
+    await anyio.to_thread.run_sync(store.forget_app_credentials)
+    return await anyio.to_thread.run_sync(lambda: store.status(refresh_creator=False))
+
+
+@tiktok_router.post("/connect", response_model=OAuthStart)
+async def start_tiktok_connect() -> OAuthStart:
+    store = tiktok_credentials()
+    return await anyio.to_thread.run_sync(store.start_authorization)
+
+
+@tiktok_router.get("/callback", response_class=HTMLResponse)
+async def tiktok_callback(
+    code: str | None = Query(default=None),
+    state: str | None = Query(default=None),
+    error: str | None = Query(default=None),
+    error_description: str | None = Query(default=None),
+) -> HTMLResponse:
+    if error or not code or not state:
+        return _callback_page(
+            "TikTok bağlantısı tamamlanmadı",
+            error_description or error or "Yetkilendirme kodu alınamadı.",
+            ok=False,
+        )
+    store = tiktok_credentials()
+    try:
+        connection = await anyio.to_thread.run_sync(
+            lambda: store.complete_authorization(code, state)
+        )
+    except Exception as exc:  # noqa: BLE001 - the browser must get a readable page
+        logger.warning("TikTok callback failed: %s", type(exc).__name__)
+        message = getattr(exc, "message", None) or "Bağlantı tamamlanamadı."
+        return _callback_page("TikTok bağlantısı tamamlanmadı", str(message), ok=False)
+    return _callback_page("TikTok bağlantısı kuruldu", connection.status_message, ok=True)
+
+
+@tiktok_router.delete("/disconnect", response_model=TikTokConnection)
+async def disconnect_tiktok() -> TikTokConnection:
+    store = tiktok_credentials()
+    return await anyio.to_thread.run_sync(store.disconnect)
+
+
+# --- temporary media hosting ------------------------------------------------
+
+
+@hosting_router.get("/status", response_model=MediaHostStatus)
+def hosting_status() -> MediaHostStatus:
+    """Bucket coordinates and whether the keys are present. Never the keys."""
+    return media_host_status()
+
+
+@hosting_router.put("/settings", response_model=MediaHostStatus)
+def save_hosting_settings(payload: ObjectStorageSettings) -> MediaHostStatus:
+    """Save the bucket, and the keys when new ones were supplied.
+
+    Empty key fields leave the stored pair alone, so saving a corrected bucket
+    name does not silently wipe working credentials.
+    """
+    settings = get_settings()
+    provider = (payload.provider or "none").strip().lower()
+    if provider not in {"none", "s3", "r2"}:
+        raise ValidationError(
+            ErrorCode.MEDIA_HOST_NOT_CONFIGURED,
+            f"'{payload.provider}' tanınmayan bir barındırma türü.",
+            details="desteklenenler: none, s3, r2",
+        )
+    if provider != "none" and payload.endpoint and not payload.endpoint.startswith("https://"):
+        raise ValidationError(
+            ErrorCode.MEDIA_HOST_NOT_CONFIGURED,
+            "Endpoint adresi https:// ile başlamalı.",
+            details=f"girilen: {payload.endpoint}",
+            suggestion="Meta yalnızca güvenli bağlantılardan video indirir.",
+        )
+
+    settings.save_mutable(
+        settings.mutable.model_copy(
+            update={
+                "media_host_provider": provider,
+                "object_storage_endpoint": payload.endpoint.strip().rstrip("/"),
+                "object_storage_bucket": payload.bucket.strip(),
+                "object_storage_region": (payload.region or "auto").strip(),
+                "object_storage_prefix": payload.prefix.strip("/"),
+                "media_host_ttl_seconds": max(300, min(604800, payload.ttl_seconds)),
+                "media_host_delete_after_publish": payload.delete_after_publish,
+            }
+        )
+    )
+    if payload.access_key_id:
+        settings.set_secret(ACCESS_KEY_SECRET, payload.access_key_id.strip())
+    if payload.secret_access_key:
+        settings.set_secret(SECRET_KEY_SECRET, payload.secret_access_key.strip())
+    return media_host_status(settings)
+
+
+@hosting_router.delete("/keys", response_model=MediaHostStatus)
+def clear_hosting_keys() -> MediaHostStatus:
+    settings = get_settings()
+    settings.set_secret(ACCESS_KEY_SECRET, None)
+    settings.set_secret(SECRET_KEY_SECRET, None)
+    return media_host_status(settings)
+
+
+def _callback_page(title: str, message: str, *, ok: bool) -> HTMLResponse:
+    """A small self-contained page for the OAuth redirect to land on."""
+    colour = "#1c7c4a" if ok else "#a12b2b"
+    body = (
+        "<!doctype html><html lang='tr'><head><meta charset='utf-8'>"
+        f"<title>{title}</title><style>"
+        "body{font-family:system-ui,-apple-system,sans-serif;margin:0;display:flex;"
+        "min-height:100vh;align-items:center;justify-content:center;background:#f6f6f4}"
+        f"main{{max-width:32rem;padding:2rem;text-align:center}}h1{{color:{colour};"
+        "font-size:1.25rem}p{color:#444;line-height:1.6}"
+        "</style></head><body><main>"
+        f"<h1>{title}</h1><p>{message}</p>"
+        "<p>Bu sekmeyi kapatıp uygulamaya dönebilirsiniz.</p>"
+        "</main></body></html>"
+    )
+    return HTMLResponse(body, status_code=200 if ok else 400)
+
+
 # --- media and drafts -------------------------------------------------------
 
 
@@ -200,6 +457,28 @@ def serve_caption(slug: str, filename: str) -> FileResponse:
 async def publish_to_youtube(slug: str, request: PublishRequest) -> PublishJob:
     """Queue one YouTube upload for a media file in this project."""
     return await get_publish_job_manager().submit_youtube(slug, request)
+
+
+@project_router.post("/instagram", response_model=PublishJob, status_code=202)
+async def publish_to_instagram(slug: str, request: PublishRequest) -> PublishJob:
+    """Queue one Instagram Reel. Its own job, its own duplicate protection."""
+    return await get_publish_job_manager().submit(
+        slug, PublishingPlatform.INSTAGRAM, request
+    )
+
+
+@project_router.post("/facebook", response_model=PublishJob, status_code=202)
+async def publish_to_facebook(slug: str, request: PublishRequest) -> PublishJob:
+    """Queue one Facebook Page Reel. Independent of the Instagram job."""
+    return await get_publish_job_manager().submit(
+        slug, PublishingPlatform.FACEBOOK, request
+    )
+
+
+@project_router.post("/tiktok", response_model=PublishJob, status_code=202)
+async def publish_to_tiktok(slug: str, request: PublishRequest) -> PublishJob:
+    """Queue one TikTok Direct Post."""
+    return await get_publish_job_manager().submit(slug, PublishingPlatform.TIKTOK, request)
 
 
 @project_router.get("/history", response_model=list[PublishHistoryEntry])

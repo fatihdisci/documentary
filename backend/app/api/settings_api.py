@@ -2,25 +2,54 @@
 
 Secret *values* are write-only: they can be set and cleared, and their presence
 can be queried, but they are never returned by any endpoint or written to a log.
+
+The one exception is deliberate and sealed: ``/export`` produces an
+**encrypted** bundle for moving an installation to another computer. It is the
+only route that reads secret values, the passphrase is required, and what comes
+back is ciphertext — see ``app/config_bundle.py``.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter
+import anyio.to_thread
+from fastapi import APIRouter, File, Form, Response, UploadFile
 from pydantic import Field
 
 from app.models.base import CamelModel
 
 from app.config import MutableSettings, get_settings
+from app.config_bundle import (
+    MAX_BUNDLE_BYTES,
+    BundleContents,
+    BundleExportRequest,
+    BundleImportResult,
+    export_bundle,
+    import_bundle,
+    read_bundle_header,
+)
 from app.errors import AppError, ErrorCode, ValidationError
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 #: Secrets the app knows about. Anything else is rejected so a typo cannot
 #: silently create a dead key.
+#:
+#: The publishing credentials are listed so their *presence* can be reported,
+#: but they are deliberately not settable through this endpoint: each one has
+#: its own route that validates the value's shape and refuses to overwrite a
+#: working pair by accident.
 KNOWN_SECRETS = {"elevenlabs_api_key"}
+
+READ_ONLY_SECRETS = {
+    "meta_app_id",
+    "meta_app_secret",
+    "tiktok_client_key",
+    "tiktok_client_secret",
+    "object_storage_access_key_id",
+    "object_storage_secret_access_key",
+}
 
 
 class SettingsResponse(CamelModel):
@@ -40,7 +69,11 @@ def _build_response() -> SettingsResponse:
     settings = get_settings()
     return SettingsResponse(
         settings=settings.mutable,
-        configured_secrets=[k for k in settings.secret_names() if k in KNOWN_SECRETS],
+        configured_secrets=[
+            name
+            for name in settings.secret_names()
+            if name in KNOWN_SECRETS or name in READ_ONLY_SECRETS
+        ],
         resolved_paths={
             "dataDir": str(settings.data_dir),
             "projectsDir": str(settings.projects_dir),
@@ -114,3 +147,69 @@ def set_secret(update: SecretUpdate) -> SettingsResponse:
             details=str(exc),
         ) from exc
     return _build_response()
+
+
+# --- moving an installation to another computer -----------------------------
+
+
+@router.post("/export")
+async def export_settings(request: BundleExportRequest) -> Response:
+    """Pack settings, keys and OAuth grants into one passphrase-sealed file.
+
+    Returns the file itself rather than JSON: the browser saves it, and the
+    bytes never sit in a JavaScript variable that some other part of the page
+    could read. Key derivation is deliberately slow, so it runs off the loop.
+    """
+    data, filename, contents = await anyio.to_thread.run_sync(export_bundle, request)
+    return Response(
+        content=data,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            # Counts only, so the page can confirm what it just downloaded
+            # without opening it. No name of any key appears here.
+            "X-Evb-Bundle-Secrets": str(contents.secrets),
+            "X-Evb-Bundle-Credential-Files": str(contents.credential_files),
+            "Access-Control-Expose-Headers": (
+                "Content-Disposition, X-Evb-Bundle-Secrets, X-Evb-Bundle-Credential-Files"
+            ),
+        },
+    )
+
+
+@router.post("/import/inspect", response_model=BundleContents)
+async def inspect_settings_bundle(file: UploadFile = File(...)) -> BundleContents:
+    """What a bundle holds, without the passphrase.
+
+    So picking the wrong file is answered immediately, instead of arriving as a
+    confusing "wrong passphrase" after the user has typed one.
+    """
+    data = await _read_bundle(file)
+    return await anyio.to_thread.run_sync(read_bundle_header, data)
+
+
+@router.post("/import", response_model=BundleImportResult)
+async def import_settings_bundle(
+    file: UploadFile = File(...),
+    passphrase: str = Form(...),
+    overwrite: bool = Form(default=True),
+    include_paths: bool = Form(default=False),
+) -> BundleImportResult:
+    """Restore a bundle. Reports what it did **by name**, never by value."""
+    data = await _read_bundle(file)
+    return await anyio.to_thread.run_sync(
+        lambda: import_bundle(
+            data, passphrase, overwrite=overwrite, include_paths=include_paths
+        )
+    )
+
+
+async def _read_bundle(file: UploadFile) -> bytes:
+    data = await file.read(MAX_BUNDLE_BYTES + 1)
+    if len(data) > MAX_BUNDLE_BYTES:
+        raise ValidationError(
+            ErrorCode.SETTINGS_BUNDLE_INVALID,
+            "Bu dosya bir ayar paketi için fazla büyük.",
+            details=f"limit: {MAX_BUNDLE_BYTES} bayt",
+        )
+    return data

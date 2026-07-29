@@ -19,6 +19,7 @@ import { ShortsPage } from '@/routes/ShortsPage'
 import { PublishingPage } from '@/routes/PublishingPage'
 import { SettingsPage } from '@/routes/SettingsPage'
 import { useProjectStore, flushPendingSave } from '@/store/project'
+import { flushPendingDraftSave } from '@/store/publishing'
 import { useThemeStore } from '@/store/theme'
 import './App.css'
 
@@ -89,8 +90,20 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [saveStatus])
 
-  async function navigate(next: Route) {
+  /**
+   * Everything that autosaves, written out before the view changes.
+   *
+   * The publishing panel keeps its own debounced draft, separate from the
+   * project's, so leaving it has to flush both — a half-typed description is
+   * just as easy to lose from the Yayınla tab as from any other.
+   */
+  async function flushEverything() {
     await flushPendingSave()
+    await flushPendingDraftSave()
+  }
+
+  async function navigate(next: Route) {
+    await flushEverything()
     setRoute(next)
   }
 
@@ -189,7 +202,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => {
-                    void flushPendingSave().then(() => {
+                    void flushEverything().then(() => {
                       closeProject()
                       setRoute('projects')
                     })

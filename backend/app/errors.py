@@ -104,6 +104,41 @@ class ErrorCode(str, Enum):
     PUBLISHING_ASSET_INVALID = "publishing_asset_invalid"
     PUBLISHING_PLATFORM_UNAVAILABLE = "publishing_platform_unavailable"
 
+    # Temporary media hosting. Instagram and Facebook fetch the video themselves
+    # from a URL, so a local file path is useless to them and the app has to put
+    # the bytes somewhere Meta can reach for a few minutes.
+    MEDIA_HOST_NOT_CONFIGURED = "media_host_not_configured"
+    MEDIA_HOST_FAILED = "media_host_failed"
+
+    # Meta (Instagram + Facebook). One connection, two destinations, so the
+    # credential problems are shared and the publishing problems are not.
+    META_APP_MISSING = "meta_app_missing"
+    META_APP_INVALID = "meta_app_invalid"
+    META_AUTH_REQUIRED = "meta_auth_required"
+    META_AUTH_FAILED = "meta_auth_failed"
+    META_SCOPE_MISSING = "meta_scope_missing"
+    META_PAGE_NOT_FOUND = "meta_page_not_found"
+    META_INSTAGRAM_NOT_LINKED = "meta_instagram_not_linked"
+    META_API_FAILED = "meta_api_failed"
+    META_RATE_LIMITED = "meta_rate_limited"
+    #: The Reel container never finished processing, or Meta rejected the file.
+    META_MEDIA_REJECTED = "meta_media_rejected"
+
+    # TikTok
+    TIKTOK_APP_MISSING = "tiktok_app_missing"
+    TIKTOK_AUTH_REQUIRED = "tiktok_auth_required"
+    TIKTOK_AUTH_FAILED = "tiktok_auth_failed"
+    TIKTOK_SCOPE_MISSING = "tiktok_scope_missing"
+    TIKTOK_API_FAILED = "tiktok_api_failed"
+    #: The app has not passed TikTok's audit, so public posting is not available.
+    TIKTOK_UNAUDITED = "tiktok_unaudited"
+    TIKTOK_PRIVACY_NOT_ALLOWED = "tiktok_privacy_not_allowed"
+    TIKTOK_UPLOAD_FAILED = "tiktok_upload_failed"
+
+    # Moving settings and credentials between computers.
+    SETTINGS_BUNDLE_INVALID = "settings_bundle_invalid"
+    SETTINGS_BUNDLE_PASSPHRASE = "settings_bundle_passphrase"
+
     # Generic fallback (still requires a real message + fix)
     INTERNAL = "internal"
 
@@ -299,8 +334,90 @@ _DEFAULT_FIXES: dict[ErrorCode, str] = {
         "Kapak görseli için JPEG ya da PNG, altyazı için .srt dosyası seçin."
     ),
     ErrorCode.PUBLISHING_PLATFORM_UNAVAILABLE: (
-        "Bu platformun bağlantısı henüz hazır değil. Şimdilik yalnızca YouTube'a yükleme "
-        "yapılabiliyor."
+        "Bu platformun bağlantısı henüz kurulmadı. Ayarlar → Bağlantılar ve servisler "
+        "bölümünden ilgili hesabı bağlayın."
+    ),
+    ErrorCode.MEDIA_HOST_NOT_CONFIGURED: (
+        "Instagram ve Facebook videoyu bir adresten kendileri indirir; bilgisayarınızdaki "
+        "dosya yolunu kullanamazlar. Ayarlar → Geçici medya barındırma bölümünden bir "
+        "R2/S3 kovası tanımlayın."
+    ),
+    ErrorCode.MEDIA_HOST_FAILED: (
+        "Videoyu geçici adrese yüklerken hata oluştu. Ayarlardaki kova bilgilerini ve "
+        "internet bağlantınızı kontrol edip tekrar deneyin."
+    ),
+    ErrorCode.META_APP_MISSING: (
+        "Ayarlar → Bağlantılar ve servisler → Meta bağlantısı bölümünden App ID ve App "
+        "Secret değerlerini bir kez girin."
+    ),
+    ErrorCode.META_APP_INVALID: (
+        "Meta Developer panelindeki App ID ve App Secret değerlerini olduğu gibi kopyalayın."
+    ),
+    ErrorCode.META_AUTH_REQUIRED: (
+        "Ayarlar → Bağlantılar ve servisler bölümünden “Meta'ya bağlan” düğmesine basın."
+    ),
+    ErrorCode.META_AUTH_FAILED: (
+        "Bağlantıyı yeniden kurun. Tarayıcıda izin ekranını kapattıysanız “Meta'ya bağlan” "
+        "düğmesine tekrar basın."
+    ),
+    ErrorCode.META_SCOPE_MISSING: (
+        "Meta izin ekranında istenen tüm izinleri onaylayın, sonra “Yeniden bağlan” "
+        "düğmesine basın."
+    ),
+    ErrorCode.META_PAGE_NOT_FOUND: (
+        "Bağladığınız Facebook hesabının yöneticisi olduğu bir Sayfa bulunamadı. Doğru "
+        "hesapla yeniden bağlanın."
+    ),
+    ErrorCode.META_INSTAGRAM_NOT_LINKED: (
+        "Instagram hesabınızın profesyonel (Business/Creator) olması ve Facebook Sayfanıza "
+        "bağlı olması gerekir. Instagram uygulamasından bağlantıyı kurup yeniden bağlanın."
+    ),
+    ErrorCode.META_API_FAILED: (
+        "Meta'nın verdiği yanıt ayrıntılarda yazıyor. Sorunu giderip tekrar deneyin."
+    ),
+    ErrorCode.META_RATE_LIMITED: (
+        "Meta bu hesap için saatlik yayın sınırına ulaştı. Bir süre bekleyip tekrar deneyin."
+    ),
+    ErrorCode.META_MEDIA_REJECTED: (
+        "Meta videoyu işleyemedi. Reels için dikey (9:16), 3 saniye–15 dakika arası bir MP4 "
+        "kullanın."
+    ),
+    ErrorCode.TIKTOK_APP_MISSING: (
+        "Ayarlar → Bağlantılar ve servisler → TikTok bölümünden Client Key ve Client Secret "
+        "değerlerini girin."
+    ),
+    ErrorCode.TIKTOK_AUTH_REQUIRED: (
+        "Ayarlar → Bağlantılar ve servisler bölümünden “TikTok'a bağlan” düğmesine basın."
+    ),
+    ErrorCode.TIKTOK_AUTH_FAILED: (
+        "Bağlantıyı yeniden kurun. Redirect URI'nin TikTok Developer panelindekiyle birebir "
+        "aynı olduğundan emin olun."
+    ),
+    ErrorCode.TIKTOK_SCOPE_MISSING: (
+        "TikTok izin ekranında video yayınlama iznini onaylayın, sonra yeniden bağlanın."
+    ),
+    ErrorCode.TIKTOK_API_FAILED: (
+        "TikTok'un verdiği yanıt ayrıntılarda yazıyor. Sorunu giderip tekrar deneyin."
+    ),
+    ErrorCode.TIKTOK_UNAUDITED: (
+        "TikTok uygulamanız henüz denetimden (audit) geçmedi. Bu durumda videolar yalnızca "
+        "“Yalnızca ben” gizliliğiyle gönderilebilir."
+    ),
+    ErrorCode.TIKTOK_PRIVACY_NOT_ALLOWED: (
+        "Seçtiğiniz gizlilik bu hesap için kullanılamıyor. Panelde TikTok'un bildirdiği "
+        "seçeneklerden birini seçin."
+    ),
+    ErrorCode.TIKTOK_UPLOAD_FAILED: (
+        "Video TikTok'a gönderilemedi. Dosyayı ve internet bağlantınızı kontrol edip tekrar "
+        "deneyin."
+    ),
+    ErrorCode.SETTINGS_BUNDLE_INVALID: (
+        "Ayarlar → Ayarları ve anahtarları taşı bölümünden dışa aktarılmış bir .evbkey "
+        "dosyası seçin."
+    ),
+    ErrorCode.SETTINGS_BUNDLE_PASSPHRASE: (
+        "Dosyayı dışa aktarırken belirlediğiniz parolayı girin. Parolayı unuttuysanız paket "
+        "açılamaz; diğer bilgisayardan yeni bir paket oluşturun."
     ),
     ErrorCode.INTERNAL: "Ayrıntılı bilgi için arka uç kayıt dosyasına bakın.",
 }

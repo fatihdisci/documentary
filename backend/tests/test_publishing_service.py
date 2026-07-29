@@ -189,6 +189,58 @@ def test_a_changed_source_file_is_detected(settings) -> None:
     assert video.name in response.source_changed_reason or "boyut" in response.source_changed_reason
 
 
+def test_saving_the_draft_rebinds_it_to_the_file_on_disk(settings) -> None:
+    """The warning must be clearable: saving is how the user adopts the new file.
+
+    Otherwise a re-render strands the draft — the panel warns forever and the
+    upload stays blocked with nothing the user can do about it.
+    """
+    project, paths = make_project(settings)
+    add_long_render(paths, slug=project.slug)
+    service = PublishingService(settings)
+    draft = service.get_draft(project.slug, "long:render0001").draft
+    service.save_draft(project.slug, "long:render0001", draft)
+
+    # Re-render: same name and manifest, different bytes.
+    add_long_render(paths, slug=project.slug, payload=b"\x00" * 40_000)
+    changed = service.get_draft(project.slug, "long:render0001")
+    assert changed.source_changed is True
+
+    saved = service.save_draft(project.slug, "long:render0001", changed.draft)
+
+    assert saved.source_changed is False
+    assert saved.source_changed_reason is None
+    assert saved.draft.source_fingerprint.sha256 == changed.media.fingerprint.sha256
+    assert saved.draft.source_fingerprint.size_bytes == changed.media.size_bytes
+    # Re-reading agrees: the new fingerprint really was written to disk.
+    assert service.get_draft(project.slug, "long:render0001").source_changed is False
+
+
+def test_a_rebound_draft_no_longer_blocks_the_upload(settings) -> None:
+    project, paths = make_project(settings)
+    add_long_render(paths, slug=project.slug)
+    service = PublishingService(settings)
+    service.save_draft(
+        project.slug, "long:render0001", service.get_draft(project.slug, "long:render0001").draft
+    )
+
+    add_long_render(paths, slug=project.slug, payload=b"\x01" * 40_000)
+    with pytest.raises(AppError) as excinfo:
+        service.prepare_upload(project.slug, "long:render0001", allow_duplicate=False)
+    assert excinfo.value.code.value == "publishing_source_changed"
+
+    # The user reviews the metadata and saves; the upload is prepared normally.
+    service.save_draft(
+        project.slug, "long:render0001", service.get_draft(project.slug, "long:render0001").draft
+    )
+
+    media, stored, video, _warnings = service.prepare_upload(
+        project.slug, "long:render0001", allow_duplicate=False
+    )
+    assert video.is_file()
+    assert stored.source_fingerprint.sha256 == media.fingerprint.sha256
+
+
 def test_an_srt_beside_a_render_is_attached_only_via_the_job_artifacts(settings) -> None:
     """A stray .srt in exports/ must not be attached to an unrelated video."""
     project, paths = make_project(settings)

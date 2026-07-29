@@ -7,8 +7,11 @@
 
 import type { JobStatus } from './render-types'
 
-/** Only `youtube` has a backend. The rest are draft fields and UI. */
+/** All four publish for real. What differs is which connection each one needs. */
 export type PublishingPlatform = 'youtube' | 'instagram' | 'facebook' | 'tiktok'
+
+/** The three that share the caption/hashtags shape. */
+export type SocialPlatform = Exclude<PublishingPlatform, 'youtube'>
 
 export type MediaKind = 'long' | 'short'
 export type PrivacyStatus = 'private' | 'unlisted' | 'public'
@@ -22,6 +25,11 @@ export type PublishPhase =
   | 'upload-video'
   | 'set-thumbnail'
   | 'upload-captions'
+  | 'host-media'
+  | 'create-container'
+  | 'await-processing'
+  | 'publish-post'
+  | 'cleanup'
   | 'fetch-status'
   | 'complete'
 
@@ -81,12 +89,20 @@ export interface YouTubeDraft {
 export interface SocialDraft {
   caption: string
   hashtags: string[]
+  /** The user's own note. Never authorizes anything — the connection decides. */
   account: string
   publishMode: PublishMode
   publishAtLocal: string | null
 }
 
+export interface InstagramDraft extends SocialDraft {
+  shareToFeed: boolean
+}
+
+export type FacebookDraft = SocialDraft
+
 export interface TikTokDraft extends SocialDraft {
+  /** Mirrors TikTok's `privacy_level`, e.g. `SELF_ONLY`. */
   privacy: string
   allowComments: boolean
   allowDuet: boolean
@@ -108,8 +124,8 @@ export interface PublishDraft {
   sourceFingerprint: SourceFingerprint
   common: CommonDraft
   youtube: YouTubeDraft
-  instagram: SocialDraft
-  facebook: SocialDraft
+  instagram: InstagramDraft
+  facebook: FacebookDraft
   tiktok: TikTokDraft
   updatedAt: string
 }
@@ -141,7 +157,10 @@ export interface DraftResponse {
   media: MediaItem
   sourceChanged: boolean
   sourceChangedReason: string | null
+  /** The YouTube duplicate, kept separate because the header warning reads it. */
   duplicateOf: PublishHistoryEntry | null
+  /** The same check per platform. A Reel on Instagram says nothing about YouTube. */
+  duplicates: Partial<Record<PublishingPlatform, PublishHistoryEntry>>
 }
 
 export interface PublishJob {
@@ -159,6 +178,9 @@ export interface PublishJob {
   finishedAt: string | null
   videoId: string | null
   videoUrl: string | null
+  /** An ingestion handle that exists before anything is public. */
+  containerId: string | null
+  hostedObjectKey: string | null
   title: string
   requestedPrivacyStatus: PrivacyStatus
   requestedPublishAt: string | null
@@ -222,6 +244,140 @@ export interface YouTubeConnection {
 export interface ClientSecretUploadResponse {
   connection: YouTubeConnection
   storedFileName: string
+}
+
+/**
+ * Meta connection state. One grant serves Instagram *and* Facebook.
+ *
+ * Deliberately carries no App ID, no App Secret and no access token — not even
+ * masked. The App ID is absent too: the panel never needs it, and there is no
+ * endpoint anywhere that returns either half of the pair.
+ */
+export interface MetaPageSummary {
+  pageId: string
+  name: string
+  instagramId: string | null
+  instagramUsername: string | null
+}
+
+export interface MetaConnection {
+  appConfigured: boolean
+  tokenPresent: boolean
+  connected: boolean
+  needsReconnect: boolean
+  expired: boolean
+  expiresAt: string | null
+  scopesSufficient: boolean
+  missingScopes: string[]
+  pages: MetaPageSummary[]
+  selectedPageId: string | null
+  pageName: string | null
+  instagramId: string | null
+  instagramUsername: string | null
+  /** Paste this into the app's "Valid OAuth Redirect URIs". */
+  redirectUri: string
+  checkedAt: string | null
+  statusMessage: string
+  problem: string | null
+  suggestion: string | null
+}
+
+/** Write-only. Sent once; no endpoint ever sends either value back. */
+export interface MetaAppCredentials {
+  appId: string
+  appSecret: string
+  replace: boolean
+}
+
+export interface TikTokCreatorInfo {
+  nickname: string
+  username: string
+  avatarUrl: string | null
+  privacyLevelOptions: string[]
+  commentDisabled: boolean
+  duetDisabled: boolean
+  stitchDisabled: boolean
+  maxVideoPostDurationSeconds: number
+  fetchedAt: string | null
+}
+
+export interface TikTokConnection {
+  appConfigured: boolean
+  tokenPresent: boolean
+  connected: boolean
+  needsReconnect: boolean
+  expired: boolean
+  expiresAt: string | null
+  scopesSufficient: boolean
+  missingScopes: string[]
+  displayName: string | null
+  avatarUrl: string | null
+  creatorInfo: TikTokCreatorInfo | null
+  /** True until the app passes TikTok's audit; public posting is unavailable. */
+  auditRequired: boolean
+  redirectUri: string
+  checkedAt: string | null
+  statusMessage: string
+  problem: string | null
+  suggestion: string | null
+}
+
+export interface TikTokAppCredentials {
+  clientKey: string
+  clientSecret: string
+  replace: boolean
+}
+
+/** Where to send the browser. The only place an app id appears. */
+export interface OAuthStart {
+  authorizationUrl: string
+  redirectUri: string
+}
+
+/** Temporary hosting, which Instagram and Facebook need and the others do not. */
+export interface MediaHostStatus {
+  provider: string
+  configured: boolean
+  endpoint: string
+  bucket: string
+  region: string
+  prefix: string
+  /** Presence only. The keys themselves are never returned. */
+  keysPresent: boolean
+  ttlSeconds: number
+  deleteAfterPublish: boolean
+  statusMessage: string
+  problem: string | null
+  suggestion: string | null
+}
+
+export interface ObjectStorageSettings {
+  provider: string
+  endpoint: string
+  bucket: string
+  region: string
+  prefix: string
+  ttlSeconds: number
+  deleteAfterPublish: boolean
+  /** Leave null to keep the stored pair; sending them replaces it. */
+  accessKeyId?: string | null
+  secretAccessKey?: string | null
+}
+
+/** Meta's and TikTok's limits, restated so the UI can count without asking. */
+export const MAX_INSTAGRAM_CAPTION_CHARS = 2200
+export const MAX_INSTAGRAM_HASHTAGS = 30
+export const MAX_FACEBOOK_DESCRIPTION_CHARS = 5000
+export const MAX_TIKTOK_TITLE_CHARS = 2200
+
+/** Mirrors `service.compose_caption`: what one post actually carries. */
+export function composeCaption(caption: string, hashtags: string[]): string {
+  const tags = hashtags
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .map((tag) => (tag.startsWith('#') ? tag : `#${tag.replace(/\s+/g, '')}`))
+  const text = caption.trim()
+  return tags.length === 0 ? text : `${text}\n\n${tags.join(' ')}`.trim()
 }
 
 export interface AssetUploadResponse {

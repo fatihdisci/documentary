@@ -18,6 +18,7 @@ from app.models.enums import JobStatus
 from app.publishing.jobs import PublishJobManager
 from app.publishing.models import (
     AssetStatus,
+    PublishHistoryEntry,
     PublishJob,
     PublishMode,
     PublishRequest,
@@ -357,6 +358,152 @@ class TestDuplicateProtection:
         await _run(manager, slug, allow_duplicate=True)
 
         assert len(client.upload_calls) == 2
+
+    async def test_the_same_bytes_under_a_second_media_id_are_refused(
+        self, manager, project, monkeypatch
+    ) -> None:
+        """Two exports of the same file are one video, whatever they are called."""
+        slug, paths = project
+        add_long_render(
+            paths, slug=slug, filename="the-dodo_v02.mp4", render_job_id="render0002"
+        )
+        seed_draft(settings_of(manager), slug, "long:render0001")
+        seed_draft(settings_of(manager), slug, "long:render0002")
+        client = install_fake_youtube(monkeypatch, FakeYouTubeClient())
+
+        await _run(manager, slug, media_id="long:render0001")
+
+        with pytest.raises(ConflictError) as excinfo:
+            await manager.submit_youtube(slug, PublishRequest(media_id="long:render0002"))
+        assert excinfo.value.code.value == "publishing_duplicate"
+        assert len(client.upload_calls) == 1
+
+        # The user confirms they really want a second video on the channel.
+        await _run(manager, slug, media_id="long:render0002", allow_duplicate=True)
+        assert len(client.upload_calls) == 2
+
+    async def test_the_same_bytes_cannot_be_queued_while_the_first_upload_runs(
+        self, manager, project, monkeypatch
+    ) -> None:
+        """The history only knows about *finished* uploads; the queue is checked too."""
+        import asyncio
+        import threading
+
+        slug, paths = project
+        add_long_render(
+            paths, slug=slug, filename="the-dodo_v02.mp4", render_job_id="render0002"
+        )
+        seed_draft(settings_of(manager), slug, "long:render0001")
+        seed_draft(settings_of(manager), slug, "long:render0002")
+
+        gate = threading.Event()
+
+        class BlockingClient(FakeYouTubeClient):
+            def upload_video(self, video, **kwargs):  # noqa: ANN001, ANN003, ANN201
+                gate.wait(timeout=5)
+                return super().upload_video(video, **kwargs)
+
+        client = install_fake_youtube(monkeypatch, BlockingClient())
+        first = await manager.submit_youtube(slug, PublishRequest(media_id="long:render0001"))
+        try:
+            for _ in range(100):
+                if manager.get(first.id).status is JobStatus.RUNNING:
+                    break
+                await asyncio.sleep(0.02)
+
+            with pytest.raises(ConflictError) as excinfo:
+                await manager.submit_youtube(
+                    slug, PublishRequest(media_id="long:render0002")
+                )
+            assert excinfo.value.code.value == "publishing_duplicate"
+        finally:
+            gate.set()
+            await _drain(manager, first.id)
+
+        assert len(client.upload_calls) == 1
+
+    async def test_a_duplicate_that_lands_while_the_job_waits_is_refused(
+        self, manager, project, monkeypatch
+    ) -> None:
+        """The queue is not the channel: the check runs again before the bytes go.
+
+        The upload of the same file is simulated as landing while this job is on
+        its way to the wire — hashing is where the job learns what it is about to
+        send, so that is where the history is consulted for the last time.
+        """
+        import app.publishing.jobs as jobs_module
+
+        slug, paths = project
+        seed_draft(settings_of(manager), slug, "long:render0001")
+        client = install_fake_youtube(monkeypatch, FakeYouTubeClient())
+        repository = PublishingRepository(paths)
+        real_hash = jobs_module.sha256_file
+        landed: list[str] = []
+
+        def racing(path):  # noqa: ANN001, ANN202
+            digest = real_hash(path)
+            if not landed:
+                landed.append(digest)
+                repository.record_upload(
+                    PublishHistoryEntry(
+                        project_slug=slug,
+                        media_id="long:render0002",
+                        filename="the-dodo_v02.mp4",
+                        title="Aynı dosya, başka kimlik",
+                        video_id="vid_other_0001",
+                        video_url="https://youtu.be/vid_other_0001",
+                        source=SourceFingerprint(
+                            filename="the-dodo_v02.mp4", sha256=digest
+                        ),
+                    )
+                )
+            return digest
+
+        monkeypatch.setattr(jobs_module, "sha256_file", racing)
+
+        job = await _run(manager, slug)
+
+        assert job.status is JobStatus.FAILED
+        assert job.error_code == "publishing_duplicate"
+        assert client.upload_calls == [], "the video must never be uploaded twice"
+
+    async def test_an_override_still_uploads_a_duplicate_that_landed_meanwhile(
+        self, manager, project, monkeypatch
+    ) -> None:
+        import app.publishing.jobs as jobs_module
+
+        slug, paths = project
+        seed_draft(settings_of(manager), slug, "long:render0001")
+        client = install_fake_youtube(monkeypatch, FakeYouTubeClient())
+        repository = PublishingRepository(paths)
+        real_hash = jobs_module.sha256_file
+        landed: list[str] = []
+
+        def racing(path):  # noqa: ANN001, ANN202
+            digest = real_hash(path)
+            if not landed:
+                landed.append(digest)
+                repository.record_upload(
+                    PublishHistoryEntry(
+                        project_slug=slug,
+                        media_id="long:render0002",
+                        filename="the-dodo_v02.mp4",
+                        title="Aynı dosya, başka kimlik",
+                        video_id="vid_other_0001",
+                        video_url="https://youtu.be/vid_other_0001",
+                        source=SourceFingerprint(
+                            filename="the-dodo_v02.mp4", sha256=digest
+                        ),
+                    )
+                )
+            return digest
+
+        monkeypatch.setattr(jobs_module, "sha256_file", racing)
+
+        job = await _run(manager, slug, allow_duplicate=True)
+
+        assert job.status is JobStatus.COMPLETED
+        assert len(client.upload_calls) == 1
 
     async def test_a_source_that_changed_before_the_upload_is_refused(
         self, manager, project, monkeypatch

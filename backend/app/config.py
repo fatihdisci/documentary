@@ -98,6 +98,38 @@ class MutableSettings(BaseModel):
     #: path, and never the file's contents.
     youtube_client_secret_file: str = ""
 
+    # --- temporary media hosting -----------------------------------------
+    # Instagram and Facebook do not accept an uploaded file: they are given a
+    # URL and fetch the video themselves. Nothing on this computer is reachable
+    # from the internet, so the bytes have to be parked somewhere for a few
+    # minutes. Bucket coordinates are not secrets; the two keys are, and live in
+    # ``secrets.json`` under ``object_storage_access_key_id`` /
+    # ``object_storage_secret_access_key``.
+    #: ``s3`` (any S3-compatible endpoint, including Cloudflare R2) or ``none``.
+    media_host_provider: str = "none"
+    #: e.g. ``https://<accountid>.r2.cloudflarestorage.com``
+    object_storage_endpoint: str = ""
+    object_storage_bucket: str = ""
+    #: R2 ignores the region but still signs with one; ``auto`` is what it uses.
+    object_storage_region: str = "auto"
+    #: Key prefix inside the bucket, so the app's objects stay in one place.
+    object_storage_prefix: str = "evb-temp"
+    #: How long a presigned link stays valid. Long enough for Meta to fetch a
+    #: large Reel, short enough that a leaked link is worthless tomorrow.
+    media_host_ttl_seconds: int = 3600
+    #: Delete the object again once the platform has taken it.
+    media_host_delete_after_publish: bool = True
+
+    # --- Meta / TikTok, non-secret parts ---------------------------------
+    #: Graph API version the app pins itself to, so Meta deprecating a version
+    #: is a setting change rather than a code change.
+    meta_graph_version: str = "v21.0"
+    #: Where Meta sends the user back. Must match a Valid OAuth Redirect URI in
+    #: the Meta app exactly, including the scheme and port.
+    meta_redirect_uri: str = ""
+    #: TikTok requires an HTTPS redirect, so this one is often not localhost.
+    tiktok_redirect_uri: str = ""
+
 
 class Settings(BaseSettings):
     """Process-level settings; the data directory is fixed at startup."""

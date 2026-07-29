@@ -170,9 +170,15 @@ time for the tabs below, which give you the fine controls.
     whose thumbnail step failed is never invisible, and retrying never uploads it
     twice. Connect the account once under **Settings → Bağlantılar ve
     servisler**; existing OAuth credentials in `~/ExtinctVideoBuilder/secrets/`
-    are detected automatically. Instagram, Facebook and TikTok appear as cards
-    with working draft fields, but their integrations are not built yet and
-    nothing is ever sent to them. See
+    are detected automatically. The same panel publishes **Instagram Reels**,
+    **Facebook Page Reels** and **TikTok** posts — one Meta connection serves
+    Instagram and Facebook, and each platform runs as its own job with its own
+    duplicate protection, so a failure on one never re-uploads anywhere else.
+    Instagram and Facebook download the video from a link rather than accepting
+    a file, so they need a small S3/R2 bucket configured in Settings; TikTok and
+    YouTube receive the bytes directly. TikTok posts are restricted to
+    *self-only* until your TikTok app passes its audit, and the panel says so
+    rather than offering an option that would be refused. See
     [`docs/publishing.md`](docs/publishing.md).
 
 Projects, images, generated audio and every export live under

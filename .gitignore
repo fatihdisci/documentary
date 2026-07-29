@@ -24,6 +24,9 @@ youtube-upload-token.json
 youtube-*-token.json
 youtube-channel-cache.json
 oauth-*.json
+# The Meta grant (user token + Page tokens) and the TikTok grant.
+meta-token.json
+tiktok-token.json
 
 # Application data (projects, exports, temp, logs) lives outside the repo by
 # default, but ignore it here too in case someone points EVB_DATA_DIR inside.

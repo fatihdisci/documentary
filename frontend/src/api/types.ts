@@ -101,3 +101,35 @@ export interface SettingsResponse {
   configuredSecrets: string[]
   resolvedPaths: Record<string, string>
 }
+
+/**
+ * Moving an installation to another computer.
+ *
+ * The bundle is always encrypted with a passphrase, so none of these types ever
+ * carries a secret value — only counts, and the *names* of what was restored.
+ */
+export interface BundleContents {
+  settings: boolean
+  secrets: number
+  credentialFiles: number
+  createdAt: string | null
+}
+
+export interface BundleImportResult {
+  settingsApplied: boolean
+  /** Fields deliberately left as this machine's, with nothing dropped silently. */
+  skippedSettings: string[]
+  secretsImported: string[]
+  secretsSkipped: string[]
+  credentialFilesImported: string[]
+  credentialFilesSkipped: string[]
+  warnings: string[]
+  contents: BundleContents
+}
+
+/** What an export produced, plus the bytes for the browser to save. */
+export interface ExportedBundle {
+  blob: Blob
+  filename: string
+  contents: Pick<BundleContents, 'secrets' | 'credentialFiles'>
+}

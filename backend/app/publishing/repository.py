@@ -204,8 +204,23 @@ class PublishingRepository:
             )
         return entry
 
-    def entry_for_video(self, video_id: str) -> PublishHistoryEntry | None:
-        return next((e for e in self.load_history() if e.video_id == video_id), None)
+    def entry_for_video(
+        self, video_id: str, *, platform: str = "youtube"
+    ) -> PublishHistoryEntry | None:
+        """One recorded post, by its platform id.
+
+        Scoped by platform because the id spaces are unrelated: nothing stops an
+        Instagram media id and a Facebook video id from being the same string,
+        and updating the wrong row would silently rewrite someone's history.
+        """
+        return next(
+            (
+                entry
+                for entry in self.load_history()
+                if entry.video_id == video_id and entry.platform.value == platform
+            ),
+            None,
+        )
 
     # --- assets -----------------------------------------------------------
 

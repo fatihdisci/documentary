@@ -6,10 +6,13 @@ import { api } from '@/api/client'
 import { usePublishingStore } from '@/store/publishing'
 import type {
   DraftResponse,
+  MediaHostStatus,
   MediaItem,
+  MetaConnection,
   PublishDraft,
   PublishHistoryEntry,
   PublishJob,
+  TikTokConnection,
   YouTubeConnection,
 } from '@/api/publishing-types'
 import { makeProject, seedProject } from '@/test/factories'
@@ -98,7 +101,10 @@ function draft(overrides: Partial<PublishDraft> = {}): PublishDraft {
       captionIsDraft: false,
       uploadCaptions: true,
     },
-    instagram: { caption: '', hashtags: [], account: '', publishMode: 'now', publishAtLocal: null },
+    instagram: {
+      caption: '', hashtags: [], account: '', publishMode: 'now', publishAtLocal: null,
+      shareToFeed: true,
+    },
     facebook: { caption: '', hashtags: [], account: '', publishMode: 'now', publishAtLocal: null },
     tiktok: {
       caption: '',
@@ -106,7 +112,7 @@ function draft(overrides: Partial<PublishDraft> = {}): PublishDraft {
       account: '',
       publishMode: 'now',
       publishAtLocal: null,
-      privacy: 'private',
+      privacy: 'SELF_ONLY',
       allowComments: true,
       allowDuet: false,
       allowStitch: false,
@@ -123,6 +129,7 @@ function draftResponse(overrides: Partial<DraftResponse> = {}): DraftResponse {
     sourceChanged: false,
     sourceChangedReason: null,
     duplicateOf: null,
+    duplicates: {},
     ...overrides,
   }
 }
@@ -149,6 +156,113 @@ function connection(overrides: Partial<YouTubeConnection> = {}): YouTubeConnecti
   }
 }
 
+function metaConnection(overrides: Partial<MetaConnection> = {}): MetaConnection {
+  return {
+    appConfigured: false,
+    tokenPresent: false,
+    connected: false,
+    needsReconnect: false,
+    expired: false,
+    expiresAt: null,
+    scopesSufficient: false,
+    missingScopes: [],
+    pages: [],
+    selectedPageId: null,
+    pageName: null,
+    instagramId: null,
+    instagramUsername: null,
+    redirectUri: 'http://localhost:8756/api/publishing/meta/callback',
+    checkedAt: '2026-07-28T09:00:00Z',
+    statusMessage: 'Uygulama bilgileri girilmedi.',
+    problem: 'Meta App ID ve App Secret henüz kaydedilmemiş.',
+    suggestion: 'Meta Developer panelindeki değerleri girin.',
+    ...overrides,
+  }
+}
+
+/** A fully working Meta connection: page chosen, Instagram linked. */
+function connectedMeta(overrides: Partial<MetaConnection> = {}): MetaConnection {
+  return metaConnection({
+    appConfigured: true,
+    tokenPresent: true,
+    connected: true,
+    scopesSufficient: true,
+    pages: [
+      {
+        pageId: '111222333',
+        name: 'Vanished Earth Docs',
+        instagramId: '444555666',
+        instagramUsername: 'vanishedearthdocs',
+      },
+    ],
+    selectedPageId: '111222333',
+    pageName: 'Vanished Earth Docs',
+    instagramId: '444555666',
+    instagramUsername: 'vanishedearthdocs',
+    statusMessage: 'Bağlantı geçerli.',
+    problem: null,
+    suggestion: null,
+    ...overrides,
+  })
+}
+
+function tiktokConnection(overrides: Partial<TikTokConnection> = {}): TikTokConnection {
+  return {
+    appConfigured: false,
+    tokenPresent: false,
+    connected: false,
+    needsReconnect: false,
+    expired: false,
+    expiresAt: null,
+    scopesSufficient: false,
+    missingScopes: [],
+    displayName: null,
+    avatarUrl: null,
+    creatorInfo: null,
+    auditRequired: true,
+    redirectUri: 'http://localhost:8756/api/publishing/tiktok/callback',
+    checkedAt: '2026-07-28T09:00:00Z',
+    statusMessage: 'Uygulama bilgileri girilmedi.',
+    problem: null,
+    suggestion: null,
+    ...overrides,
+  }
+}
+
+function hostStatus(overrides: Partial<MediaHostStatus> = {}): MediaHostStatus {
+  return {
+    provider: 'none',
+    configured: false,
+    endpoint: '',
+    bucket: '',
+    region: '',
+    prefix: '',
+    keysPresent: false,
+    ttlSeconds: 0,
+    deleteAfterPublish: true,
+    statusMessage: 'Tanımlı değil.',
+    problem: 'Geçici bir barındırma alanı gerekir.',
+    suggestion: 'Bir R2 kovası tanımlayın.',
+    ...overrides,
+  }
+}
+
+function configuredHost(): MediaHostStatus {
+  return hostStatus({
+    provider: 's3',
+    configured: true,
+    endpoint: 'https://accountid.r2.cloudflarestorage.com',
+    bucket: 'evb-temp',
+    region: 'auto',
+    prefix: 'reels',
+    keysPresent: true,
+    ttlSeconds: 3600,
+    statusMessage: 'Hazır.',
+    problem: null,
+    suggestion: null,
+  })
+}
+
 function job(overrides: Partial<PublishJob> = {}): PublishJob {
   return {
     id: 'pubjob01',
@@ -165,6 +279,8 @@ function job(overrides: Partial<PublishJob> = {}): PublishJob {
     finishedAt: null,
     videoId: null,
     videoUrl: null,
+    containerId: null,
+    hostedObjectKey: null,
     title: 'The Dodo',
     requestedPrivacyStatus: 'private',
     requestedPublishAt: null,
@@ -222,7 +338,11 @@ function resetStore() {
     sourceChanged: false,
     sourceChangedReason: null,
     duplicateOf: null,
+    duplicates: {},
     connection: null,
+    meta: null,
+    tiktok: null,
+    mediaHost: null,
     history: [],
     job: null,
     event: null,
@@ -254,6 +374,15 @@ beforeEach(() => {
   )
   vi.spyOn(api, 'publishHistory').mockResolvedValue([])
   vi.spyOn(api, 'activePublishJob').mockResolvedValue(null)
+  // The three platform cards read their own connection state. The default is a
+  // fresh install: nothing configured, so every card must say so rather than
+  // offering a button that would fail.
+  vi.spyOn(api, 'metaStatus').mockResolvedValue(metaConnection())
+  vi.spyOn(api, 'tiktokStatus').mockResolvedValue(tiktokConnection())
+  vi.spyOn(api, 'mediaHostStatus').mockResolvedValue(hostStatus())
+  vi.spyOn(api, 'publishToPlatform').mockResolvedValue(
+    job({ id: 'igjob01', platform: 'instagram' }),
+  )
 })
 
 afterEach(() => {
@@ -272,9 +401,10 @@ function descriptionInput(): HTMLTextAreaElement {
 }
 
 async function renderPage() {
-  render(<PublishingPage />)
+  const result = render(<PublishingPage />)
   // The filename also appears in the history table, so match all of them.
   await waitFor(() => expect(screen.getAllByText('the-dodo_v01.mp4').length).toBeGreaterThan(0))
+  return result
 }
 
 // --- tests ------------------------------------------------------------------
@@ -460,6 +590,118 @@ describe('drafts are per file', () => {
   })
 })
 
+describe('edits waiting on the debounce', () => {
+  /** The save calls made for one media id, oldest first. */
+  function savesFor(mediaId: string) {
+    return vi
+      .mocked(api.savePublishDraft)
+      .mock.calls.filter((call) => call[1] === mediaId)
+  }
+
+  it('saves the pending draft before another file is selected', async () => {
+    const user = userEvent.setup()
+    await renderPage()
+
+    const title = titleInput()
+    await user.clear(title)
+    await user.type(title, 'Kaydedilmemiş başlık')
+
+    vi.mocked(api.getPublishDraft).mockResolvedValue(
+      draftResponse({
+        draft: draft({ mediaId: 'short:aaaa1111' }),
+        media: shortMedia(),
+      }),
+    )
+    // No waiting: the click lands while the debounce is still holding the edit.
+    await user.click(screen.getByText('the-dodo-short-aaaa1111.mp4'))
+
+    await waitFor(() =>
+      expect(api.getPublishDraft).toHaveBeenCalledWith('the-dodo', 'short:aaaa1111'),
+    )
+    const saves = savesFor('long:render0001')
+    expect(saves.length).toBeGreaterThan(0)
+    expect(saves.at(-1)![2].youtube.title).toBe('Kaydedilmemiş başlık')
+    // …and it was saved *before* the new draft replaced it in memory.
+    const lastSave = vi.mocked(api.savePublishDraft).mock.invocationCallOrder.at(-1)!
+    const shortFetch = vi.mocked(api.getPublishDraft).mock.invocationCallOrder.at(-1)!
+    expect(lastSave).toBeLessThan(shortFetch)
+  })
+
+  it('never writes one file’s text against another file’s draft', async () => {
+    const user = userEvent.setup()
+    await renderPage()
+
+    const title = titleInput()
+    await user.clear(title)
+    await user.type(title, 'Uzun videonun başlığı')
+
+    vi.mocked(api.getPublishDraft).mockResolvedValue(
+      draftResponse({
+        draft: draft({ mediaId: 'short:aaaa1111' }),
+        media: shortMedia(),
+      }),
+    )
+    await user.click(screen.getByText('the-dodo-short-aaaa1111.mp4'))
+    await waitFor(() => expect(titleInput()).toHaveValue(draft().youtube.title))
+
+    for (const [, mediaId, value] of vi.mocked(api.savePublishDraft).mock.calls) {
+      expect(value.mediaId).toBe(mediaId)
+      if (mediaId === 'short:aaaa1111') {
+        expect(value.youtube.title).not.toBe('Uzun videonun başlığı')
+      }
+    }
+  })
+
+  it('saves the pending draft when the panel is left', async () => {
+    const user = userEvent.setup()
+    const { unmount } = await renderPage()
+
+    const title = titleInput()
+    await user.clear(title)
+    await user.type(title, 'Sekmeden çıkarken')
+
+    unmount()
+
+    await waitFor(() => expect(savesFor('long:render0001').length).toBeGreaterThan(0))
+    expect(savesFor('long:render0001').at(-1)![2].youtube.title).toBe('Sekmeden çıkarken')
+  })
+
+  it('waits for a save in flight before starting the upload', async () => {
+    const user = userEvent.setup()
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    vi.mocked(api.savePublishDraft).mockImplementation(async (_slug, mediaId, value) => {
+      await held
+      return draftResponse({ draft: { ...value, mediaId } })
+    })
+    vi.spyOn(api, 'publishToYoutube').mockResolvedValue(job())
+    await renderPage()
+
+    const title = titleInput()
+    await user.clear(title)
+    await user.type(title, 'Yükleme öncesi son hâli')
+
+    // Let the debounce fire, so a save really is on the wire.
+    await waitFor(() => expect(api.savePublishDraft).toHaveBeenCalled(), { timeout: 3000 })
+    await waitFor(() => expect(usePublishingStore.getState().saveStatus).toBe('saving'))
+
+    await user.click(screen.getByRole('button', { name: "YouTube'a yükle" }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Yükle' }))
+
+    // The job would read the *stored* draft, which is still the old one.
+    expect(api.publishToYoutube).not.toHaveBeenCalled()
+
+    release()
+
+    await waitFor(() => expect(api.publishToYoutube).toHaveBeenCalled())
+    expect(savesFor('long:render0001').at(-1)![2].youtube.title).toBe(
+      'Yükleme öncesi son hâli',
+    )
+  })
+})
+
 describe('the YouTube card', () => {
   it('disables uploading while the account is not connected', async () => {
     vi.mocked(api.youtubeStatus).mockResolvedValue(
@@ -606,48 +848,175 @@ describe('duplicate protection', () => {
   })
 })
 
-describe('the other platforms', () => {
-  it('shows all three as not connected, with disabled buttons', async () => {
+describe('the Instagram and Facebook cards', () => {
+  it('refuse to publish while nothing is connected, and say why', async () => {
     await renderPage()
 
     expect(screen.getByRole('heading', { name: 'Instagram' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Facebook' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'TikTok' })).toBeInTheDocument()
-    expect(screen.getAllByText('Bağlantı kurulmadı')).toHaveLength(3)
 
-    for (const label of [
-      'Instagram bağlantısı yakında',
-      'Facebook bağlantısı yakında',
-      'TikTok bağlantısı yakında',
-    ]) {
-      expect(screen.getByRole('button', { name: label })).toBeDisabled()
-    }
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Instagram Reels olarak yayınla' }),
+      ).toBeDisabled(),
+    )
+    expect(screen.getByRole('button', { name: 'Facebook Reels olarak yayınla' })).toBeDisabled()
+    // The reason is the actual missing piece, not a generic "coming soon".
+    expect(screen.getAllByText('Meta uygulama bilgileri girilmedi.').length).toBeGreaterThan(0)
   })
 
-  it('still lets their fields be edited', async () => {
+  it('name the missing hosting layer rather than failing mid-upload', async () => {
+    vi.mocked(api.metaStatus).mockResolvedValue(connectedMeta())
+    await renderPage()
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Instagram Reels olarak yayınla' }),
+      ).toBeDisabled(),
+    )
+    expect(
+      screen.getAllByText(/Geçici medya barındırma tanımlı değil/).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('show the connected account as the destination', async () => {
+    vi.mocked(api.metaStatus).mockResolvedValue(connectedMeta())
+    vi.mocked(api.mediaHostStatus).mockResolvedValue(configuredHost())
+    await renderPage()
+
+    expect(await screen.findByText('@vanishedearthdocs')).toBeInTheDocument()
+    expect(screen.getByText('Vanished Earth Docs')).toBeInTheDocument()
+  })
+
+  it('publish a Reel only after the confirmation is accepted', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.metaStatus).mockResolvedValue(connectedMeta())
+    vi.mocked(api.mediaHostStatus).mockResolvedValue(configuredHost())
+    await renderPage()
+
+    const button = await screen.findByRole('button', {
+      name: 'Instagram Reels olarak yayınla',
+    })
+    await waitFor(() => expect(button).toBeEnabled())
+    await user.click(button)
+
+    // Nothing is sent while the dialog is open.
+    expect(api.publishToPlatform).not.toHaveBeenCalled()
+    expect(await screen.findByText('Instagram üzerinde yayınla')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Yayınla' }))
+
+    await waitFor(() =>
+      expect(api.publishToPlatform).toHaveBeenCalledWith('the-dodo', 'instagram', {
+        mediaId: 'long:render0001',
+        allowDuplicate: false,
+      }),
+    )
+  })
+
+  it('send the caption and hashtags the user typed', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.metaStatus).mockResolvedValue(connectedMeta())
+    vi.mocked(api.mediaHostStatus).mockResolvedValue(configuredHost())
+    await renderPage()
+
+    const caption = screen.getAllByLabelText(/Reels açıklaması/)[0]!
+    await user.type(caption, 'The last dodo.')
+
+    await waitFor(() =>
+      expect(api.savePublishDraft).toHaveBeenCalledWith(
+        'the-dodo',
+        'long:render0001',
+        expect.objectContaining({
+          instagram: expect.objectContaining({ caption: 'The last dodo.' }),
+        }),
+      ),
+    )
+  })
+
+  it('keep each platform independent when one is already published', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.metaStatus).mockResolvedValue(connectedMeta())
+    vi.mocked(api.mediaHostStatus).mockResolvedValue(configuredHost())
+    vi.mocked(api.getPublishDraft).mockResolvedValue(
+      draftResponse({
+        duplicates: { instagram: historyEntry({ platform: 'instagram' }) },
+      }),
+    )
+    await renderPage()
+
+    // Instagram is blocked because *Instagram* already has this file…
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Instagram Reels olarak yayınla' }),
+      ).toBeDisabled(),
+    )
+    // …and Facebook is not, because nothing was published there.
+    expect(screen.getByRole('button', { name: 'Facebook Reels olarak yayınla' })).toBeEnabled()
+
+    await user.click(screen.getByLabelText(/Yine de yeni gönderi olarak yükle/))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Instagram Reels olarak yayınla' }),
+      ).toBeEnabled(),
+    )
+  })
+})
+
+describe('the TikTok card', () => {
+  it('is honest about the audit instead of offering public posting', async () => {
+    vi.mocked(api.tiktokStatus).mockResolvedValue(
+      tiktokConnection({
+        appConfigured: true,
+        tokenPresent: true,
+        connected: true,
+        scopesSufficient: true,
+        displayName: 'Vanished Earth Docs',
+        auditRequired: true,
+        creatorInfo: {
+          nickname: 'Vanished Earth Docs',
+          username: 'vanishedearthdocs',
+          avatarUrl: null,
+          privacyLevelOptions: ['SELF_ONLY'],
+          commentDisabled: false,
+          duetDisabled: false,
+          stitchDisabled: false,
+          maxVideoPostDurationSeconds: 600,
+          fetchedAt: null,
+        },
+      }),
+    )
+    await renderPage()
+
+    expect(
+      await screen.findByText('Uygulama TikTok denetiminden geçmedi.'),
+    ).toBeInTheDocument()
+    // The only option offered is the only one TikTok would accept.
+    const privacy = screen.getByLabelText(/Gizlilik/, {
+      selector: '#tiktok-privacy',
+    }) as HTMLSelectElement
+    expect([...privacy.options].map((option) => option.value)).toEqual(['SELF_ONLY'])
+    expect(screen.getByRole('button', { name: "TikTok'a gönder" })).toBeEnabled()
+  })
+
+  it('does not offer a privacy list before the account is connected', async () => {
+    await renderPage()
+
+    const privacy = screen.getByLabelText(/Gizlilik/, {
+      selector: '#tiktok-privacy',
+    }) as HTMLSelectElement
+    expect(privacy).toBeDisabled()
+    expect(screen.getByRole('button', { name: "TikTok'a gönder" })).toBeDisabled()
+    expect(screen.getAllByText('TikTok uygulama bilgileri girilmedi.').length).toBeGreaterThan(0)
+  })
+
+  it('still lets the text be edited while disconnected', async () => {
     const user = userEvent.setup()
     await renderPage()
 
-    const captions = screen.getAllByLabelText('Reels açıklaması')
-    await user.type(captions[0]!, 'Instagram için açıklama')
-    expect(captions[0]).toHaveValue('Instagram için açıklama')
-
-    await user.click(screen.getByLabelText(/Duet'e izin ver/))
-    expect(screen.getByLabelText(/Duet'e izin ver/)).toBeChecked()
-  })
-
-  it('never sends a request for them', async () => {
-    const user = userEvent.setup()
-    const fetchSpy = vi.spyOn(globalThis, 'fetch')
-    await renderPage()
-
-    const button = screen.getByRole('button', { name: 'Instagram bağlantısı yakında' })
-    await user.click(button).catch(() => undefined)
-
-    const urls = fetchSpy.mock.calls.map((call) => String(call[0]))
-    expect(urls.some((url) => url.includes('instagram'))).toBe(false)
-    expect(urls.some((url) => url.includes('tiktok'))).toBe(false)
-    expect(urls.some((url) => url.includes('facebook'))).toBe(false)
+    const caption = screen.getByLabelText(/Başlık \/ açıklama/)
+    await user.type(caption, 'Dodo')
+    expect(caption).toHaveValue('Dodo')
   })
 })
 

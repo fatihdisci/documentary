@@ -1,11 +1,11 @@
 # Publishing (the **Yayınla** tab)
 
 The Publish panel takes a video you have already made — a long render or a
-Short — and puts it on YouTube: metadata, thumbnail, English subtitles, and
-either an immediate upload or a scheduled one.
+Short — and puts it on a platform: YouTube, an Instagram Reel, a Facebook Page
+Reel, or a TikTok post.
 
-Everything on this page happens on your own computer. The only service contacted
-is YouTube, and only when you ask for it.
+Everything on this page happens on your own computer. The only services
+contacted are the ones you connect, and only when you ask for it.
 
 - [What you can publish](#what-you-can-publish)
 - [Connecting a YouTube account](#connecting-a-youtube-account)
@@ -21,7 +21,18 @@ is YouTube, and only when you ask for it.
 - [Subtitles (.srt)](#subtitles-srt)
 - [Upload history](#upload-history)
 - [Duplicate protection](#duplicate-protection)
-- [Instagram, Facebook and TikTok](#instagram-facebook-and-tiktok)
+- [Connecting Meta (Instagram + Facebook)](#connecting-meta-instagram--facebook)
+  - [One-time Meta Developer setup](#one-time-meta-developer-setup)
+  - [The OAuth callback URL](#the-oauth-callback-url)
+  - [Entering the App ID and App Secret](#entering-the-app-id-and-app-secret)
+  - [Choosing the Page](#choosing-the-page)
+- [Temporary media hosting (R2 / S3)](#temporary-media-hosting-r2--s3)
+- [Publishing an Instagram Reel](#publishing-an-instagram-reel)
+- [Publishing a Facebook Reel](#publishing-a-facebook-reel)
+- [TikTok](#tiktok)
+  - [The audit requirement](#the-audit-requirement)
+  - [Setting up the TikTok app](#setting-up-the-tiktok-app)
+- [Where every credential lives](#where-every-credential-lives)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -307,37 +318,271 @@ row.
 ## Duplicate protection
 
 Before an upload starts, the app records the source file's name, size and
-SHA-256. If a file with the same checksum has already been uploaded from this
-computer, the panel says:
+SHA-256. If a file with the same checksum has already been published **to that
+platform** from this computer, the panel says so:
 
 > Bu dosya daha önce YouTube'a yüklenmiş.
 
-…and the upload button is disabled until you tick **Yine de yeni video olarak
-yükle**, which is off by default and asks again in the confirmation window.
+…and the publish button is disabled until you tick the "yine de yükle" box,
+which is off by default and asks again in the confirmation window.
+
+**The check is per platform.** A video already on YouTube can still go to
+Instagram; a Reel already on Instagram is no reason to refuse Facebook. Each
+platform keeps its own job, its own history entry and its own guard, and a
+failure on one never causes a re-upload anywhere else.
 
 Detection is by file content, never by title: two different videos may
 legitimately share a title, and the same bytes going up twice is the thing worth
-warning about.
+warning about. It also covers the case where the same file is kept under two
+names — two exports with different `mediaId`s but identical bytes cannot be
+queued for the same platform at the same time.
 
 If the source file has changed since the draft was written — a re-render, say —
 the panel warns and blocks the upload until you review the metadata. The checksum
-is verified once more immediately before the upload begins.
+is verified once more immediately before the upload begins, and the history is
+re-read one last time before any bytes leave.
 
 ---
 
-## Instagram, Facebook and TikTok
+## Connecting Meta (Instagram + Facebook)
 
-These three cards are **interface only**. There is no integration behind them
-yet, and this is not a placeholder that pretends otherwise:
+**One connection, two destinations.** The same Facebook Login grant yields a
+Page access token, and that single token publishes a Reel to the Page *and*,
+through the Page's linked Instagram professional account, a Reel to Instagram.
+So you connect once, in **Ayarlar → Bağlantılar ve servisler → Meta**.
 
-- no SDK is loaded, no OAuth endpoint exists, no access-token field is offered;
-- no request is ever sent to these platforms;
-- their publish buttons are disabled and marked *Bağlantı kurulmadı*;
-- no fake success is ever shown.
+### One-time Meta Developer setup
 
-What they do have is real fields — caption, hashtags, account/page, privacy and
-schedule for TikTok — and everything you type is stored in the same draft as the
-YouTube fields. When the integrations arrive, your text will still be there.
+The app is designed for an app that stays in **Development / Unpublished** mode.
+You do not need App Review, webhooks, or to take the app Live.
+
+1. In the Meta Developer panel, open your app (e.g. *Vanished Earth Publisher*).
+2. Add **Instagram → API setup with Facebook Login**.
+3. Make sure your Instagram account is a **professional** (Business or Creator)
+   account and is linked to your Facebook Page.
+4. In **Facebook Login → Settings**, paste the app's callback URL into **Valid
+   OAuth Redirect URIs** and save.
+5. Confirm these permissions are available to your test user:
+   `instagram_basic`, `instagram_content_publish`, `pages_show_list`,
+   `pages_read_engagement`, `business_management`, `pages_manage_posts`.
+6. In the app: enter the App ID and App Secret, then press **Meta'ya bağlan**.
+
+While the app is unpublished, only people listed as admins/developers/testers on
+the Meta app can complete the login — which is exactly the intended setup here.
+
+### The OAuth callback URL
+
+```
+http://localhost:8756/api/publishing/meta/callback
+```
+
+This is shown in the Meta card with a **Adresi kopyala** button, and it is the
+value the backend actually uses, so what you see is what will be sent. Meta
+accepts a `localhost` redirect while the app is in Development mode.
+
+If you changed the backend's port, the URL changes with it — always copy it from
+the card rather than typing it from memory. To use a different address entirely
+(a tunnel, say), set `metaRedirectUri` in `settings.json`.
+
+### Entering the App ID and App Secret
+
+**Ayarlar → Bağlantılar ve servisler → Meta (Instagram + Facebook)**, the *App
+ID* and *App Secret* fields.
+
+They are entered **once**. After they are stored the fields disappear behind a
+**Kimlik bilgilerini değiştir** button, because:
+
+- no endpoint returns either value — they cannot be read back to be restored;
+- a stray save from a half-filled form would otherwise break a working
+  connection.
+
+Both are written to `~/ExtinctVideoBuilder/secrets.json` with `0600`
+permissions. Neither appears in an API response, a log line, the interface, a
+project backup, or Git. The App ID is not shown either: the panel never needs
+it, and an id plus a leaked secret is a usable credential pair.
+
+**Bağlantıyı kaldır** deletes only the stored authorization. The App ID and App
+Secret stay, so reconnecting is one click.
+
+### Choosing the Page
+
+After the login the app reads `/me/accounts`, and shows you the Facebook Page it
+resolved to and the Instagram account linked to it — by name, in the card. If
+you administer more than one Page, a dropdown appears and nothing is published
+until you pick one. A Page with no linked Instagram account says so, and only
+the Instagram card is blocked; Facebook still works.
+
+The **hesap** field inside each platform card is your own note. It authorizes
+nothing — the post always goes to the connected account — and if it disagrees
+with the connection, the job records a warning saying where the post actually
+went.
+
+---
+
+## Temporary media hosting (R2 / S3)
+
+Instagram and Facebook do not accept an uploaded file for Reels. Their APIs are
+given a **URL** and download the video themselves. Nothing on your computer is
+reachable from the internet, so the video has to be parked somewhere for a few
+minutes.
+
+That is what **Ayarlar → Geçici medya barındırma** is for. It is required for
+Instagram and Facebook, and **not used at all** by YouTube or TikTok — both of
+those receive the bytes directly.
+
+There is no fallback. With nothing configured the Instagram and Facebook buttons
+are disabled and say why, rather than starting an upload that would fail several
+minutes later.
+
+### What you set up once, in Cloudflare R2
+
+1. Create an R2 bucket (any name; `evb-temp` is a reasonable one).
+2. **Do not make it public.** The app generates a signed, time-limited link for
+   each upload; that link is the only way in.
+3. **Manage R2 API Tokens** → create a token with *Object Read & Write* on that
+   bucket. Copy the **Access Key ID** and **Secret Access Key**.
+4. In the app, fill in:
+   - **Endpoint** — `https://<account-id>.r2.cloudflarestorage.com`
+   - **Kova (bucket) adı** — your bucket name
+   - **Bölge** — `auto` for R2
+   - **Klasör öneki** — e.g. `reels`
+   - **Bağlantı geçerlilik süresi** — 60 minutes is a good default
+   - the two keys
+5. Optionally add a 1-day lifecycle rule on the bucket as a second safety net.
+   The app already deletes each object after publishing.
+
+Any S3-compatible endpoint works the same way (AWS S3, MinIO); the endpoint must
+be `https://`, because Meta refuses to fetch over plain HTTP.
+
+The keys are stored in `secrets.json` at `0600` and are never returned by any
+endpoint. Leaving the key fields blank when you save keeps the stored pair, so
+correcting a bucket name cannot wipe working credentials.
+
+**How a publish uses it:** the video is uploaded to the bucket under a random
+object name, a presigned GET link is created, Meta downloads from that link, and
+the object is deleted again — whether the publish succeeded or failed. Signing is
+AWS SigV4, done in-process; no signature or key is ever logged.
+
+---
+
+## Publishing an Instagram Reel
+
+1. Select a file and fill in the **Instagram** card's caption and hashtags. The
+   counter measures what is actually sent — caption *and* hashtags — because
+   that is the string Instagram's 2 200-character limit applies to.
+2. **Profil akışında da göster** controls Meta's `share_to_feed`.
+3. Press **Instagram Reels olarak yayınla** and confirm.
+
+What then happens, in order, with progress shown for each step:
+
+1. the file is fingerprinted and the duplicate guard re-checked;
+2. the video is uploaded to your bucket and a signed link is made;
+3. Meta is asked to ingest it — this creates a **container**, which is not a
+   post and can be abandoned harmlessly;
+4. the app waits for Meta to finish transcoding;
+5. the container is published — the one irreversible call;
+6. the permalink is read and the temporary copy is deleted.
+
+Reels must be at least 3 seconds and at most 15 minutes, and are meant to be
+vertical; a landscape video is accepted with a warning that Meta may crop it.
+
+**Scheduling is not offered.** Instagram's Reels API cannot schedule, so the
+card says so instead of showing a picker that would publish immediately.
+
+---
+
+## Publishing a Facebook Reel
+
+The **Facebook** card publishes to the connected Page using
+`pages_manage_posts`, as its own job — a failing Instagram job neither blocks it
+nor causes it to re-upload, and vice versa.
+
+Facebook's Reel upload is three phases: `start` opens a session and returns a
+video id, the hosted link is handed over, and `finish` publishes it. The video id
+exists before anything is public, which is why a retry resumes rather than
+sending the file again.
+
+The same hosted object serves both Instagram and Facebook, so publishing to both
+uploads the video to your bucket once per job, never twice within a job.
+
+---
+
+## TikTok
+
+TikTok is different from Meta in one important way: it takes the **file
+itself**. The bytes go straight from your computer to TikTok's upload URL in
+chunks, so the temporary hosting layer is not involved and the video is never
+placed anywhere public.
+
+### The audit requirement
+
+Until your TikTok app passes the **Content Posting API audit**, everything it
+posts is restricted to *you only*. This is TikTok's rule, not a limitation of
+this app, and the app is explicit about it:
+
+- the TikTok card shows a warning while the app is unaudited;
+- the **Gizlilik** dropdown lists only the options TikTok itself reported for
+  your account — so an unaudited app shows only *Yalnızca ben*;
+- the finished job carries a warning saying the post is visible only to you;
+- a self-only post has no public link, and none is invented.
+
+To lift this, apply for the Content Posting API audit in the TikTok Developer
+portal. Nothing in the app changes when you are approved except the options
+TikTok starts reporting.
+
+### Setting up the TikTok app
+
+1. Create an app at TikTok for Developers.
+2. Add the **Login Kit** and **Content Posting API** products.
+3. Request the scopes `user.info.basic` and `video.publish`.
+4. Add the callback URL as a **Redirect URI**:
+   ```
+   http://localhost:8756/api/publishing/tiktok/callback
+   ```
+   **TikTok only accepts HTTPS redirect URIs.** A loopback backend cannot serve
+   HTTPS on its own, so to complete the flow you need an HTTPS address pointing
+   at this path — a tunnel or a reverse proxy — and then set `tiktokRedirectUri`
+   in `settings.json` to that address. The app does not pretend the default one
+   is registrable; the card says this in as many words.
+5. Enter the **Client Key** and **Client Secret** in the app. As with Meta, they
+   are write-only: stored at `0600`, never returned, replaceable but not
+   readable.
+6. Press **TikTok'a bağlan**. The flow uses PKCE (S256); the verifier never
+   leaves the backend.
+
+Before every post the app queries `creator_info`, so the privacy options and the
+comment/duet/stitch toggles reflect what your account can actually do right now.
+A privacy level the account cannot use is refused *before* a single byte is
+sent.
+
+---
+
+## Where every credential lives
+
+```
+~/ExtinctVideoBuilder/
+├── secrets.json                  0600  API keys, Meta/TikTok app credentials,
+│                                       object-storage keys
+└── secrets/                      0700
+    ├── client_secret_*.json      0600  the Google OAuth client
+    ├── youtube-upload-token.json 0600  your YouTube authorization
+    ├── youtube-channel-cache.json 0600 channel name/ID cache, no secrets
+    ├── meta-token.json           0600  the Meta grant and Page tokens
+    └── tiktok-token.json         0600  the TikTok grant
+```
+
+Every one of these is:
+
+- **never** returned by any API endpoint,
+- **never** written to a log — even masked,
+- **never** included in a project backup or an export bundle,
+- **never** shown in the interface,
+- ignored by Git.
+
+Each platform module scrubs anything credential-shaped out of error text before
+it reaches a log or the screen: Google's `ya29.…` tokens, Meta's `EAA…` tokens
+and `appsecret_proof`, TikTok's `act.…` tokens, and any `X-Amz-Signature` in a
+storage error.
 
 ---
 
@@ -372,8 +617,39 @@ account that owns the channel.
 
 **The upload was interrupted by a restart.**
 Jobs running when the backend stops are marked *interrupted* on disk and shown
-that way. Press **Tekrar dene**: if the video had already reached YouTube it is
-*not* uploaded again, and only the remaining steps run.
+that way. Press **Tekrar dene**: if the video had already reached the platform it
+is *not* uploaded again, and only the remaining steps run.
+
+**"Instagram ve Facebook için geçici medya barındırma tanımlanmamış."**
+Meta downloads the video from a URL and cannot use a path on your disk. Set up a
+bucket — see [Temporary media hosting](#temporary-media-hosting-r2--s3).
+
+**"Bu sayfaya bağlı bir Instagram profesyonel hesabı yok."**
+The Instagram account must be a Business or Creator account *and* linked to the
+Facebook Page you selected. Fix it in the Instagram app, then reconnect. Facebook
+publishing keeps working meanwhile.
+
+**"Meta bağlantınız yayınlama için gereken izinleri içermiyor."**
+Some permission was not granted on the consent screen. Press **Yeniden bağlan**
+and tick every box; the card lists exactly which ones are missing.
+
+**Meta rejected the video.**
+Reels want a vertical (9:16) MP4 between 3 seconds and 15 minutes. The panel
+checks the duration before uploading anything, but Meta has the final say on the
+encoding.
+
+**"Meta bu hesap için yayın sınırına ulaşıldığını bildirdi."**
+Instagram limits how many posts an account may publish through the API per day.
+Wait and retry — nothing is lost, and the file is not left in the bucket.
+
+**My TikTok post is not visible to anyone.**
+That is the audit restriction, not a bug. See [The audit
+requirement](#the-audit-requirement).
+
+**TikTok will not accept my redirect URI.**
+TikTok requires HTTPS. Point an HTTPS address at
+`/api/publishing/tiktok/callback` and set `tiktokRedirectUri` in
+`settings.json` to it.
 
 **Where are the logs?**
 `~/ExtinctVideoBuilder/logs/backend.log`. Credentials never appear in it.

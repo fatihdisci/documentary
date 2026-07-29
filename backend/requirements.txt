@@ -10,6 +10,10 @@ httpx==0.28.1
 anyio==4.14.2
 google-api-python-client==2.198.0
 google-auth-oauthlib==1.4.0
+# Used directly by app/config_bundle.py (AES-256-GCM) to seal the settings
+# export. Already present transitively via google-auth; pinned here because
+# the app imports it itself.
+cryptography==49.0.0
 
 # Dev / test
 pytest==9.1.1

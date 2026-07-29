@@ -19,9 +19,10 @@ import {
   TikTokPanel,
 } from '@/components/publishing/SocialPanels'
 import { YouTubePanel } from '@/components/publishing/YouTubePanel'
-import { MAX_TITLE_CHARS } from '@/api/publishing-types'
+import { MAX_TITLE_CHARS, composeCaption } from '@/api/publishing-types'
+import type { SocialPlatform } from '@/api/publishing-types'
 import { useProjectStore } from '@/store/project'
-import { usePublishingStore } from '@/store/publishing'
+import { flushPendingDraftSave, usePublishingStore } from '@/store/publishing'
 import { formatDateTime } from '@/lib/format'
 import './PublishingPage.css'
 
@@ -33,34 +34,51 @@ const SAVE_LABEL: Record<string, string> = {
   error: 'Kaydedilemedi — tekrar denenecek',
 }
 
+/** Per-platform "publish anyway" ticks. One file, four independent decisions. */
+type OverrideMap = Partial<Record<SocialPlatform, boolean>>
+
 export function PublishingPage() {
   const { project } = useProjectStore()
   const {
     media, selectedMediaId, draft, selectedMedia, sourceChanged, sourceChangedReason,
-    duplicateOf, connection, history, job, event, loading, busy, saveStatus, error,
-    loadConnection, connectYoutube, loadMedia, selectMedia, editDraft, refillFromProject,
-    attachThumbnail, attachCaption, publish, cancel, retry, detach, reattachIfRunning,
+    duplicateOf, duplicates, connection, meta, tiktok, mediaHost, history, job, event,
+    loading, busy, saveStatus, error,
+    loadConnection, loadPlatformConnections, connectYoutube, loadMedia, selectMedia,
+    editDraft, refillFromProject, attachThumbnail, attachCaption, publish,
+    publishToPlatform, cancel, retry, detach, reattachIfRunning,
     loadHistory, refreshHistoryEntry, clearError,
   } = usePublishingStore()
 
   const [showAll, setShowAll] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [allowDuplicate, setAllowDuplicate] = useState(false)
+  const [socialOverrides, setSocialOverrides] = useState<OverrideMap>({})
+  const [confirmingPlatform, setConfirmingPlatform] = useState<SocialPlatform | null>(null)
   const slug = project?.slug ?? null
 
   useEffect(() => {
     if (!slug) return
     void loadConnection(false)
+    void loadPlatformConnections()
     void loadMedia(slug)
     void loadHistory(slug)
     void reattachIfRunning(slug)
-    return () => detach()
-  }, [slug, loadConnection, loadMedia, loadHistory, reattachIfRunning, detach])
+    return () => {
+      // Leaving the panel must not cost the user the last thing they typed:
+      // the request goes out before `detach` cancels the debounce behind it.
+      void flushPendingDraftSave()
+      detach()
+    }
+  }, [
+    slug, loadConnection, loadPlatformConnections, loadMedia, loadHistory,
+    reattachIfRunning, detach,
+  ])
 
-  // A different file means a different draft, so the duplicate override must
-  // not survive the switch.
+  // A different file means a different draft, so every duplicate override must
+  // be re-decided rather than carried over.
   useEffect(() => {
     setAllowDuplicate(false)
+    setSocialOverrides({})
   }, [selectedMediaId])
 
   if (!project || !slug) {
@@ -82,6 +100,41 @@ export function PublishingPage() {
     if (duplicateOf && !allowDuplicate) return 'Bu dosya daha önce yüklenmiş.'
     return null
   })()
+
+  /** What stops *any* platform, before its own connection is considered. */
+  const sharedBlockedReason = (() => {
+    if (!draft || !selectedMedia) return 'Önce bir video seçin.'
+    if (sourceChanged) return 'Seçili dosya değişmiş; bilgileri gözden geçirin.'
+    return null
+  })()
+
+  function platformProps(platform: SocialPlatform) {
+    if (!draft || !slug) return null
+    const duplicate = duplicates[platform]
+    const override = socialOverrides[platform] === true
+    return {
+      draft,
+      busy,
+      onEdit: editDraft,
+      job,
+      event: event && job?.platform === platform ? event : null,
+      duplicateOf: duplicate,
+      allowDuplicate: override,
+      onAllowDuplicate: (value: boolean) =>
+        setSocialOverrides((current) => ({ ...current, [platform]: value })),
+      onPublish: () => setConfirmingPlatform(platform),
+      onCancel: () => void cancel(),
+      onRetry: (jobId: string) => void retry(jobId),
+      sharedBlockedReason:
+        duplicate && !override
+          ? 'Bu dosya bu platforma daha önce yüklenmiş.'
+          : sharedBlockedReason,
+    }
+  }
+
+  const instagramProps = platformProps('instagram')
+  const facebookProps = platformProps('facebook')
+  const tiktokProps = platformProps('tiktok')
 
   return (
     <div className="page publishing-page">
@@ -175,13 +228,13 @@ export function PublishingPage() {
           onRetry={(jobId) => void retry(jobId)}
         />
 
-        {draft && (
-          <>
-            <InstagramPanel draft={draft} busy={busy} onEdit={editDraft} />
-            <FacebookPanel draft={draft} busy={busy} onEdit={editDraft} />
-            <TikTokPanel draft={draft} busy={busy} onEdit={editDraft} />
-          </>
+        {instagramProps && (
+          <InstagramPanel {...instagramProps} meta={meta} mediaHost={mediaHost} />
         )}
+        {facebookProps && (
+          <FacebookPanel {...facebookProps} meta={meta} mediaHost={mediaHost} />
+        )}
+        {tiktokProps && <TikTokPanel {...tiktokProps} tiktok={tiktok} />}
       </section>
 
       <PublishHistory
@@ -241,6 +294,80 @@ export function PublishingPage() {
           }}
         />
       )}
+
+      {confirmingPlatform && draft && selectedMedia && (
+        <ConfirmDialog
+          title={`${PLATFORM_LABEL[confirmingPlatform]} üzerinde yayınla`}
+          confirmLabel="Yayınla"
+          body={
+            <div className="confirm-summary">
+              <dl>
+                <dt>Dosya</dt>
+                <dd>{selectedMedia.filename}</dd>
+                <dt>Hesap</dt>
+                <dd>{platformDestination(confirmingPlatform)}</dd>
+                <dt>Metin</dt>
+                <dd className="confirm-caption">
+                  {composeCaption(
+                    draft[confirmingPlatform].caption,
+                    draft[confirmingPlatform].hashtags,
+                  ) || '(boş)'}
+                </dd>
+                {confirmingPlatform === 'instagram' && (
+                  <>
+                    <dt>Profil akışı</dt>
+                    <dd>{draft.instagram.shareToFeed ? 'Gösterilecek' : 'Gösterilmeyecek'}</dd>
+                  </>
+                )}
+                {confirmingPlatform === 'tiktok' && (
+                  <>
+                    <dt>Gizlilik</dt>
+                    <dd>{draft.tiktok.privacy}</dd>
+                  </>
+                )}
+              </dl>
+              {confirmingPlatform !== 'tiktok' && (
+                <p className="hint">
+                  Video, Meta'nın indirebilmesi için geçici ve süreli bir adrese konur ve
+                  yayın bittiğinde oradan silinir.
+                </p>
+              )}
+              {confirmingPlatform === 'tiktok' && tiktok?.auditRequired && (
+                <p className="confirm-warning">
+                  ⚠ Uygulama TikTok denetiminden geçmediği için gönderiyi yalnızca siz
+                  görebileceksiniz.
+                </p>
+              )}
+              {socialOverrides[confirmingPlatform] && duplicates[confirmingPlatform] && (
+                <p className="confirm-warning">
+                  ⚠ Bu dosya bu platforma daha önce yüklenmişti. Onaylarsanız ikinci bir
+                  gönderi oluşur.
+                </p>
+              )}
+            </div>
+          }
+          onCancel={() => setConfirmingPlatform(null)}
+          onConfirm={() => {
+            const platform = confirmingPlatform
+            setConfirmingPlatform(null)
+            void publishToPlatform(slug, platform, socialOverrides[platform] === true)
+          }}
+        />
+      )}
     </div>
   )
+
+  function platformDestination(platform: SocialPlatform): string {
+    if (platform === 'instagram') {
+      return meta?.instagramUsername ? `@${meta.instagramUsername}` : 'bağlı Instagram hesabı'
+    }
+    if (platform === 'facebook') return meta?.pageName ?? 'bağlı Facebook Sayfası'
+    return tiktok?.displayName ?? 'bağlı TikTok hesabı'
+  }
+}
+
+const PLATFORM_LABEL: Record<SocialPlatform, string> = {
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  tiktok: 'TikTok',
 }

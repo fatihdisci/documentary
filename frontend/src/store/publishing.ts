@@ -12,6 +12,12 @@
  * * **Edits save on a debounce, and the status is visible.** The panel is an
  *   editor, so a save that failed must stay visible as "unsaved" rather than
  *   silently dropping what the user typed.
+ *
+ * The debounce is what makes everything else here careful: for up to
+ * `DRAFT_SAVE_DEBOUNCE_MS` the newest text exists only in this store. Anything
+ * that would leave that text behind — switching media, leaving the page,
+ * starting an upload — goes through `settleDraftSave()` first, and the timer is
+ * only dropped once a save has actually reached the backend.
  */
 
 import { create } from 'zustand'
@@ -19,11 +25,16 @@ import { api, describeError } from '@/api/client'
 import type { ApiErrorPayload } from '@/api/types'
 import type {
   DraftResponse,
+  MediaHostStatus,
   MediaItem,
+  MetaConnection,
   PublishDraft,
   PublishHistoryEntry,
   PublishJob,
   PublishJobEvent,
+  PublishingPlatform,
+  SocialPlatform,
+  TikTokConnection,
   YouTubeConnection,
 } from '@/api/publishing-types'
 import { attachJobStream, type JobStream } from '@/lib/jobStream'
@@ -43,8 +54,12 @@ interface PublishingState {
   sourceChanged: boolean
   sourceChangedReason: string | null
   duplicateOf: PublishHistoryEntry | null
+  duplicates: Partial<Record<PublishingPlatform, PublishHistoryEntry>>
 
   connection: YouTubeConnection | null
+  meta: MetaConnection | null
+  tiktok: TikTokConnection | null
+  mediaHost: MediaHostStatus | null
   history: PublishHistoryEntry[]
   job: PublishJob | null
   event: PublishJobEvent | null
@@ -56,6 +71,13 @@ interface PublishingState {
 
   loadConnection: (refresh?: boolean) => Promise<void>
   connectYoutube: () => Promise<void>
+  /** Read the Meta, TikTok and hosting state the platform cards render from. */
+  loadPlatformConnections: () => Promise<void>
+  publishToPlatform: (
+    slug: string,
+    platform: SocialPlatform,
+    allowDuplicate: boolean,
+  ) => Promise<void>
   loadMedia: (slug: string) => Promise<void>
   selectMedia: (slug: string, mediaId: string) => Promise<void>
   /** Apply a local edit to the draft and schedule a save. */
@@ -77,6 +99,8 @@ interface PublishingState {
 
 let stream: JobStream | null = null
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+/** The save that is on the wire right now, so callers can wait it out. */
+let inFlightSave: Promise<void> | null = null
 
 function stopStream() {
   stream?.close()
@@ -87,16 +111,66 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+/**
+ * Leave nothing unsaved: wait out a save that is already on the wire, then write
+ * whatever the debounce — or a failed attempt — is still holding.
+ *
+ * Declared here and used by the store's own actions: every path that abandons
+ * the editor's in-memory draft has to come through this one function.
+ */
+async function settleDraftSave(): Promise<void> {
+  if (inFlightSave) await inFlightSave
+  const { saveStatus, saveDraft } = usePublishingStore.getState()
+  if (saveStatus === 'dirty' || saveStatus === 'error') await saveDraft()
+}
+
 export const usePublishingStore = create<PublishingState>((set, get) => {
-  function applyDraftResponse(response: DraftResponse) {
+  /**
+   * Adopt what the backend just returned.
+   *
+   * `keepDraft` is for the one case where the echo is already out of date: a
+   * keystroke landed while the save was on the wire, so the text in memory is
+   * newer than the text coming back and must not be overwritten by it.
+   */
+  function applyDraftResponse(response: DraftResponse, { keepDraft = false } = {}) {
     set({
-      draft: response.draft,
+      ...(keepDraft ? {} : { draft: response.draft }),
       selectedMedia: response.media,
       selectedMediaId: response.draft.mediaId,
       sourceChanged: response.sourceChanged,
       sourceChangedReason: response.sourceChangedReason,
       duplicateOf: response.duplicateOf,
+      duplicates: response.duplicates ?? {},
     })
+  }
+
+  /**
+   * Queue one upload and follow it.
+   *
+   * Shared by all four platforms because everything around the request is the
+   * same: flush the draft first, refuse to start on an unsaved edit, then
+   * attach to the job's progress stream. Only the call differs.
+   */
+  async function startPublish(
+    slug: string,
+    run: () => Promise<PublishJob>,
+  ): Promise<void> {
+    set({ busy: true, error: null, event: null })
+    try {
+      // Never upload text the backend has not seen. A save may already be in
+      // flight — the upload reads the *stored* draft, so starting it now would
+      // publish the previous version of the metadata.
+      await settleDraftSave()
+      if (usePublishingStore.getState().saveStatus === 'error') return
+      const job = await run()
+      set({ job })
+      if (TERMINAL.has(job.status)) await usePublishingStore.getState().loadHistory(slug)
+      else usePublishingStore.getState().attach(slug, job.id)
+    } catch (err) {
+      set({ error: describeError(err) })
+    } finally {
+      set({ busy: false })
+    }
   }
 
   return {
@@ -107,7 +181,11 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
     sourceChanged: false,
     sourceChangedReason: null,
     duplicateOf: null,
+    duplicates: {},
     connection: null,
+    meta: null,
+    tiktok: null,
+    mediaHost: null,
     history: [],
     job: null,
     event: null,
@@ -142,6 +220,26 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
       }
     },
 
+    /**
+     * The three platform cards' state, read together.
+     *
+     * `Promise.allSettled`, not `all`: an unreachable Meta status must not stop
+     * the TikTok card from rendering, and none of these is required for the
+     * page to be useful.
+     */
+    loadPlatformConnections: async () => {
+      const [meta, tiktok, mediaHost] = await Promise.allSettled([
+        api.metaStatus(),
+        api.tiktokStatus(false),
+        api.mediaHostStatus(),
+      ])
+      set({
+        meta: meta.status === 'fulfilled' ? meta.value : null,
+        tiktok: tiktok.status === 'fulfilled' ? tiktok.value : null,
+        mediaHost: mediaHost.status === 'fulfilled' ? mediaHost.value : null,
+      })
+    },
+
     loadMedia: async (slug) => {
       set({ loading: true })
       try {
@@ -161,9 +259,11 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
     },
 
     selectMedia: async (slug, mediaId) => {
-      if (saveTimer) clearTimeout(saveTimer)
-      saveTimer = null
-      set({ saveStatus: 'idle' })
+      // The draft is about to be replaced in memory, so anything the debounce
+      // is holding for the *current* file has to reach the backend first —
+      // otherwise a quick click after typing throws the edit away.
+      await settleDraftSave()
+      if (get().saveStatus !== 'error') set({ saveStatus: 'idle' })
       try {
         applyDraftResponse(await api.getPublishDraft(slug, mediaId))
         set({ error: null })
@@ -188,19 +288,37 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
     saveDraft: async () => {
       const { draft } = get()
       if (!draft) return
-      if (saveTimer) {
-        clearTimeout(saveTimer)
-        saveTimer = null
-      }
-      set({ saveStatus: 'saving' })
+      const attempt = (async () => {
+        set({ saveStatus: 'saving' })
+        try {
+          const response = await api.savePublishDraft(
+            draft.projectSlug,
+            draft.mediaId,
+            draft,
+          )
+          // Anything other than "saving" means the user typed again while this
+          // request was out: that edit is newer than what was just stored, so
+          // it keeps both the text and its own pending timer.
+          const superseded = get().saveStatus !== 'saving'
+          applyDraftResponse(response, { keepDraft: superseded })
+          if (superseded) return
+          // Only now is the debounce redundant. Cancelling it up front would
+          // disarm the retry of a save that then failed.
+          if (saveTimer) {
+            clearTimeout(saveTimer)
+            saveTimer = null
+          }
+          set({ saveStatus: 'saved', error: null })
+        } catch (err) {
+          // Stay dirty: the edit only exists in memory until a save succeeds.
+          set({ saveStatus: 'error', error: describeError(err) })
+        }
+      })()
+      inFlightSave = attempt
       try {
-        applyDraftResponse(
-          await api.savePublishDraft(draft.projectSlug, draft.mediaId, draft),
-        )
-        set({ saveStatus: 'saved', error: null })
-      } catch (err) {
-        // Stay dirty: the edit only exists in memory until a save succeeds.
-        set({ saveStatus: 'error', error: describeError(err) })
+        await attempt
+      } finally {
+        if (inFlightSave === attempt) inFlightSave = null
       }
     },
 
@@ -262,24 +380,29 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
     },
 
     publish: async (slug, allowDuplicate) => {
-      const { selectedMediaId, saveStatus } = get()
+      const { selectedMediaId } = get()
       if (!selectedMediaId) return
-      set({ busy: true, error: null, event: null })
-      try {
-        // Never upload text the backend has not seen.
-        if (saveStatus === 'dirty' || saveStatus === 'error') await get().saveDraft()
-        const job = await api.publishToYoutube(slug, {
+      await startPublish(slug, () =>
+        api.publishToYoutube(slug, { mediaId: selectedMediaId, allowDuplicate }),
+      )
+    },
+
+    /**
+     * One post to one of the other three platforms.
+     *
+     * Each is its own backend job with its own duplicate protection, so a
+     * failure here neither retries nor affects anything already published
+     * elsewhere.
+     */
+    publishToPlatform: async (slug, platform, allowDuplicate) => {
+      const { selectedMediaId } = get()
+      if (!selectedMediaId) return
+      await startPublish(slug, () =>
+        api.publishToPlatform(slug, platform, {
           mediaId: selectedMediaId,
           allowDuplicate,
-        })
-        set({ job })
-        if (TERMINAL.has(job.status)) await get().loadHistory(slug)
-        else get().attach(slug, job.id)
-      } catch (err) {
-        set({ error: describeError(err) })
-      } finally {
-        set({ busy: false })
-      }
+        }),
+      )
     },
 
     cancel: async () => {
@@ -378,6 +501,5 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
 
 /** Flush a pending draft save. Call before navigating away or uploading. */
 export async function flushPendingDraftSave(): Promise<void> {
-  const { saveStatus, saveDraft } = usePublishingStore.getState()
-  if (saveStatus === 'dirty' || saveStatus === 'error') await saveDraft()
+  await settleDraftSave()
 }

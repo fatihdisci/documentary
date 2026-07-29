@@ -39,6 +39,13 @@ const PHASE_LABEL: Record<PublishJobEvent['phase'], string> = {
   'upload-video': 'Video yükleniyor',
   'set-thumbnail': 'Kapak görseli konuluyor',
   'upload-captions': 'Altyazı gönderiliyor',
+  // Phases the other platforms use. Listed so the map stays exhaustive; a
+  // YouTube job never reaches any of them.
+  'host-media': 'Video geçici adrese yükleniyor',
+  'create-container': 'Platform videoyu alıyor',
+  'await-processing': 'Platform videoyu işliyor',
+  'publish-post': 'Gönderi yayınlanıyor',
+  cleanup: 'Geçici kopya siliniyor',
   'fetch-status': 'Video durumu okunuyor',
   complete: 'Tamamlandı',
 }
