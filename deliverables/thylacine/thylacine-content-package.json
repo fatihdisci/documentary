@@ -1,5 +1,5 @@
 {
-  "contentSchemaVersion": 1,
+  "contentSchemaVersion": 2,
   "commonName": "Tasmanian tiger / thylacine",
   "scientificName": "Thylacinus cynocephalus",
   "videoTitle": "The Thylacine: Hunted, Filmed, and Gone",
@@ -22,6 +22,16 @@
   ],
   "thumbnailText": "59 DAYS TOO LATE",
   "thumbnailPrompt": "Cinematic wildlife documentary reconstruction of a scientifically plausible adult thylacine with a lean long-backed dog-like body, sandy yellow-brown short coat, about fifteen dark brown stripes across the lower back and rump, stiff tapering tail aligned with the spine, long narrow head, rounded upright ears and slim legs; one large thylacine in three-quarter profile on the left, looking directly toward camera, dark Tasmanian grassland and forest fading into black behind it, cold rim light outlining the ears, back and stripes, urgent but respectful mood, clear empty dark space on the right for four-word thumbnail text, photorealistic, realistic anatomy, restrained natural color grading, high detail, no text, no watermark, no logo, no collar, no modern objects, no blood, 16:9 widescreen composition",
+  "longIntro": {
+    "enabled": true,
+    "introStyle": "typewriter-stamp",
+    "primaryTitle": "Thylacine",
+    "secondaryTitle": "Thylacinus cynocephalus",
+    "stampText": "EXTINCT",
+    "duration": 2.6,
+    "typewriterDuration": 1.3,
+    "stampAt": 1.7
+  },
   "pronunciation": {
     "thylacine": "THY-luh-seen",
     "Thylacinus cynocephalus": "thy-luh-SY-nus sy-no-SEF-uh-lus",
@@ -29,6 +39,12 @@
     "marsupial": "mar-SOO-pee-uhl",
     "Hobart": "HOH-bart",
     "Steller's": "STELL-erz"
+  },
+  "tts": {
+    "provider": "kokoro",
+    "voice": "af_bella",
+    "speechRate": 0.9,
+    "notes": "Plain English, no SSML. Keep the scientific name to the metadata; hard names use the pronunciation table."
   },
   "intro": {
     "title": "The Thylacine",

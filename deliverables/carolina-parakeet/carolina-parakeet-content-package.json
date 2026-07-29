@@ -1,5 +1,5 @@
 {
-  "contentSchemaVersion": 1,
+  "contentSchemaVersion": 2,
   "commonName": "Carolina parakeet",
   "scientificName": "Conuropsis carolinensis",
   "videoTitle": "The Carolina Parakeet: America’s Lost Native Parrot",
@@ -20,10 +20,26 @@
   ],
   "thumbnailText": "AMERICA'S LOST PARROT",
   "thumbnailPrompt": "Cinematic wildlife documentary reconstruction of one Carolina parakeet in sharp three-quarter portrait on the right: a medium-sized slim parrot with a bright green body, yellow head and neck, orange-red face and shoulder patches, pale hooked bill, dark eye and long pointed green tail. Deep river woods blur into a simple dark background on the left, strong yellow-green silhouette, clear negative space for four-word thumbnail text, photorealistic, natural side light, restrained natural color grading, subtle film grain, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition.",
+  "longIntro": {
+    "enabled": true,
+    "introStyle": "typewriter-stamp",
+    "primaryTitle": "Carolina parakeet",
+    "secondaryTitle": "Conuropsis carolinensis",
+    "stampText": "EXTINCT",
+    "duration": 2.6,
+    "typewriterDuration": 1.3,
+    "stampAt": 1.7
+  },
   "pronunciation": {
     "Incas": "ING-kuhz",
     "Cincinnati Zoo": "sin-suh-NAT-ee Zoo",
     "Pinta Island tortoise": "PIN-tuh EYE-lund TOR-tus"
+  },
+  "tts": {
+    "provider": "kokoro",
+    "voice": "af_bella",
+    "speechRate": 0.9,
+    "notes": "Plain English, no SSML. Keep the scientific name to the metadata; hard names use the pronunciation table."
   },
   "intro": {
     "title": "The Carolina Parakeet",

@@ -1,13 +1,45 @@
 {
-  "contentSchemaVersion": 1,
+  "contentSchemaVersion": 2,
   "commonName": "Steller's sea cow",
   "scientificName": "Hydrodamalis gigas",
   "videoTitle": "Steller's Sea Cow: The Giant Lost in 27 Years",
   "description": "It was one of the largest animals in the northern Pacific. Then, within about 27 years of its first scientific description, Steller's sea cow was gone. This is the story of a gentle giant, the cold waters around Bering Island, and an extinction that happened in plain sight.\n\nSources used for this episode include the Smithsonian National Museum of Natural History, the U.S. Geological Survey, and Cambridge University Press.\n\n#ExtinctAnimals #StellersSeaCow #OceanHistory #WildlifeDocumentary",
-  "tags": ["Steller's sea cow", "extinct animals", "extinction", "marine mammals", "Bering Island", "Bering Sea", "ocean documentary", "wildlife documentary", "animal history", "kelp forest", "Georg Steller", "lost species"],
+  "tags": [
+    "Steller's sea cow",
+    "extinct animals",
+    "extinction",
+    "marine mammals",
+    "Bering Island",
+    "Bering Sea",
+    "ocean documentary",
+    "wildlife documentary",
+    "animal history",
+    "kelp forest",
+    "Georg Steller",
+    "lost species"
+  ],
   "thumbnailText": "GONE IN 27 YEARS",
   "thumbnailPrompt": "A single enormous Steller's sea cow, about 8 meters long, charcoal-brown bark-like wrinkled skin, small blunt head with stiff pale bristles around its mouth, short rounded paddle-like forelimbs, broad whale-like tail fluke, no visible ears, robust rounded body, rising from dark kelp water at blue hour, its head and shoulder enormous in the right third of frame, a tiny distant wooden boat near the far left horizon for scale, dramatic clean negative space at upper left for thumbnail text, cinematic wildlife documentary reconstruction, scientifically plausible extinct animal, photorealistic, cold natural light, subtle film grain, restrained natural color grading, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition",
-  "pronunciation": {"Steller's": "STELL-erz", "Bering": "BAIR-ing"},
+  "longIntro": {
+    "enabled": true,
+    "introStyle": "typewriter-stamp",
+    "primaryTitle": "Steller's sea cow",
+    "secondaryTitle": "Hydrodamalis gigas",
+    "stampText": "EXTINCT",
+    "duration": 2.6,
+    "typewriterDuration": 1.3,
+    "stampAt": 1.7
+  },
+  "pronunciation": {
+    "Steller's": "STELL-erz",
+    "Bering": "BAIR-ing"
+  },
+  "tts": {
+    "provider": "kokoro",
+    "voice": "af_bella",
+    "speechRate": 0.9,
+    "notes": "Plain English, no SSML. Keep the scientific name to the metadata; hard names use the pronunciation table."
+  },
   "intro": {
     "title": "A Giant Vanished",
     "subtitle": "Bering Island, 1741–1768",
@@ -56,7 +88,7 @@
       "factNote": "A firsthand measurement recorded a length of about 7.5 meters; later studies suggest the Bering Island animals were roughly in that range.",
       "suggestedAnimation": "zoom-to-focus",
       "focusX": 0.72,
-      "focusY": 0.50,
+      "focusY": 0.5,
       "titleStartSeconds": 1.0,
       "titleDurationSeconds": 3.2,
       "subtitleStartSeconds": 4.6,
