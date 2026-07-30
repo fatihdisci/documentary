@@ -304,7 +304,8 @@ class TestPosting:
             client.creator_info()
 
         assert excinfo.value.code.value == "tiktok_unaudited"
-        assert excinfo.value.suggestion
+        assert "hesabın kendisi" in excinfo.value.message
+        assert "Gizli hesap" in excinfo.value.suggestion
 
     def test_a_failure_reported_inside_a_200_is_still_a_failure(
         self, settings, monkeypatch

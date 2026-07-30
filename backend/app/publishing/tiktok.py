@@ -748,7 +748,18 @@ def _map_error(code: str, http_status: int, details: str, *, stage: str) -> AppE
             details=details,
             http_status=401,
         )
-    if code in {"scope_permission_missed", "unaudited_client_can_only_post_to_private_accounts"}:
+    if code == "unaudited_client_can_only_post_to_private_accounts":
+        return AppError(
+            ErrorCode.TIKTOK_UNAUDITED,
+            "TikTok uygulamanız denetimden geçmediği için hesabın kendisi de gizli olmalı.",
+            details=details,
+            suggestion=(
+                "TikTok uygulamasında Ayarlar ve gizlilik → Gizlilik → Gizli hesap "
+                "seçeneğini açın; “Yalnızca ben” seçili kalsın ve tekrar deneyin."
+            ),
+            http_status=403,
+        )
+    if code == "scope_permission_missed":
         return AppError(
             ErrorCode.TIKTOK_UNAUDITED,
             "TikTok bu uygulamanın herkese açık paylaşım yapmasına izin vermiyor.",
