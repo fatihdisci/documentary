@@ -162,6 +162,11 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
       // publish the previous version of the metadata.
       await settleDraftSave()
       if (usePublishingStore.getState().saveStatus === 'error') return
+      // Selecting a file seeds its first draft in memory, deliberately without
+      // writing it yet. A publish may be the first action the user takes, so
+      // persist even an untouched seed before the backend tries to load it.
+      await usePublishingStore.getState().saveDraft()
+      if (usePublishingStore.getState().saveStatus === 'error') return
       const job = await run()
       set({ job })
       if (TERMINAL.has(job.status)) await usePublishingStore.getState().loadHistory(slug)

@@ -1076,6 +1076,38 @@ describe('the TikTok card', () => {
     expect(screen.getByRole('button', { name: "TikTok'a gönder" })).toBeEnabled()
   })
 
+  it('saves an untouched first draft before submitting a TikTok post', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.tiktokStatus).mockResolvedValue(
+      tiktokConnection({
+        appConfigured: true,
+        tokenPresent: true,
+        connected: true,
+        scopesSufficient: true,
+        auditRequired: true,
+        creatorInfo: {
+          nickname: 'Vanished Earth Docs', username: 'vanishedearthdocs', avatarUrl: null,
+          privacyLevelOptions: ['SELF_ONLY'], commentDisabled: false, duetDisabled: false,
+          stitchDisabled: false, maxVideoPostDurationSeconds: 600, fetchedAt: null,
+        },
+      }),
+    )
+    await renderPage()
+
+    await user.click(await screen.findByRole('button', { name: "TikTok'a gönder" }))
+    await user.click(screen.getByRole('button', { name: 'Yayınla' }))
+
+    await waitFor(() => expect(api.publishToPlatform).toHaveBeenCalledWith('the-dodo', 'tiktok', {
+      mediaId: 'long:render0001', allowDuplicate: false,
+    }))
+    expect(api.savePublishDraft).toHaveBeenCalledWith(
+      'the-dodo', 'long:render0001', expect.anything(),
+    )
+    const save = vi.mocked(api.savePublishDraft).mock.invocationCallOrder.at(-1)!
+    const publish = vi.mocked(api.publishToPlatform).mock.invocationCallOrder.at(-1)!
+    expect(save).toBeLessThan(publish)
+  })
+
   it('does not offer a privacy list before the account is connected', async () => {
     await renderPage()
 
