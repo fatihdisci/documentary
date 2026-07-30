@@ -209,10 +209,10 @@ export function ContentPage() {
           <div>
             <h2>Video açılışı</h2>
             <p className="muted">
-              Uzun videonun ilk saniyelerinde görünen kanal açılışı: hayvanın adı daktilo
-              efektiyle yazılır, altına Latince adı gelir, üstüne kırmızı damga vurulur. Videoyu
-              uzatmaz — görüntünün üzerine eklenir. Daktilo ve damga sesleri otomatik üretilir;
-              kısa videolara girmez.
+              Uzun videodan önce oynayan kanal açılışı: hayvanın adı daktilo efektiyle
+              yazılır, altına Latince adı gelir, üstüne kırmızı damga vurulur. Kart tamamen
+              solup bittikten sonra ilk sahne, anlatım ve normal yazılar başlar. Daktilo ve
+              damga sesleri otomatik üretilir; kısa videolara girmez.
             </p>
           </div>
         </div>

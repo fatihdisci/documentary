@@ -41,7 +41,7 @@ Fourteen ordered stages:
 6. build subtitle cues
 7. preflight disk space
 8. render scene clips (Pass A, cached per-scene)
-9. assemble with transitions (Pass B), compositing the branded opening
+9. assemble with transitions (Pass B), prepending the branded opening
 10. mix audio on the same Timeline
 11. encode the final file
 12. validate the output with ffprobe
@@ -54,14 +54,15 @@ what changed.
 
 ### The branded opening (`render/intro.py`)
 
-The channel's signature first two-and-a-half seconds: the animal's name types
+The channel's signature 4.2-second pre-roll: the animal's name types
 itself out, the scientific name fades in small underneath, a red `EXTINCT` stamp
 lands over both, and the card dissolves into the film.
 
-It is an **overlay, not a section**, and that is the whole design. It is
-composited during assembly over the picture the Timeline already decided, so it
-adds no entry, no duration and no offset — a project renders to the same length
-with it on or off, and stage 5 never hears about it.
+It is a complete **pre-roll clip**, not an overlay on the first section. It uses
+the intro image without the section's ordinary title or subtitles, fades fully
+to black, and is concatenated before the film. The reusable content Timeline
+stays unchanged; export validation, SRT files and audio receive the pre-roll
+offset explicitly.
 
 Drawing follows the rule the rest of the app follows: Pillow paints RGBA, FFmpeg
 composites. The typewriter is **one card per revealed state**, not one per frame
@@ -216,13 +217,13 @@ decision.
 `render/sfx.py` synthesizes the audio identity locally at 48 kHz. Long openings
 receive dry typewriter clacks and a low stamp impact; Short hooks receive a brief
 rise into their visual impact. Both WAVs are content-addressed and cached. The
-long-opening sound is mixed only when the branded overlay is present, so the
+long-opening sound is mixed only when the branded pre-roll is present, so the
 Shorts clean master remains free of both the long intro picture and its sound.
 
 Three properties make it safe:
 
-* it is composed onto the vertical canvas during the compose pass, so it works
-  in every caption mode and is never burned into the long video or into the file
+* it is composed on a separate black pre-roll during the compose pass, so it
+  works in every caption mode and never shares a frame with the selected video
   the cut came from;
 * it lands near eye level while captions stay in the lower safe area, so the two
   cannot collide;

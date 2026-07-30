@@ -45,8 +45,8 @@ def _v2_to_v3(raw: RawProject) -> RawProject:
       titles resolve to the project's own animal names at render time, so an
       untouched old project gains the same correct opening every new project
       gets — which is the whole point of a channel identity — and one toggle in
-      Texts turns it off again. It costs no render time: it is an overlay on the
-      first seconds of the picture, not a new section.
+      Texts turns it off again. The current renderer prepends it as a separate
+      pre-roll before the reusable content timeline.
     * Every planned Short gains an empty ``hook``. Empty means "draw nothing", so
       a Short re-cut from an old plan is byte-for-byte the Short it was before.
 

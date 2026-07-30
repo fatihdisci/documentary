@@ -11,10 +11,10 @@ timeline, and only ever as an extra:
 
 * the normal export is untouched — same filename, same codec, same captions,
   same artifacts, same UI;
-* the clean master has identical composition, Ken Burns motion, titles, scene
-  text, watermark, scrim, fades, transitions, timing, codec profile, frame rate
-  and audio mix, and differs in exactly two respects: no narration subtitles and
-  no branded opening;
+* the clean master has the same reusable content composition, Ken Burns motion,
+  titles, scene text, watermark, scrim, fades, transitions, codec profile,
+  frame rate and audio mix, and differs in exactly two respects: no narration
+  subtitles and no branded pre-roll before the content timeline;
 * it is cached in its own clip namespace, so building it can never evict or
   invalidate the captioned clips the normal export just used.
 

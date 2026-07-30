@@ -489,7 +489,7 @@ class ShortsPipeline:
         await self.runner.run(
             args,
             stage="short-concat-reencode",
-            expected_duration=self.plan.total_duration_seconds,
+            expected_duration=self.plan.content_duration_seconds,
             on_progress=lambda fraction: self._emit(
                 ShortPhase.CONCAT, fraction, "Parçalar birleştiriliyor"
             ),
@@ -554,11 +554,10 @@ class ShortsPipeline:
     def _build_hook(self) -> None:
         """Draw the Short's opening hook, if it has one.
 
-        Independent of caption mode on purpose: a hook is composed onto the
-        vertical canvas, so it works just as well over a cut of the captioned
-        export as over a clean master. A Short whose request carries no hook —
-        every Short built before hooks existed — draws nothing here and produces
-        exactly the pixels it always did.
+        Independent of caption mode on purpose: a hook is composed on its own
+        vertical pre-roll, so it works with a captioned export or a clean master.
+        A Short whose request carries no hook draws no pre-roll and produces the
+        historical output.
         """
         if self.request.hook is None or not self.request.hook.is_visible:
             return
@@ -568,7 +567,7 @@ class ShortsPipeline:
             DEFAULT_HOOK_STYLE,
             canvas_width=self.layout.width,
             canvas_height=self.layout.height,
-            total_duration_seconds=self.plan.total_duration_seconds,
+            total_duration_seconds=self.plan.opening_duration_seconds,
             output_dir=self.paths.shorts_cache / "hook-cards",
         )
         if self._hook is None:
@@ -581,7 +580,7 @@ class ShortsPipeline:
             self._hook_sfx = build_short_hook_sfx(
                 self.request.hook,
                 impact_at=self._hook.impact_start_seconds,
-                total_duration_seconds=self.plan.total_duration_seconds,
+                total_duration_seconds=self.plan.opening_duration_seconds,
                 output_dir=self.paths.shorts_cache / "hook-sfx",
             )
         except Exception as exc:  # noqa: BLE001 - decorative, never block a Short
@@ -611,7 +610,7 @@ class ShortsPipeline:
         if target.is_file() and target.stat().st_size > 1_000:
             return target
 
-        total = self.plan.total_duration_seconds
+        total = self.plan.content_duration_seconds
         inputs: list[str] = [
             "-f", "lavfi", "-t", f"{total:.4f}",
             "-i",
@@ -689,6 +688,8 @@ class ShortsPipeline:
         # "-t" is an input option when it precedes an "-i" and an output option
         # when it follows the last one, so appending caption inputs into a list
         # that already carried the output's duration would silently retarget it.
+        content_total = self.plan.content_duration_seconds
+        opening_total = self.plan.opening_duration_seconds
         total = self.plan.total_duration_seconds
         single_pass = source == self.source_video
         inputs: list[str] = []
@@ -699,13 +700,14 @@ class ShortsPipeline:
         # Every value below is an integer this module computed, or a hex colour
         # matched against _HEX_COLOUR. No user text is interpolated.
         steps = [
-            f"[0:v]scale={geometry.inner_width}:{geometry.inner_height}:flags=bicubic,"
+            f"[0:v]trim=duration={content_total:.4f},setpts=PTS-STARTPTS,"
+            f"scale={geometry.inner_width}:{geometry.inner_height}:flags=bicubic,"
             f"setsar=1,"
             f"pad={self.layout.width}:{self.layout.height}:"
             f"{geometry.offset_x}:{geometry.offset_y}:color={colour},"
-            f"fps={self.fps},format=rgba[canvas]"
+            f"fps={self.fps},format=rgba[contentcanvas]"
         ]
-        current = "canvas"
+        current = "contentcanvas"
         next_index = 1
 
         def add_input(path: Path) -> int:
@@ -728,54 +730,74 @@ class ShortsPipeline:
                 style=self.caption_style,
                 current=current,
                 add_input=add_input,
-                duration=total,
+                duration=content_total,
             )
             steps.extend(caption_steps)
 
-        # The hook goes on last around the canvas eye line. Native captions stay
-        # in the lower safe area, so the two never meet.
+        # The hook gets its own black pre-roll. It never shares a frame with the
+        # selected video, its ordinary section titles or its captions.
         if self._hook is not None:
+            content_fade = min(0.25, max(0.0, content_total))
+            if content_fade > 0:
+                steps.append(
+                    f"[{current}]fade=t=in:st=0:d={content_fade:.4f}[contentstart]"
+                )
+            else:
+                steps.append(f"[{current}]format=rgba[contentstart]")
+            steps.append(
+                f"[contentstart]tpad=start_mode=add:start_duration={opening_total:.4f}:"
+                f"color={colour}[hookbase]"
+            )
             hook_steps, current = hook_overlay_steps(
                 self._hook,
                 style=DEFAULT_HOOK_STYLE,
-                current=current,
+                current="hookbase",
                 add_input=add_input,
             )
             steps.extend(hook_steps)
+            self._record(
+                f"[hook] prepended as a separate {opening_total:.2f}s pre-roll; "
+                "source picture and audio start afterwards"
+            )
 
         steps.append(f"[{current}]format=yuv420p[v]")
 
         audio_map = "0:a:0"
-        if self._hook_sfx is not None:
-            sfx_index = next_index
-            next_index += 1
-            inputs += ["-i", str(self._hook_sfx)]
+        if self._hook is not None:
+            delay_ms = max(0, int(round(opening_total * 1000)))
             steps.append(
-                f"[{sfx_index}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
-                "volume=-3dB[hooksfx]"
+                f"[0:a:0]atrim=duration={content_total:.4f},asetpts=PTS-STARTPTS,"
+                f"adelay={delay_ms}:all=1[contentaudio]"
             )
-            steps.append(
-                "[0:a:0][hooksfx]amix=inputs=2:normalize=0:duration=first,"
-                "alimiter=limit=0.95[shortaudio]"
-            )
-            audio_map = "[shortaudio]"
-            self._record(f"[hook-sfx] rise and impact mixed from {self._hook_sfx.name}")
+            audio_map = "[contentaudio]"
+            if self._hook_sfx is not None:
+                sfx_index = next_index
+                next_index += 1
+                inputs += ["-i", str(self._hook_sfx)]
+                steps.append(
+                    f"[{sfx_index}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+                    "volume=-3dB[hooksfx]"
+                )
+                steps.append(
+                    "[contentaudio][hooksfx]amix=inputs=2:normalize=0:duration=longest,"
+                    f"atrim=duration={total:.4f},"
+                    "alimiter=limit=0.95[shortaudio]"
+                )
+                audio_map = "[shortaudio]"
+                self._record(
+                    f"[hook-sfx] rise and impact mixed from {self._hook_sfx.name}"
+                )
 
         args = [
             self.settings.require_tool("ffmpeg"),
             "-hide_banner", "-nostdin", "-y", *progress_args(),
             *inputs,
         ]
-        if single_pass:
-            args += ["-t", f"{self.plan.groups[0].duration_seconds:.6f}"]
-        elif next_index > 1:
-            # Looped caption stills never end, so a multi-cut compose needs the
-            # duration stated explicitly once anything else is an input.
-            args += ["-t", f"{total:.6f}"]
         args += [
             "-filter_complex", ";".join(steps),
             "-map", "[v]", "-map", audio_map,
             *base_output_args(fps=self.fps),
+            "-t", f"{total:.6f}",
             *short_video_args(),
             *SHORT_AUDIO_ARGS,
             "-movflags", "+faststart",

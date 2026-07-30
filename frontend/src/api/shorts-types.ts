@@ -191,6 +191,8 @@ export interface ShortGroupPlan {
 export interface ShortPlan {
   segments: ShortSegmentPlan[]
   groups: ShortGroupPlan[]
+  contentDurationSeconds?: number
+  openingDurationSeconds?: number
   totalDurationSeconds: number
   cacheKey: string
   warnings: string[]

@@ -243,3 +243,9 @@ class TestSrtRendering:
         for block in [b for b in srt.split("\n\n") if b.strip()]:
             text_lines = block.strip().split("\n")[2:]
             assert len(text_lines) <= STYLE.max_lines
+
+    def test_srt_can_be_shifted_after_a_branded_pre_roll(self) -> None:
+        cues = build_cues(DODO_NARRATION, total_duration=18.0, style=STYLE)
+        shifted = render_srt(cues, offset_seconds=4.2)
+        first_timing = shifted.splitlines()[1]
+        assert first_timing.startswith(format_timestamp(cues[0].start_seconds + 4.2))

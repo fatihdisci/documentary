@@ -1,9 +1,8 @@
 """The branded long-video opening: schema, drawing, and where it may appear.
 
-The load-bearing claim of this feature is a negative one — the opening belongs
-to the long video and to nothing else — so most of what is asserted here is
-about the *absence* of the intro from the Shorts clean master, and about the
-timeline being untouched by it.
+The opening belongs to the long video and to nothing else. The reusable content
+timeline stays stable, while the export prepends a complete clip and the Shorts
+clean master excludes it.
 """
 
 from __future__ import annotations
@@ -326,8 +325,10 @@ class TestItStaysOutOfTheShortsSource:
 
 
 class TestTheTimelineIsUntouched:
-    def test_turning_the_opening_on_does_not_lengthen_the_video(self) -> None:
-        """The intro is an overlay. The same project must time identically."""
+    def test_turning_the_opening_on_does_not_move_the_reusable_content_timeline(
+        self,
+    ) -> None:
+        """The export prepends the intro; section-relative timing stays stable."""
         project = make_project()
         project.intro.narration = "The dodo lived on one island."
         project.outro.narration = "It never came back."

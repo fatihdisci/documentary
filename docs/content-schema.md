@@ -66,7 +66,8 @@ it at `backend/fixtures/dodo-content.json`.
 
 Every long video opens the same way: the animal's name types itself out, the
 scientific name fades in small underneath, and a red `EXTINCT` stamp lands over
-both. The 4.2-second arc gives each beat time to register before it dissolves.
+both. The 4.2-second pre-roll gives each beat time to register, fades fully to
+black, and only then starts the first narrated section.
 
 ```json
 {
@@ -90,7 +91,7 @@ both. The 4.2-second arc gives each beat time to register before it dissolves.
 | `primaryTitle` | string | `""` | Blank resolves to `commonName` at render time. |
 | `secondaryTitle` | string | `""` | Blank resolves to `scientificName`. |
 | `stampText` | string | `"EXTINCT"` | Blank draws no stamp. Use `"EXTINCT IN THE WILD"` for an EW species — stamping the wrong status is a factual error. |
-| `duration` | 0.8–6.0 | `4.2` | Seconds on screen. Four beats: reveal, identify, stamp, hold. |
+| `duration` | 0.8–6.0 | `4.2` | Seconds prepended before the content. Four beats: reveal, identify, stamp, hold/fade. |
 | `typewriterDuration` | 0.0–5.0 | `1.8` | How long the name takes to type itself out. |
 | `stampAt` | 0.0–6.0 | `2.65` | When the stamp lands. |
 | `fadeOutSeconds` | 0.0–2.0 | `0.65` | Dissolve at the end. |

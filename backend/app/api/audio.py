@@ -428,7 +428,11 @@ def get_subtitles(slug: str) -> PlainTextResponse:
             details="subtitle timing requires measured narration audio",
             suggestion="Önce metinleri seslendirin ya da ses dosyası yükleyin.",
         )
-    return PlainTextResponse(render_srt(timeline.cues), media_type="application/x-subrip")
+    opening = project.resolved_long_intro().duration if project.has_long_intro else 0.0
+    return PlainTextResponse(
+        render_srt(timeline.cues, offset_seconds=opening),
+        media_type="application/x-subrip",
+    )
 
 
 @router.get("/subtitles/{unit_id}.srt", response_class=PlainTextResponse)
@@ -442,4 +446,8 @@ def get_scene_subtitles(slug: str, unit_id: str) -> PlainTextResponse:
             f"'{unit_id}' bölümü için altyazı yok.",
             suggestion="Önce bu bölümü seslendirin.",
         )
-    return PlainTextResponse(render_srt(cues), media_type="application/x-subrip")
+    opening = project.resolved_long_intro().duration if project.has_long_intro else 0.0
+    return PlainTextResponse(
+        render_srt(cues, offset_seconds=opening),
+        media_type="application/x-subrip",
+    )

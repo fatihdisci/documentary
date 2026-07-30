@@ -99,6 +99,8 @@ def validate_output(
     settings: Settings | None = None,
     check_audio: bool = True,
     profile: RenderProfile | None = None,
+    expected_duration_seconds: float | None = None,
+    narration_offset_seconds: float = 0.0,
 ) -> ValidationReport:
     """Verify a rendered file against what the project asked for.
 
@@ -199,7 +201,11 @@ def validate_output(
             )
         )
 
-    expected_duration = timeline.total_duration_seconds
+    expected_duration = (
+        timeline.total_duration_seconds
+        if expected_duration_seconds is None
+        else expected_duration_seconds
+    )
     report.assertions.append(
         Assertion(
             "duration",
@@ -210,7 +216,7 @@ def validate_output(
     )
 
     # Narration must not have been cut off by the end of the file.
-    last_narration = timeline.last_narration_end
+    last_narration = timeline.last_narration_end + max(0.0, narration_offset_seconds)
     if last_narration > 0:
         report.assertions.append(
             Assertion(

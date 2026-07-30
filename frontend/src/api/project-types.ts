@@ -280,12 +280,11 @@ export interface ShortsPlan {
 export type IntroStyle = 'typewriter-stamp' | 'plain-title'
 
 /**
- * The channel's branded opening, drawn over the first seconds of a long video.
+ * The channel's branded pre-roll before the long video's first section.
  *
- * An overlay, not a section: turning it on adds no time to the video and moves
- * no scene. `primaryTitle` and `secondaryTitle` fall back to the project's
- * animal names when blank, which is why an untouched project still opens
- * correctly.
+ * It adds its duration before the content timeline, fades fully away, and only
+ * then allows ordinary scene text and narration to begin. `primaryTitle` and
+ * `secondaryTitle` fall back to the project's animal names when blank.
  */
 export interface LongIntro {
   enabled: boolean

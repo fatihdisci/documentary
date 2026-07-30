@@ -76,19 +76,19 @@ class Metadata(Base):
 
 
 class LongIntro(Base):
-    """The channel's branded opening, drawn over the first seconds of a long video.
+    """The channel's branded pre-roll before the long video's first section.
 
     One identity, every video: the animal's name types itself out, the scientific
-    name fades in small underneath, and a red stamp lands over both. It is an
-    *overlay on the finished picture*, not a section — it adds no time to the
-    timeline, moves no scene boundary and changes no narration, so a project that
-    turns it on renders exactly as long as it did before.
+    name fades in small underneath, and a red stamp lands over both. The card is
+    rendered as its own clip, fades fully to black, and only then does the first
+    narrated section begin. It therefore adds its duration to the exported long
+    video while leaving the reusable content timeline unchanged.
 
     It belongs to long videos only. The Shorts-ready clean master is rendered
     without it (see render/clean_master.py), so a Short that includes the intro
     section never carries the long video's opening card.
 
-    Times are in seconds from the first frame of the video. ``primaryTitle`` and
+    Times are in seconds from the first frame of the pre-roll. ``primaryTitle`` and
     ``secondaryTitle`` fall back to the project's animal names when left empty,
     which is what makes the block work with no authoring at all.
     """
@@ -101,8 +101,8 @@ class LongIntro(Base):
     secondary_title: str = Field(default="", max_length=120)
     stamp_text: str = Field(default="EXTINCT", max_length=24)
 
-    #: Four beats: reveal, identify, stamp, then hold. Still an overlay, so this
-    #: does not add four seconds to the film or delay the narration.
+    #: Four beats: reveal, identify, stamp, then hold. This duration is prepended
+    #: to the film; narration and ordinary section text begin after it.
     duration: float = Field(default=4.2, ge=0.8, le=6.0)
     #: How long the name takes to type itself out, from the first character.
     typewriter_duration: float = Field(default=1.8, ge=0.0, le=5.0)
@@ -233,7 +233,7 @@ class PlannedShort(Base):
     purpose: str = Field(default="", max_length=500)
     sections: list[PlannedSection] = Field(default_factory=list, min_length=1, max_length=20)
     estimated_duration_seconds: float | None = Field(default=None, gt=0, le=180)
-    #: The opening overlay this Short is rendered with. Part of the plan, not a
+    #: The opening pre-roll this Short is rendered with. Part of the plan, not a
     #: publishing afterthought: the hook is what decides whether the Short is
     #: watched at all, so it is authored with the section choice.
     hook: ShortHook = Field(default_factory=ShortHook)
@@ -590,8 +590,8 @@ class Project(Base):
         default_factory=lambda: Section(fade_from_black_seconds=0.0, fade_to_black_seconds=1.5)
     )
 
-    #: The branded opening drawn over the first seconds of the long video. Long
-    #: videos only — it is deliberately absent from the Shorts clean master.
+    #: The branded pre-roll prepended to the long video. Long videos only — it
+    #: is deliberately absent from the Shorts clean master.
     long_intro: LongIntro = Field(default_factory=LongIntro)
 
     #: Spelling hints applied to narration before synthesis, e.g.

@@ -50,8 +50,8 @@ first second: the animal's name types itself out, the scientific name fades in
 small underneath, and a red **EXTINCT** stamp lands over both. The 4.2-second
 arc gives the reveal, identification, stamp and final hold their own beats.
 
-- **It does not make the video longer.** The card is drawn *over* the opening
-  seconds of the picture, so nothing moves and no scene is shortened.
+- **It is a separate 4.2-second pre-roll.** It fades fully to black before the
+  first section, narration, ordinary title and subtitle begin.
 - Leave the two titles blank and the animal's own names are used.
 - The app synthesizes dry typewriter clacks and a restrained stamp impact
   automatically; no sound-effect file needs to be uploaded.
@@ -61,10 +61,9 @@ arc gives the reveal, identification, stamp and final hold their own beats.
 - The opening belongs to the long video only. It never appears in a Short — a
   Short opens with its own line instead (see below).
 
-One thing worth knowing: to keep the opening out of Shorts, the app renders the
-Shorts source separately. If you turn burned-in subtitles *off* and keep the
-opening on, the render does one extra pass and takes longer. Turning the opening
-off removes that cost.
+One thing worth knowing: the clean Shorts source has the reusable content
+timeline only; it does not include the 4.2-second long-video pre-roll. If you
+keep the opening on, the render prepares that source separately.
 
 ## 4. Scenes
 

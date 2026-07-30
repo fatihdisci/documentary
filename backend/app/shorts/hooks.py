@@ -24,7 +24,7 @@ from app.shorts.models import ShortHookStyle
 
 logger = logging.getLogger("evb.shorts.hooks")
 
-HOOK_RENDERER_VERSION = 3
+HOOK_RENDERER_VERSION = 4
 IMPACT_DELAY_SECONDS = 0.42
 IMPACT_SLIDE_SECONDS = 0.20
 IMPACT_SLIDE_PIXELS = 46

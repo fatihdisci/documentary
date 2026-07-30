@@ -279,6 +279,12 @@ export function AudioPage() {
               <span className="label">Giriş</span>
             </div>
             <div className="timing-stat">
+              <span className="value">
+                {formatSeconds(Number(timing.summary.openingSeconds ?? 0))}
+              </span>
+              <span className="label">Açılış pre-roll</span>
+            </div>
+            <div className="timing-stat">
               <span className="value">{formatSeconds(Number(timing.summary.outroSeconds))}</span>
               <span className="label">Kapanış</span>
             </div>

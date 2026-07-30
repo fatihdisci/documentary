@@ -388,10 +388,14 @@ def duration_summary(timeline: Timeline, project: Project) -> dict[str, float | 
     outro = next((e for e in timeline.entries if e.kind == "outro"), None)
     scenes = timeline.scene_entries
     target = project.video.target_duration_seconds
+    opening = project.resolved_long_intro().duration if project.has_long_intro else 0.0
+    export_total = timeline.total_duration_seconds + opening
 
     return {
-        "totalSeconds": timeline.total_duration_seconds,
-        "totalFormatted": _fmt(timeline.total_duration_seconds),
+        "totalSeconds": export_total,
+        "totalFormatted": _fmt(export_total),
+        "contentSeconds": timeline.total_duration_seconds,
+        "openingSeconds": opening,
         "narrationSeconds": timeline.narration_duration_seconds,
         "transitionSeconds": timeline.transition_total_seconds,
         "introSeconds": intro.duration_seconds if intro else 0.0,
@@ -400,6 +404,6 @@ def duration_summary(timeline: Timeline, project: Project) -> dict[str, float | 
         "sceneCount": len(scenes),
         "audioTailSeconds": timeline.audio_tail_seconds,
         "targetSeconds": target,
-        "differenceSeconds": round(timeline.total_duration_seconds - target, 3),
+        "differenceSeconds": round(export_total - target, 3),
         "durationMode": project.video.duration_mode.value,
     }

@@ -10,9 +10,11 @@ from __future__ import annotations
 import pytest
 
 from app.errors import AppError, ErrorCode
+from app.models.project import ShortHook
 from app.shorts.models import (
     MAX_SHORT_SECONDS,
     MIN_CLIP_SECONDS,
+    ShortCaptionMode,
     ShortLayout,
     ShortRequest,
     ShortSegmentRequest,
@@ -71,6 +73,32 @@ class TestSafeBounds:
 
 
 class TestSelectionOrder:
+    def test_hook_is_a_separate_duration_before_the_selected_content(
+        self, manifest
+    ) -> None:  # noqa: ANN001
+        request = request_for("scene-2")
+        request.hook = ShortHook(lines=["One setup", "one impact"])
+        plan = build_plan(manifest, request)
+        assert plan.opening_duration_seconds == pytest.approx(2.2)
+        assert plan.total_duration_seconds == pytest.approx(
+            plan.content_duration_seconds + plan.opening_duration_seconds
+        )
+
+    def test_normal_export_cuts_skip_the_long_video_pre_roll(
+        self, manifest
+    ) -> None:  # noqa: ANN001
+        manifest.opening_duration_seconds = 4.2
+        entry = manifest.entry("scene-2")
+        plan = build_plan(manifest, request_for("scene-2"))
+        assert plan.groups[0].start_seconds == pytest.approx(
+            entry.safe_start_seconds + 4.2
+        )
+
+        native_request = request_for("scene-2")
+        native_request.caption_mode = ShortCaptionMode.SHORTS_NATIVE
+        native = build_plan(manifest, native_request)
+        assert native.groups[0].start_seconds == pytest.approx(entry.safe_start_seconds)
+
     def test_selection_order_is_preserved(self, manifest) -> None:  # noqa: ANN001
         plan = build_plan(manifest, request_for("scene-4", "scene-1"))
         assert [s.number for s in plan.segments] == [4, 1]

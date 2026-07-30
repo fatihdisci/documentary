@@ -61,7 +61,13 @@ def build_plan(manifest: RenderManifest, request: ShortRequest) -> ShortPlan:
     segments = _resolve_segments(manifest, request.segments)
     groups = _group(manifest, segments)
 
-    total = round(sum(group.duration_seconds for group in groups), 4)
+    content_total = round(sum(group.duration_seconds for group in groups), 4)
+    opening_total = (
+        round(request.hook.start_seconds + request.hook.duration_seconds, 4)
+        if request.hook is not None and request.hook.is_visible
+        else 0.0
+    )
+    total = round(content_total + opening_total, 4)
     if total > MAX_SHORT_SECONDS + EPSILON:
         raise ValidationError(
             ErrorCode.SHORT_TOO_LONG,
@@ -74,9 +80,24 @@ def build_plan(manifest: RenderManifest, request: ShortRequest) -> ShortPlan:
         )
 
     warnings = _warnings(total, groups)
+
+    # Section times in the manifest stay relative to the reusable film. A
+    # legacy/source-burned cut reads from the normal export, where the long
+    # branded intro is now prepended; clean-master cuts correctly keep zero.
+    if (
+        request.caption_mode is ShortCaptionMode.SOURCE_BURNED_IN
+        and manifest.opening_duration_seconds > 0
+    ):
+        offset = manifest.opening_duration_seconds
+        for group in groups:
+            group.start_seconds = round(group.start_seconds + offset, 4)
+            group.end_seconds = round(group.end_seconds + offset, 4)
+
     plan = ShortPlan(
         segments=segments,
         groups=groups,
+        content_duration_seconds=content_total,
+        opening_duration_seconds=opening_total,
         total_duration_seconds=total,
         warnings=warnings,
     )

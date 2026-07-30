@@ -242,7 +242,7 @@ class ShortHookStyle(ShortCaptionStyle):
     outline_width: int = Field(default=0, ge=0, le=12)
     shadow: bool = True
     shadow_blur: int = Field(default=26, ge=0, le=64)
-    fade_seconds: float = Field(default=0.16, ge=0.0, le=1.0)
+    fade_seconds: float = Field(default=0.45, ge=0.0, le=1.0)
     #: Minimum top clearance; the renderer normally places the hook lower at
     #: its eye-line ratio.
     safe_top_inset: int = Field(default=200, ge=40, le=900)
@@ -429,6 +429,11 @@ class ShortGroupPlan(CamelModel):
 class ShortPlan(CamelModel):
     segments: list[ShortSegmentPlan] = Field(default_factory=list)
     groups: list[ShortGroupPlan] = Field(default_factory=list)
+    #: Duration of the selected source material, before the separate hook card.
+    content_duration_seconds: float = 0.0
+    #: Duration of the branded hook pre-roll prepended to the selected material.
+    opening_duration_seconds: float = 0.0
+    #: Final exported duration: opening plus selected source material.
     total_duration_seconds: float = 0.0
     cache_key: str = ""
     warnings: list[str] = Field(default_factory=list)

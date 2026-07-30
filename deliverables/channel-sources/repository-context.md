@@ -82,9 +82,9 @@ scientific name fades in small underneath, and a red `EXTINCT` stamp lands over
 both. The 4.2-second arc leaves separate beats for reveal, identification,
 impact and a readable hold before it dissolves.
 
-- It is an **overlay, not a section**. It adds no time to the timeline and moves
-  no scene boundary; the same project renders to the same length with it on or
-  off.
+- It is a **separate pre-roll clip**. It adds 4.2 seconds before the reusable
+  content timeline, fades fully to black, and only then starts the ordinary
+  intro section, narration and subtitles.
 - Cards are drawn with Pillow — one per revealed state, not one per frame — and
   baked into a single transparent track, so the assemble filtergraph gains one
   input rather than two dozen. Everything is cached by content hash.
@@ -102,8 +102,9 @@ impact and a readable hold before it dissolves.
 ## Shorts opening hooks
 
 Every planned Short carries a `hook`: at most two lines, drawn near the vertical
-canvas's eye line as a 2.2-second cold open. The first line sets up the thought;
-the second lands larger, red, and with a short upward punch.
+canvas's eye line on its own 2.2-second black pre-roll. The first line sets up
+the thought; the second lands larger, red, and with a short upward punch. The
+hook fades out completely before the selected picture, audio and captions begin.
 
 - Composed onto the 1080×1920 canvas during the Shorts compose pass, in every
   caption mode. Never burned into the long video or into the file the cut came

@@ -49,7 +49,11 @@ logger = logging.getLogger("evb.shorts.manifest")
 #: Every v2 field is optional with a default, so a v1 manifest written before the
 #: feature existed still validates and still cuts legacy Shorts exactly as it did
 #: — it simply reports that Shorts-native captions are unavailable.
-MANIFEST_SCHEMA_VERSION = 2
+#:
+#: v3 records the branded pre-roll duration. Section times remain relative to
+#: the reusable content timeline; legacy cuts from the normal export add this
+#: offset, while clean-master cuts correctly remain at zero.
+MANIFEST_SCHEMA_VERSION = 3
 
 #: The oldest manifest this build can still read.
 MIN_MANIFEST_SCHEMA_VERSION = 1
@@ -199,6 +203,9 @@ class RenderManifest(CamelModel):
     #: Absent in manifests written before the opening existed, where False is the
     #: truth — no such render had one.
     source_has_long_intro: bool = False
+    #: Seconds prepended before section zero in the normal export. Clean masters
+    #: never carry it. Zero keeps v1/v2 manifests backward compatible.
+    opening_duration_seconds: float = 0.0
     #: Present only when the render prepared a Shorts-ready clean master. ``None``
     #: on every v1 manifest and on any render that opted out.
     shorts_source: ShortsSourcePackage | None = None
@@ -259,6 +266,7 @@ def build_manifest(
     job_id: str = "",
     settings: Settings | None = None,
     shorts_source: ShortsSourcePackage | None = None,
+    opening_duration_seconds: float = 0.0,
 ) -> RenderManifest:
     """Describe ``video`` and the timeline that produced it."""
     active = settings or get_settings()
@@ -336,7 +344,8 @@ def build_manifest(
         entries=entries,
         written_at=datetime.now(timezone.utc),
         source_has_burned_in_subtitles=bool(project.subtitles.burn_in and timeline.cues),
-        source_has_long_intro=project.has_long_intro,
+        source_has_long_intro=opening_duration_seconds > 0,
+        opening_duration_seconds=round(max(0.0, opening_duration_seconds), 4),
         shorts_source=shorts_source,
     )
 
@@ -352,6 +361,7 @@ def write_render_manifest(
     job_id: str = "",
     settings: Settings | None = None,
     shorts_source: ShortsSourcePackage | None = None,
+    opening_duration_seconds: float = 0.0,
 ) -> Path:
     """Build and atomically write the manifest for a finished render."""
     manifest = build_manifest(
@@ -364,6 +374,7 @@ def write_render_manifest(
         job_id=job_id,
         settings=settings,
         shorts_source=shorts_source,
+        opening_duration_seconds=opening_duration_seconds,
     )
     target = manifest_path_for(video)
     tmp = target.with_suffix(".json.tmp")
@@ -635,9 +646,9 @@ def verify_clean_master(
             source_filename=expected.filename,
         ) from exc
 
-    # Timeline identity: a clean master that is not the same length, shape or
-    # frame rate as the export is not the same cut, and every section boundary in
-    # the manifest would land in the wrong place.
+    # Timeline identity: geometry and rate match the export, while duration
+    # matches the package's own recorded clean master. A normal export may be
+    # longer by its branded pre-roll; the reusable content timeline is not.
     mismatches: list[str] = []
     if (info.width, info.height) != (manifest.source.width, manifest.source.height):
         mismatches.append(
@@ -650,10 +661,10 @@ def verify_clean_master(
         )
     if package.profile.fps != manifest.profile.fps:
         mismatches.append(f"kayıtlı fps {package.profile.fps}, video {manifest.profile.fps}")
-    if abs(info.duration_seconds - manifest.source.duration_seconds) > DURATION_MATCH_TOLERANCE:
+    if abs(info.duration_seconds - expected.duration_seconds) > DURATION_MATCH_TOLERANCE:
         mismatches.append(
-            f"süre {info.duration_seconds:.2f} sn, video "
-            f"{manifest.source.duration_seconds:.2f} sn"
+            f"süre {info.duration_seconds:.2f} sn, kayıtlı temiz kopya "
+            f"{expected.duration_seconds:.2f} sn"
         )
     if not info.has_audio:
         mismatches.append("ses kanalı yok")

@@ -41,6 +41,8 @@ second:
   wrong status is a factual error, not a design choice.
 - It is drawn over the intro image, so give that image a relatively calm
   centre-upper area — the type goes there.
+- It is a separate pre-roll: it fades fully away before the ordinary intro
+  section, narration, subtitles and scene title begin.
 - It never appears in a Short. Shorts have their own opening line (below).
 - The renderer adds dry typewriter clacks and a restrained stamp impact. No
   external sound-effect asset is required.
@@ -49,6 +51,8 @@ second:
 Every Short opens with at most two short lines near the vertical canvas's eye
 line as a 2.2-second two-beat reveal. The setup appears first; the larger red
 impact line follows with a short upward punch and synchronized rise/impact sound.
+The hook is shown on its own black pre-roll, fades out, and only then starts the
+selected source video and audio.
 
 - Short, strong, curious. Documentary tone — never clickbait.
 - The Short must keep the promise the hook makes.

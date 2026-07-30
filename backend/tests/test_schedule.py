@@ -177,6 +177,10 @@ class TestIntroOutro:
         assert summary["introSeconds"] > 0
         assert summary["outroSeconds"] > 0
         assert summary["sceneCount"] == 2
+        assert summary["openingSeconds"] == pytest.approx(project.long_intro.duration)
+        assert summary["totalSeconds"] == pytest.approx(
+            summary["contentSeconds"] + summary["openingSeconds"]
+        )
 
     def test_disabled_sections_are_omitted(self) -> None:
         project = make_project(scene_audio=[10.0], intro_audio=6.0, outro_audio=8.0)

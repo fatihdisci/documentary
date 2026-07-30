@@ -38,7 +38,7 @@ VİDEO YAPISI
 Intro doğrudan konuya girer; "Welcome back to the channel" kullanma. Outro: güçlü sonuç + koruma mesajı + sonraki hayvanın kısa teaser'ı + tek cümlelik subscribe.
 
 UZUN VİDEO AÇILIŞ KARTI (longIntro) — ZORUNLU
-Her uzun videonun ilk 2–3 saniyesinde kanal kimliği için standart bir açılış kartı çizilir. Amacı her videonun aynı kaliteli açılış hissini vermesidir. Bu kartı sen JSON'da üretirsin; kullanıcı panelden kapatabilir.
+Her uzun videodan önce kanal kimliği için standart 4.2 saniyelik bir açılış kartı oynar. Kart tamamen solup bittikten sonra normal intro sahnesi, anlatım ve altyazılar başlar. Bu kartı sen JSON'da üretirsin; kullanıcı panelden kapatabilir.
 
 Varsayılan stil `typewriter-stamp`. Mantığı:
   - Hayvanın adı daktilo efektiyle, harf harf yazılır.
@@ -63,7 +63,7 @@ Kurallar:
 - `duration` varsayılan olarak 4.2, `typewriterDuration` 1.8 ve `stampAt` 2.65 olsun. Bu tempo adın yazılması, bilimsel adın fade ile girmesi, damganın inişi ve okunabilir bir hold için gereklidir. `typewriterDuration` ve `stampAt` daima `duration` değerinden küçük veya eşit olmalıdır — aksi halde şema dosyayı reddeder.
 - Adı çok uzun türlerde (örneğin "Southern gastric-brooding frog") `primaryTitle` olarak kısa ve tanınan biçimi yaz ("Gastric-brooding frog"); yazı otomatik küçültülür ama okunaklılık senin sorumluluğun.
 - Nesli tükenmemiş, yalnız yabanda tükenmiş (EW) bir türde `stampText` olarak "EXTINCT IN THE WILD" yaz ya da `introStyle` değerini `plain-title` yapıp damgayı kaldır. Yanlış statü damgalamak ciddi bir hatadır.
-- Açılış kartı videoyu UZATMAZ; görüntünün üzerine çizilir. Süreleri "sahneden çalıyor" diye kısaltma.
+- Açılış kartı ayrı bir pre-roll olarak videonun başına eklenir ve videoyu kendi süresi kadar uzatır. Normal intro anlatımını veya sahne sürelerini bunun için kısaltma.
 - Açılış kartı yalnız uzun videoda görünür. Short'lara girmez; Short'ların kendi açılış metni vardır (aşağıya bak).
 
 GÖRSELLER VE INTRO GÖRSELİ
@@ -118,7 +118,7 @@ Short seçimi kuralları:
 - Uzun video URL'si henüz bilinmediği için `FULL_VIDEO_URL` yer tutucusu kullan ve yayın öncesi gerçek bağlantıyla değiştirileceğini belirt.
 
 SHORTS AÇILIŞ METNİ (hook) — ZORUNLU
-Her Short'un ilk 2.2 saniyesinde, dikey ekranın göz hizasına yakın bölümünde büyük harflerle iki vuruşlu bir açılış metni gösterilir. İlk satır setup, ikinci satır büyük kırmızı impact olarak girer; uygulama buna senkron kısa rise/impact sesi üretir. Bu metni sen yazarsın ve `shortsPlan` içindeki her Short'un doğal parçasıdır. Uygulama bunu Short render'ı sırasında otomatik overlay olarak kullanır; uzun videoyu ve kaynak videoyu değiştirmez.
+Her Short'tan önce 2.2 saniyelik ayrı siyah pre-roll üzerinde, dikey ekranın göz hizasına yakın bölümünde büyük harflerle iki vuruşlu bir açılış metni gösterilir. İlk satır setup, ikinci satır büyük kırmızı impact olarak girer; uygulama buna senkron kısa rise/impact sesi üretir. Hook tamamen solup bittikten sonra seçilen kaynak görüntü, ses ve altyazılar başlar. Bu metni sen yazarsın ve `shortsPlan` içindeki her Short'un doğal parçasıdır.
 
 JSON bloğu (her Short'un içinde):
   "hook": {

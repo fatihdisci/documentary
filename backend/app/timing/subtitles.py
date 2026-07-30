@@ -396,14 +396,18 @@ def format_timestamp(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds:03d}"
 
 
-def render_srt(cues: list[Cue], *, renumber: bool = True) -> str:
-    """Serialize cues as an SRT document."""
+def render_srt(
+    cues: list[Cue], *, renumber: bool = True, offset_seconds: float = 0.0
+) -> str:
+    """Serialize cues as SRT, optionally shifted by a preceding pre-roll."""
     blocks: list[str] = []
+    offset = max(0.0, offset_seconds)
     for position, cue in enumerate(cues, start=1):
         index = position if renumber else cue.index
         blocks.append(
             f"{index}\n"
-            f"{format_timestamp(cue.start_seconds)} --> {format_timestamp(cue.end_seconds)}\n"
+            f"{format_timestamp(cue.start_seconds + offset)} --> "
+            f"{format_timestamp(cue.end_seconds + offset)}\n"
             f"{cue.text}\n"
         )
     return "\n".join(blocks)

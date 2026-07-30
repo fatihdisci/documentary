@@ -4,11 +4,10 @@ Every video on the channel starts the same way: the animal's name types itself
 out, the scientific name fades in small underneath, and a red ``EXTINCT`` stamp
 lands over both. Two and a half seconds, then it dissolves into the film.
 
-**It is an overlay, not a section.** Nothing here touches the timeline: no scene
-moves, no narration shifts, the video is exactly as long as it was without it.
-The card is composited over the first seconds of the assembled picture and that
-is all it does — which is also why a project can turn it on or off between two
-renders and get the same film either way.
+The opening is rendered as a separate pre-roll clip. It uses the intro section's
+source image as its background, fades completely to black, and is concatenated
+before the assembled film. Ordinary section titles, narration and subtitles do
+not start until this clip has ended.
 
 Drawing follows the same rule as every other piece of text in this app (see
 ``render/text.py``): Pillow paints RGBA, FFmpeg composites. No ``drawtext``, no
@@ -42,7 +41,7 @@ logger = logging.getLogger("evb.render.intro")
 
 #: Bumped when anything here changes the pixels an intro produces. Folded into
 #: the cache key so a cached track is never reused across renderer versions.
-INTRO_RENDERER_VERSION = 2
+INTRO_RENDERER_VERSION = 3
 
 #: Upper bound on typewriter cards. A longer name reveals more than one character
 #: per step rather than producing a card per letter — past this the animation

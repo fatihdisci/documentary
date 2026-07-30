@@ -157,6 +157,14 @@ class RenderResult:
     rendered_clips: int = 0
 
 
+@dataclass(frozen=True)
+class LongIntroClip:
+    """A complete branded pre-roll, ready to prepend to the film."""
+
+    path: Path
+    duration_seconds: float
+
+
 class DiskSpaceError(AppError):
     http_status = 507
 
@@ -233,6 +241,7 @@ class RenderPipeline:
         self.profile = render_profile(project.video, self.quality)
         self.log: list[str] = []
         self.warnings: list[str] = []
+        self._long_intro_duration_seconds = 0.0
         self._completed_weight = 0.0
         self._last_reported = 0.0
         # Reserve bar space up front rather than mid-render: both inputs are
@@ -340,9 +349,9 @@ class RenderPipeline:
         # 9-11. Assemble, mix and encode. The branded opening is drawn here and
         #       here only: it belongs to the long video, never to the clean
         #       master a Short is cut from.
-        intro_video = await self._build_long_intro()
+        intro_clip = await self._build_long_intro()
         output = self._next_output_path()
-        await self._assemble(timeline, clips, output, capabilities, intro_video=intro_video)
+        await self._assemble(timeline, clips, output, capabilities, intro_clip=intro_clip)
         self._finish_phase(JobPhase.ASSEMBLE)
         self._finish_phase(JobPhase.MIX_AUDIO)
         self._finish_phase(JobPhase.ENCODE)
@@ -352,6 +361,10 @@ class RenderPipeline:
         validation = validate_output(
             output, project=self.project, timeline=timeline, settings=self.settings,
             profile=self.profile,
+            expected_duration_seconds=(
+                timeline.total_duration_seconds + self._long_intro_duration_seconds
+            ),
+            narration_offset_seconds=self._long_intro_duration_seconds,
         )
         if not validation.passed:
             raise RenderError(
@@ -582,7 +595,7 @@ class RenderPipeline:
         encode_phase: JobPhase = JobPhase.ENCODE,
         span: tuple[float, float] = (0.0, 1.0),
         label: str = "Video kaydediliyor",
-        intro_video: Path | None = None,
+        intro_clip: LongIntroClip | None = None,
     ) -> None:
         """Join the clips with transitions and mux the mixed audio.
 
@@ -591,14 +604,16 @@ class RenderPipeline:
         length and the same audio plan, so both outputs share one mix by
         construction rather than by a second computation.
 
-        ``intro_video`` is the pre-composited branded opening. It is passed for
-        the primary export only — the clean-master pass calls this with ``None``,
-        which is what keeps the opening out of every Short.
+        ``intro_clip`` is a complete branded pre-roll. It is passed for the
+        primary export only — the clean-master pass calls this with ``None``,
+        which keeps the long opening out of every Short source.
         """
         self._check_cancelled()
         ffmpeg = self.settings.require_tool("ffmpeg")
         fps = self.profile.fps
-        total = timeline.total_duration_seconds
+        content_total = timeline.total_duration_seconds
+        opening_total = intro_clip.duration_seconds if intro_clip is not None else 0.0
+        total = content_total + opening_total
 
         args: list[str] = [ffmpeg, "-hide_banner", "-nostdin", "-y", *progress_args()]
         for clip in clips:
@@ -650,8 +665,8 @@ class RenderPipeline:
                 if isinstance(last_unit, Section) and last_unit.fade_to_black_seconds > 0
                 else min(tail, 1.2)
             )
-            fade_length = min(configured, total)
-            fade_start = max(0.0, total - fade_length)
+            fade_length = min(configured, content_total)
+            fade_start = max(0.0, content_total - fade_length)
             steps.append(
                 f"[{current}]fade=t=out:st={fade_start:.4f}:d={fade_length:.4f}[faded]"
             )
@@ -668,7 +683,7 @@ class RenderPipeline:
         elif self.project.music.source is MusicSource.GENERATED_AMBIENT:
             self._emit(mix_phase, _within(span, 0.2), "Fon müziği üretiliyor")
             music_path = await render_ambient_bed(
-                total + 1.0,
+                content_total + 1.0,
                 self.paths.root / "derived" / "ambient-bed.wav",
                 settings=self.settings, runner=self.runner,
             )
@@ -684,24 +699,26 @@ class RenderPipeline:
             args += ["-i", str(path)]
         steps.extend(plan.filters)
 
-        # --- the branded opening -------------------------------------------
+        # --- the branded pre-roll -------------------------------------------
         #
-        # Added last so it lands on top of the finished picture, and after the
-        # audio inputs so its input index cannot disturb the mix's own indices.
-        # ``repeatlast=0`` matters: without it FFmpeg would hold the opening's
-        # final frame over the rest of the film.
-        if intro_video is not None:
+        # It is concatenated before the finished film rather than composited on
+        # top of its first seconds. Ordinary titles, subtitles and narration
+        # therefore cannot appear until the pre-roll has fully faded away.
+        if intro_clip is not None:
             index = len(clips) + len(plan.inputs)
-            args += ["-i", str(intro_video)]
-            steps.append(f"[{current}]format=rgba[introbase]")
-            steps.append(f"[{index}:v]format=rgba[introcard]")
+            args += ["-i", str(intro_clip.path)]
+            steps.append(f"[{index}:v]fps={fps},format=rgba[intropreroll]")
+            steps.append(f"[{current}]format=rgba[contentfilm]")
             steps.append(
-                "[introbase][introcard]overlay=0:0:eof_action=pass:repeatlast=0[introdone]"
+                "[intropreroll][contentfilm]concat=n=2:v=1:a=0[introdone]"
             )
             current = "introdone"
-            self._record(f"[intro] composited {intro_video.name} over the opening seconds")
+            self._record(
+                f"[intro] prepended {intro_clip.path.name} "
+                f"({intro_clip.duration_seconds:.2f}s) before the film"
+            )
 
-            # The clean-master assemble pass never receives ``intro_video``, so
+            # The clean-master assemble pass never receives ``intro_clip``, so
             # these sounds stay with the long opening and can never leak into a
             # Short cut.
             try:
@@ -725,9 +742,14 @@ class RenderPipeline:
                     "volume=-2.5dB[introsfx]"
                 )
                 if audio_output_label:
+                    delay_ms = max(0, int(round(opening_total * 1000)))
                     steps.append(
-                        f"[{audio_output_label}][introsfx]"
-                        "amix=inputs=2:normalize=0:duration=first,"
+                        f"[{audio_output_label}]adelay={delay_ms}:all=1[contentaudio]"
+                    )
+                    steps.append(
+                        "[contentaudio][introsfx]"
+                        "amix=inputs=2:normalize=0:duration=longest,"
+                        f"atrim=duration={total:.4f},"
                         "alimiter=limit=0.95[aoutwithsfx]"
                     )
                 else:
@@ -739,6 +761,13 @@ class RenderPipeline:
                 self._record(
                     f"[intro-sfx] typewriter and stamp mixed from {intro_sfx.name}"
                 )
+            elif audio_output_label:
+                delay_ms = max(0, int(round(opening_total * 1000)))
+                steps.append(
+                    f"[{audio_output_label}]adelay={delay_ms}:all=1,"
+                    f"atrim=duration={total:.4f}[aoutdelayed]"
+                )
+                audio_output_label = "aoutdelayed"
 
         steps.append(f"[{current}]format=yuv420p[v]")
 
@@ -770,8 +799,8 @@ class RenderPipeline:
             cancel_event=self.cancel_event,
         )
 
-    async def _build_long_intro(self) -> Path | None:
-        """Draw the branded opening and bake it into one transparent track.
+    async def _build_long_intro(self) -> LongIntroClip | None:
+        """Draw the branded opening and bake it into a complete pre-roll clip.
 
         Additive and never fatal. A project without an opening returns None and
         the assemble graph is exactly what it always was; a project *with* one
@@ -792,7 +821,8 @@ class RenderPipeline:
             )
             if track.is_empty:
                 return None
-            baked = await self._precompose_intro(track)
+            background = resolve_image(self.project, self.project.intro, self.paths)
+            baked = await self._precompose_intro(track, background=background)
         except CancelledRender:
             raise
         except Exception as exc:  # noqa: BLE001 - additive; never fails the export
@@ -808,27 +838,30 @@ class RenderPipeline:
             f"[intro] {len(track.cards)} card(s), {track.duration_seconds:.2f}s, "
             f"{track.fade_out_seconds:.2f}s fade, baked into {baked.name}"
         )
-        return baked
+        self._long_intro_duration_seconds = track.duration_seconds
+        return LongIntroClip(path=baked, duration_seconds=track.duration_seconds)
 
-    async def _precompose_intro(self, track: IntroTrack) -> Path:
-        """Bake every intro card into one transparent QT RLE track.
+    async def _precompose_intro(self, track: IntroTrack, *, background: Path) -> Path:
+        """Bake every intro card over its own background into an opaque pre-roll.
 
         The same trick the Shorts captions use, for the same reason: the opening
         is two dozen cards and the assemble graph should gain one input, not two
-        dozen. Cached by content, so a re-render draws and encodes nothing.
+        dozen. The ordinary intro section clip is deliberately not used here:
+        it already contains section titles and burned subtitles, which is exactly
+        what must not leak into the branded opening.
         """
         cache = self.paths.cards / "intro"
         cache.mkdir(parents=True, exist_ok=True)
-        target = cache / f"intro-track-{track.digest}-{self.profile.fps}.mov"
+        background_digest = hashlib.sha256(background.read_bytes()).hexdigest()[:16]
+        target = cache / (
+            f"intro-preroll-{track.digest}-{background_digest}-{self.profile.fps}.mov"
+        )
         if target.is_file() and target.stat().st_size > 1_000:
             return target
 
         total = track.duration_seconds
         inputs: list[str] = [
-            "-f", "lavfi", "-t", f"{total:.4f}",
-            "-i",
-            f"color=c=black@0.0:s={self.profile.width}x{self.profile.height}:"
-            f"r={self.profile.fps},format=rgba",
+            "-loop", "1", "-t", f"{total:.4f}", "-i", str(background),
         ]
         next_index = 1
 
@@ -839,8 +872,24 @@ class RenderPipeline:
             next_index += 1
             return used
 
-        steps, current = intro_overlay_steps(track, current="0:v", add_input=add_input)
-        steps.append(f"[{current}]format=rgba[out]")
+        steps = [
+            f"[0:v]scale={self.profile.width}:{self.profile.height}:"
+            "force_original_aspect_ratio=increase:flags=lanczos,"
+            f"crop={self.profile.width}:{self.profile.height},setsar=1,"
+            f"fps={self.profile.fps},format=rgba[introbg]"
+        ]
+        overlay, current = intro_overlay_steps(
+            track, current="introbg", add_input=add_input
+        )
+        steps.extend(overlay)
+        fade = min(track.fade_out_seconds, track.duration_seconds)
+        if fade > 0:
+            fade_start = max(0.0, track.duration_seconds - fade)
+            steps.append(
+                f"[{current}]fade=t=out:st={fade_start:.4f}:d={fade:.4f}[out]"
+            )
+        else:
+            steps.append(f"[{current}]format=rgba[out]")
 
         partial = target.with_suffix(".partial.mov")
         partial.unlink(missing_ok=True)
@@ -1026,7 +1075,13 @@ class RenderPipeline:
 
         if self.project.subtitles.export_srt and timeline.cues:
             artifacts.subtitles = directory / f"{stem}.srt"
-            artifacts.subtitles.write_text(render_srt(timeline.cues), "utf-8")
+            artifacts.subtitles.write_text(
+                render_srt(
+                    timeline.cues,
+                    offset_seconds=self._long_intro_duration_seconds,
+                ),
+                "utf-8",
+            )
 
         if self.project.subtitles.export_scene_srt:
             scene_dir = directory / f"{stem}-scenes"
@@ -1037,7 +1092,13 @@ class RenderPipeline:
                     continue
                 name = f"{position + 1:02d}-{entry.kind}.srt"
                 path = scene_dir / name
-                path.write_text(render_srt(cues), "utf-8")
+                path.write_text(
+                    render_srt(
+                        cues,
+                        offset_seconds=self._long_intro_duration_seconds,
+                    ),
+                    "utf-8",
+                )
                 artifacts.scene_subtitles.append(path)
 
         if self.project.export.export_narration_audio and timeline.cues:
@@ -1080,6 +1141,11 @@ class RenderPipeline:
                     "validation": validation.to_dict(),
                     "timeline": {
                         "totalSeconds": timeline.total_duration_seconds,
+                        "openingSeconds": self._long_intro_duration_seconds,
+                        "exportTotalSeconds": (
+                            timeline.total_duration_seconds
+                            + self._long_intro_duration_seconds
+                        ),
                         "narrationSeconds": timeline.narration_duration_seconds,
                         "transitionSeconds": timeline.transition_total_seconds,
                         "sections": [
@@ -1115,6 +1181,7 @@ class RenderPipeline:
                 job_id=self.job_id,
                 settings=self.settings,
                 shorts_source=shorts_source,
+                opening_duration_seconds=self._long_intro_duration_seconds,
             )
         except Exception as exc:  # noqa: BLE001 - side-car, never fatal
             logger.warning("could not write the render manifest: %s", exc)

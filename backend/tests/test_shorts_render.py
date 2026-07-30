@@ -174,9 +174,32 @@ class TestOutput:
         hook = ShortHook(lines=["When he died,", "the species ended"])
         result = asyncio.run(build_short(source, settings, "scene-2", hook=hook))
         assert result.short_manifest.hook == hook
+        assert result.plan.opening_duration_seconds == pytest.approx(hook.duration_seconds)
+        assert result.plan.total_duration_seconds == pytest.approx(
+            result.plan.content_duration_seconds + hook.duration_seconds
+        )
         assert result.artifacts.log is not None
         log = result.artifacts.log.read_text(encoding="utf-8")
         assert "[hook-sfx] rise and impact mixed" in log
+        assert "prepended as a separate" in log
+        # During the hook, even a point inside the eventual 16:9 picture is
+        # black: the selected scene has not begun underneath it.
+        assert close_to(
+            sample_pixel(result.artifacts.video, 1.0, 40, 960, settings),
+            (0, 0, 0),
+            tol=12,
+        )
+        # Once the pre-roll has ended, the selected scene starts normally.
+        assert close_to(
+            sample_pixel(
+                result.artifacts.video,
+                result.plan.opening_duration_seconds + 0.6,
+                540,
+                960,
+                settings,
+            ),
+            COLOURS[2][1],
+        )
         assert result.validation.passed
 
     def test_measured_frame_intervals_are_constant(self, source, settings) -> None:  # noqa: ANN001
