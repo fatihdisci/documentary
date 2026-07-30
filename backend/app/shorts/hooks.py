@@ -1,20 +1,12 @@
-"""Drawing a Short's opening hook.
+"""Draw a Short's opening as a two-beat cold open, not a static title card.
 
-A hook is the first second and a half of a Short: two short lines, upper case,
-sitting on the black band *above* the letterboxed picture. It is what decides
-whether the Short is watched at all, so it is authored with the Short — see
-``models/project.ShortHook`` — and drawn here.
+The first authored line sets up the thought. The second lands larger, in the
+channel accent colour, with a short upward punch. Both sit around the vertical
+canvas's eye line: central enough to stop the scroll, high enough to clear the
+Shorts controls and native captions.
 
-This module is deliberately thin. Everything it needs already exists for
-Shorts-native captions: the same fitter picks a type size that fits the lines,
-the same ``render_card`` paints the RGBA PNG, and the same overlay convention
-composites it. The only differences are the placement (top instead of bottom)
-and the fact that a hook is a single card with a fixed window rather than a
-track that follows the narration.
-
-Two properties hold, as everywhere else in the render path: no user text ever
-reaches a filtergraph — the words exist only as pixels in a PNG — and every
-number interpolated into the graph is computed here from a validated model.
+Text is still rendered to PNG by Pillow. User-authored words never reach the
+FFmpeg filtergraph; only validated timings and renderer-computed coordinates do.
 """
 
 from __future__ import annotations
@@ -32,19 +24,23 @@ from app.shorts.models import ShortHookStyle
 
 logger = logging.getLogger("evb.shorts.hooks")
 
-#: Bumped when anything here changes the pixels a hook produces. Folded into the
-#: Short's cache key, so a finished Short is never served from a different
-#: renderer than the one that drew it.
-HOOK_RENDERER_VERSION = 1
+HOOK_RENDERER_VERSION = 3
+IMPACT_DELAY_SECONDS = 0.42
+IMPACT_SLIDE_SECONDS = 0.20
+IMPACT_SLIDE_PIXELS = 46
+EYE_LINE_TOP_RATIO = 0.39
 
 
 @dataclass(frozen=True)
 class HookCard:
-    """One drawn hook and the window it is visible for."""
+    """The separately timed setup and impact cards of one opening hook."""
 
+    #: Kept as ``card`` for callers: this is the dominant impact card.
     card: TextCard
+    lead_card: TextCard | None
     start_seconds: float
     end_seconds: float
+    impact_start_seconds: float
     fitted_font_size: int
 
     @property
@@ -53,14 +49,7 @@ class HookCard:
 
 
 def fit_hook_size(lines: list[str], style: ShortHookStyle, *, canvas_width: int) -> int:
-    """The largest type size at which every authored line fits on its own line.
-
-    A hook's line break is a writing decision — "WHEN HE DIED," then "THE SPECIES
-    ENDED" — so unlike a caption, which is re-wrapped freely, a hook shrinks
-    rather than re-breaks. Below ``min_font_scale`` it stops shrinking and lets
-    ``render_card`` wrap the offending line, because unreadable type is worse
-    than a line break in the wrong place.
-    """
+    """Return the largest size that keeps every authored line intact."""
     available = canvas_width * style.max_width_ratio - 2 * style.box_padding_x
     floor = max(12, int(round(style.font_size * style.min_font_scale)))
 
@@ -68,7 +57,10 @@ def fit_hook_size(lines: list[str], style: ShortHookStyle, *, canvas_width: int)
     while size >= floor:
         font = fonts.load(style.font_family, style.font_weight, size)
         widest = max(
-            (font.getlength(line) + max(0, len(line) - 1) * style.letter_spacing)
+            (
+                font.getlength(line)
+                + max(0, len(line) - 1) * style.letter_spacing
+            )
             for line in lines
         )
         if widest <= available:
@@ -88,12 +80,7 @@ def build_hook_card(
     total_duration_seconds: float,
     output_dir: Path,
 ) -> HookCard | None:
-    """Draw the hook, clipped to the Short it belongs to.
-
-    Returns ``None`` when there is nothing to draw — no lines, the hook turned
-    off, or a window that falls outside the Short — so the caller skips the
-    overlay entirely rather than compositing an invisible image.
-    """
+    """Draw the hook's setup and impact, clipped to its Short."""
     if not hook.is_visible:
         return None
 
@@ -103,29 +90,72 @@ def build_hook_card(
         logger.info("hook window falls outside a %.2fs Short; nothing drawn", total_duration_seconds)
         return None
 
-    # Upper case is applied here rather than asked of the author: it is the
-    # channel's look, and it must not depend on how the words were typed.
     lines = [line.upper() for line in hook.lines[: style.max_lines]]
-    fitted = fit_hook_size(lines, style, canvas_width=canvas_width)
+    lead_text = lines[0] if len(lines) > 1 else ""
+    impact_text = lines[-1]
 
-    card = render_card(
-        "\n".join(lines),
-        as_text_style(style, size=fitted),
+    lead_style = style.model_copy(
+        update={
+            "font_size": 58,
+            "font_weight": 700,
+            "letter_spacing": 3.5,
+            "color": "#D7D2C8",
+            "shadow_blur": 18,
+        }
+    )
+    impact_style = style.model_copy(
+        update={
+            "font_size": 92,
+            "font_weight": 900,
+            "letter_spacing": 1.0,
+            "color": "#E3473D",
+            "shadow_blur": 30,
+        }
+    )
+
+    fitted = fit_hook_size([impact_text], impact_style, canvas_width=canvas_width)
+    lead_margin = max(style.safe_top_inset, int(round(canvas_height * EYE_LINE_TOP_RATIO)))
+    impact_margin = lead_margin + (112 if lead_text else 74)
+    impact_card = render_card(
+        impact_text,
+        as_text_style(impact_style, size=fitted),
         frame_width=canvas_width,
         frame_height=canvas_height,
         position=TextPosition.TOP_CENTER,
-        margin=style.safe_top_inset,
+        margin=impact_margin,
         output_dir=output_dir,
     )
-    if card is None:
+    if impact_card is None:
         return None
 
+    lead_card = None
+    if lead_text:
+        lead_size = fit_hook_size([lead_text], lead_style, canvas_width=canvas_width)
+        lead_card = render_card(
+            lead_text,
+            as_text_style(lead_style, size=lead_size),
+            frame_width=canvas_width,
+            frame_height=canvas_height,
+            position=TextPosition.TOP_CENTER,
+            margin=lead_margin,
+            output_dir=output_dir,
+        )
+
+    impact_start = min(end, start + IMPACT_DELAY_SECONDS) if lead_card else start
     logger.info(
-        "built a %d-line hook card at %dpx for a %dx%d canvas",
-        len(lines), fitted, canvas_width, canvas_height,
+        "built a %d-beat hook at %dpx for a %dx%d canvas",
+        2 if lead_card else 1,
+        fitted,
+        canvas_width,
+        canvas_height,
     )
     return HookCard(
-        card=card, start_seconds=start, end_seconds=end, fitted_font_size=fitted
+        card=impact_card,
+        lead_card=lead_card,
+        start_seconds=start,
+        end_seconds=end,
+        impact_start_seconds=impact_start,
+        fitted_font_size=fitted,
     )
 
 
@@ -136,20 +166,48 @@ def overlay_steps(
     current: str,
     add_input,  # noqa: ANN001 - callable returning the new input's index
 ) -> tuple[list[str], str]:
-    """Filter steps compositing the hook card onto ``current``."""
-    index = add_input(hook.card.path)
+    """Composite the setup, then punch the impact line upward into place."""
+    steps: list[str] = []
     fade = min(style.fade_seconds, max(0.0, hook.duration_seconds / 3))
+
+    if hook.lead_card is not None:
+        lead_index = add_input(hook.lead_card.path)
+        if fade > 0:
+            steps.append(
+                f"[{lead_index}:v]format=rgba,"
+                f"fade=t=in:st={hook.start_seconds:.3f}:d={fade:.3f}:alpha=1,"
+                f"fade=t=out:st={max(hook.start_seconds, hook.end_seconds - fade):.3f}:"
+                f"d={fade:.3f}:alpha=1[hooklead]"
+            )
+        else:
+            steps.append(f"[{lead_index}:v]format=rgba[hooklead]")
+        steps.append(
+            f"[{current}][hooklead]overlay={hook.lead_card.x}:{hook.lead_card.y}:"
+            f"enable='between(t,{hook.start_seconds:.3f},{hook.end_seconds:.3f})'[withlead]"
+        )
+        current = "withlead"
+
+    impact_index = add_input(hook.card.path)
     if fade > 0:
-        steps = [
-            f"[{index}:v]format=rgba,"
-            f"fade=t=in:st={hook.start_seconds:.3f}:d={fade:.3f}:alpha=1,"
+        steps.append(
+            f"[{impact_index}:v]format=rgba,"
+            f"fade=t=in:st={hook.impact_start_seconds:.3f}:d={fade:.3f}:alpha=1,"
             f"fade=t=out:st={max(hook.start_seconds, hook.end_seconds - fade):.3f}:"
             f"d={fade:.3f}:alpha=1[hookcard]"
-        ]
+        )
     else:
-        steps = [f"[{index}:v]format=rgba[hookcard]"]
+        steps.append(f"[{impact_index}:v]format=rgba[hookcard]")
+
+    slide_end = min(hook.end_seconds, hook.impact_start_seconds + IMPACT_SLIDE_SECONDS)
+    slide_duration = max(0.001, slide_end - hook.impact_start_seconds)
+    start_y = hook.card.y + IMPACT_SLIDE_PIXELS
+    y_expression = (
+        f"if(lt(t,{slide_end:.3f}),"
+        f"{start_y}-{IMPACT_SLIDE_PIXELS}*(t-{hook.impact_start_seconds:.3f})/"
+        f"{slide_duration:.3f},{hook.card.y})"
+    )
     steps.append(
-        f"[{current}][hookcard]overlay={hook.card.x}:{hook.card.y}:"
-        f"enable='between(t,{hook.start_seconds:.3f},{hook.end_seconds:.3f})'[hooked]"
+        f"[{current}][hookcard]overlay={hook.card.x}:'{y_expression}':"
+        f"enable='between(t,{hook.impact_start_seconds:.3f},{hook.end_seconds:.3f})'[hooked]"
     )
     return steps, "hooked"

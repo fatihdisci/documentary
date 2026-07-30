@@ -75,10 +75,59 @@ def _v2_to_v3(raw: RawProject) -> RawProject:
     return working
 
 
+def _v3_to_v4(raw: RawProject) -> RawProject:
+    """Retimes the first version of the opening and makes hooks two-beat reveals.
+
+    Only exact v3 house defaults are changed. Any timing the user edited is
+    authored work and is preserved.
+    """
+    working = dict(raw)
+    long_intro = working.get("longIntro")
+    if isinstance(long_intro, dict):
+        long_intro = dict(long_intro)
+        if (
+            long_intro.get("duration") == 2.6
+            and long_intro.get("typewriterDuration") == 1.3
+            and long_intro.get("stampAt") == 1.7
+        ):
+            long_intro.update(
+                {
+                    "duration": 4.2,
+                    "typewriterDuration": 1.8,
+                    "stampAt": 2.65,
+                    "fadeOutSeconds": 0.65,
+                }
+            )
+        working["longIntro"] = long_intro
+
+    plan = working.get("shortsPlan")
+    if isinstance(plan, dict):
+        plan = dict(plan)
+        shorts = plan.get("shorts")
+        if isinstance(shorts, list):
+            migrated_shorts: list[object] = []
+            for item in shorts:
+                if not isinstance(item, dict):
+                    migrated_shorts.append(item)
+                    continue
+                item = dict(item)
+                hook = item.get("hook")
+                if isinstance(hook, dict):
+                    hook = dict(hook)
+                    if hook.get("durationSeconds") == 1.4:
+                        hook["durationSeconds"] = 2.2
+                    item["hook"] = hook
+                migrated_shorts.append(item)
+            plan["shorts"] = migrated_shorts
+        working["shortsPlan"] = plan
+    return working
+
+
 #: Maps "from version" -> function producing the next version's dict.
 MIGRATIONS: dict[int, Callable[[RawProject], RawProject]] = {
     1: _v1_to_v2,
     2: _v2_to_v3,
+    3: _v3_to_v4,
 }
 
 

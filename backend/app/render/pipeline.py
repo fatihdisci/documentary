@@ -59,6 +59,7 @@ from app.render.ffmpeg import (
     progress_args,
 )
 from app.render.intro import IntroTrack, build_intro_track, overlay_steps as intro_overlay_steps
+from app.render.sfx import build_long_intro_sfx
 from app.render.scene_clip import SceneClip, render_scene_clip, resolve_image
 from app.render.validate import ValidationReport, validate_output
 from app.shorts.cues import build_sidecar, sidecar_path_for, write_sidecar
@@ -677,6 +678,7 @@ class RenderPipeline:
             capabilities=capabilities, music_path=music_path,
             first_input_index=len(clips),
         )
+        audio_output_label = plan.output_label
         self.warnings.extend(plan.notes)
         for path in plan.inputs:
             args += ["-i", str(path)]
@@ -699,6 +701,45 @@ class RenderPipeline:
             current = "introdone"
             self._record(f"[intro] composited {intro_video.name} over the opening seconds")
 
+            # The clean-master assemble pass never receives ``intro_video``, so
+            # these sounds stay with the long opening and can never leak into a
+            # Short cut.
+            try:
+                intro_sfx = build_long_intro_sfx(
+                    self.project.resolved_long_intro(),
+                    output_dir=self.paths.cards / "intro",
+                )
+            except Exception as exc:  # noqa: BLE001 - decorative, never fail a film
+                intro_sfx = None
+                logger.warning("could not synthesize long-intro sound: %s", exc)
+                self._record(f"[intro-sfx] failed: {exc}")
+                self.warnings.append(
+                    "Açılışın ses efekti üretilemedi; görüntülü intro ve videonun ana sesi "
+                    "korundu."
+                )
+            if intro_sfx is not None:
+                sfx_index = index + 1
+                args += ["-i", str(intro_sfx)]
+                steps.append(
+                    f"[{sfx_index}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+                    "volume=-2.5dB[introsfx]"
+                )
+                if audio_output_label:
+                    steps.append(
+                        f"[{audio_output_label}][introsfx]"
+                        "amix=inputs=2:normalize=0:duration=first,"
+                        "alimiter=limit=0.95[aoutwithsfx]"
+                    )
+                else:
+                    steps.append(
+                        f"[introsfx]apad=whole_dur={total:.4f},"
+                        f"atrim=duration={total:.4f}[aoutwithsfx]"
+                    )
+                audio_output_label = "aoutwithsfx"
+                self._record(
+                    f"[intro-sfx] typewriter and stamp mixed from {intro_sfx.name}"
+                )
+
         steps.append(f"[{current}]format=yuv420p[v]")
 
         spec = quality_spec(self.quality, hardware=self.project.export.use_hardware_encoder)
@@ -706,13 +747,13 @@ class RenderPipeline:
             "-filter_complex", ";".join(steps),
             "-map", "[v]",
         ]
-        if plan.output_label:
-            args += ["-map", f"[{plan.output_label}]"]
+        if audio_output_label:
+            args += ["-map", f"[{audio_output_label}]"]
         args += [
             *base_output_args(fps=fps),
             "-t", f"{total:.4f}",
             *spec.args,
-            *(AUDIO_ARGS if plan.output_label else ["-an"]),
+            *(AUDIO_ARGS if audio_output_label else ["-an"]),
             "-movflags", "+faststart",
             str(output),
         ]

@@ -1,5 +1,11 @@
 # Extinct Animals Content Tracker
 
+> Operasyonel ana takip dosyası:
+> `deliverables/channel-sources/vanished-earth-content-tracker.xlsx`.
+> Paket, render, yükleme, planlama ve yayın ilerlemesi önce Excel dosyasındaki
+> `İçerik Takibi` ve `Yayın Takvimi` sayfalarına işlenir. Bu Markdown tablo kısa
+> bir depo özeti olarak tutulur.
+
 ## Status values
 - Planned
 - Researching
@@ -20,7 +26,7 @@
 | 5 | Carolina parakeet | Conuropsis carolinensis | Published | 2026-07-26 | 2026-07-26 22:00 TRT | https://youtu.be/NYnu9_0EXis | Fifth production video; long video and three related Shorts published |
 | 6 | Pinta Island tortoise | Chelonoidis abingdonii | Scheduled | 2026-07-27 | 2026-07-28 22:00 TRT | https://youtu.be/aDdnYy8JPkU | Sixth production video; 11 images; long video and three related Shorts scheduled |
 | 7 | Chinese paddlefish | Psephurus gladius | Scheduled | 2026-07-28 | 2026-07-30 22:00 TRT | https://youtu.be/XMgmhfdL3MY | Seventh production video; long video, external English SRT, supplied thumbnail, and three related Shorts scheduled |
-| 8 | Golden toad | Incilius periglenes | Planned |  |  |  |  |
+| 8 | Golden toad | Incilius periglenes | Package Ready | 2026-07-29 |  |  | Eighth production video; schema v2; 11 images; three planned Shorts |
 | 9 | Rocky Mountain locust | Melanoplus spretus | Planned |  |  |  |  |
 | 10 | Xerces blue butterfly | Glaucopsyche xerces | Planned |  |  |  |  |
 | 11 | Southern gastric-brooding frog | Rheobatrachus silus | Planned |  |  |  |  |

@@ -41,6 +41,17 @@ rather than kept as a note for later.
     are already filled in.
 12. Publish from the Publish tab, where the plan's per-platform copy, the
     thumbnail text and the hook are all in view.
+13. Record every production, upload, schedule and publication change in
+    `deliverables/channel-sources/vanished-earth-content-tracker.xlsx`.
+
+## Operational content tracker
+
+`deliverables/channel-sources/vanished-earth-content-tracker.xlsx` is the
+operational source of truth for long videos and Shorts. Update both `İçerik
+Takibi` and `Yayın Takvimi` whenever a package, render, upload, schedule or
+publication status changes. Do not mark an item `Published` until its public
+YouTube URL has been verified; a past `Scheduled` record remains flagged for
+verification until then.
 
 ## Rendering
 - Final render uses FFmpeg, not browser Canvas.
@@ -68,7 +79,8 @@ rather than kept as a note for later.
 
 Every long video opens the same way: the animal's name types itself out, the
 scientific name fades in small underneath, and a red `EXTINCT` stamp lands over
-both. Roughly two and a half seconds, then it dissolves into the film.
+both. The 4.2-second arc leaves separate beats for reveal, identification,
+impact and a readable hold before it dissolves.
 
 - It is an **overlay, not a section**. It adds no time to the timeline and moves
   no scene boundary; the same project renders to the same length with it on or
@@ -89,18 +101,24 @@ both. Roughly two and a half seconds, then it dissolves into the film.
 
 ## Shorts opening hooks
 
-Every planned Short carries a `hook`: at most two lines, drawn over the black
-band **above** the picture for the first beat of the Short.
+Every planned Short carries a `hook`: at most two lines, drawn near the vertical
+canvas's eye line as a 2.2-second cold open. The first line sets up the thought;
+the second lands larger, red, and with a short upward punch.
 
 - Composed onto the 1080×1920 canvas during the Shorts compose pass, in every
   caption mode. Never burned into the long video or into the file the cut came
   from.
-- Placed above the letterboxed picture; captions sit below it, so the two never
+- Placed near eye level; captions stay in the lower safe area, so the two never
   collide.
 - Part of the Short's cache key: changing the words means a different Short.
 - An empty hook draws nothing and is omitted from the request entirely, so a
   Short re-cut from a plan authored before hooks existed produces exactly the
   bytes it always did.
+- Project v4 retimes untouched v3 openings and hooks. User-edited timing values
+  are preserved.
+- Sound effects are synthesized locally and cached: typewriter/stamp for the
+  long opening, rise/impact for a Short hook. Long-opening SFX stay out of the
+  Shorts clean master.
 
 ## Text constraint
 The development FFmpeg build does not include drawtext or libass.

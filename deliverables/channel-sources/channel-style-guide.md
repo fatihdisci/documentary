@@ -36,16 +36,19 @@ second:
 
 - Style: `typewriter-stamp` — the animal's name types itself out, the scientific
   name fades in small underneath, a red stamp lands over both.
-- Duration: 2–3 seconds (default 2.6), typing 1.3 s, stamp at 1.7 s.
+- Duration: 4.2 seconds, typing 1.8 s, stamp at 2.65 s, then a readable hold.
 - Stamp text: `EXTINCT`, or `EXTINCT IN THE WILD` for an EW species. Stamping the
   wrong status is a factual error, not a design choice.
 - It is drawn over the intro image, so give that image a relatively calm
   centre-upper area — the type goes there.
 - It never appears in a Short. Shorts have their own opening line (below).
+- The renderer adds dry typewriter clacks and a restrained stamp impact. No
+  external sound-effect asset is required.
 
 ## Shorts opening hook
-Every Short opens with at most two short lines over the black band above the
-picture, for about 1.4 seconds.
+Every Short opens with at most two short lines near the vertical canvas's eye
+line as a 2.2-second two-beat reveal. The setup appears first; the larger red
+impact line follows with a short upward punch and synchronized rise/impact sound.
 
 - Short, strong, curious. Documentary tone — never clickbait.
 - The Short must keep the promise the hook makes.

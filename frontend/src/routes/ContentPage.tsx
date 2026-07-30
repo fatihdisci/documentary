@@ -211,7 +211,8 @@ export function ContentPage() {
             <p className="muted">
               Uzun videonun ilk saniyelerinde görünen kanal açılışı: hayvanın adı daktilo
               efektiyle yazılır, altına Latince adı gelir, üstüne kırmızı damga vurulur. Videoyu
-              uzatmaz — görüntünün üzerine eklenir. Kısa videolara girmez.
+              uzatmaz — görüntünün üzerine eklenir. Daktilo ve damga sesleri otomatik üretilir;
+              kısa videolara girmez.
             </p>
           </div>
         </div>

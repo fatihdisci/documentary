@@ -19,6 +19,7 @@ from app.models.migrations import migrate
 from app.models.project import SCHEMA_VERSION, Animal, LongIntro, Project
 from app.render.clean_master import clean_master_project, plan_clean_master
 from app.render.intro import build_intro_track, overlay_steps
+from app.render.sfx import build_long_intro_sfx
 from app.timing.schedule import build_timeline
 
 
@@ -34,8 +35,8 @@ class TestSchema:
         assert intro.enabled is True
         assert intro.intro_style is IntroStyle.TYPEWRITER_STAMP
         assert intro.stamp_text == "EXTINCT"
-        # The house style: a beat under three seconds.
-        assert 2.0 <= intro.duration <= 3.0
+        # Reveal, identify, stamp, and a readable hold.
+        assert 4.0 <= intro.duration <= 4.5
 
     def test_blank_titles_resolve_to_the_animal(self) -> None:
         project = make_project()
@@ -108,6 +109,39 @@ class TestMigration:
         raw = {"schemaVersion": 2, "name": "Dodo", "longIntro": {"enabled": False}}
         assert migrate(raw)["longIntro"] == {"enabled": False}
 
+    def test_v3_house_timings_are_repaired_but_authored_timings_survive(self) -> None:
+        old_default = migrate(
+            {
+                "schemaVersion": 3,
+                "longIntro": {
+                    "duration": 2.6,
+                    "typewriterDuration": 1.3,
+                    "stampAt": 1.7,
+                },
+                "shortsPlan": {
+                    "shorts": [{"hook": {"lines": ["Gone."], "durationSeconds": 1.4}}]
+                },
+            }
+        )
+        assert old_default["longIntro"]["duration"] == 4.2
+        assert old_default["shortsPlan"]["shorts"][0]["hook"]["durationSeconds"] == 2.2
+
+        authored = migrate(
+            {
+                "schemaVersion": 3,
+                "longIntro": {
+                    "duration": 3.5,
+                    "typewriterDuration": 1.0,
+                    "stampAt": 2.0,
+                },
+                "shortsPlan": {
+                    "shorts": [{"hook": {"lines": ["Gone."], "durationSeconds": 3.0}}]
+                },
+            }
+        )
+        assert authored["longIntro"]["duration"] == 3.5
+        assert authored["shortsPlan"]["shorts"][0]["hook"]["durationSeconds"] == 3.0
+
 
 class TestDrawing:
     @pytest.fixture
@@ -123,9 +157,9 @@ class TestDrawing:
             output_dir=cards,
         )
         assert not track.is_empty
-        # One card per revealed letter of "DODO", the finished title, the stamp
-        # landing, and the hold after it.
-        assert len(track.cards) == len("DODO") + 1 + 3 + 1
+        # One card per revealed letter, a five-step scientific-name fade, an
+        # eased eight-step stamp landing, and the holds between/after them.
+        assert len(track.cards) == len("DODO") + 5 + 1 + 8 + 1
         assert track.cards[0].start_seconds == 0.0
         assert track.cards[-1].end_seconds == pytest.approx(track.duration_seconds)
 
@@ -185,6 +219,17 @@ class TestDrawing:
         assert len(track.cards) == 1
         assert track.cards[0].start_seconds == 0.0
 
+    def test_the_scientific_name_really_fades_in(self, cards: Path) -> None:
+        track = build_intro_track(
+            make_project().resolved_long_intro(),
+            font_family="Inter", width=1920, height=1080, output_dir=cards,
+        )
+        # DODO occupies the first four cards. The following five are distinct
+        # opacity states rather than the one-frame switch in renderer v1.
+        secondary_fade = track.cards[4:9]
+        assert len({card.path.name for card in secondary_fade}) == 5
+        assert secondary_fade[0].start_seconds == pytest.approx(1.8)
+
     def test_a_disabled_intro_draws_nothing_at_all(self, cards: Path) -> None:
         project = make_project()
         project.long_intro.enabled = False
@@ -205,7 +250,7 @@ class TestDrawing:
             project.resolved_long_intro(),
             font_family="Inter", width=1920, height=1080, output_dir=cards,
         )
-        assert len(track.cards) <= 34
+        assert len(track.cards) <= 44
 
 
 class TestFiltergraph:
@@ -263,6 +308,16 @@ class TestItStaysOutOfTheShortsSource:
         assert clean.has_long_intro is False
         # And the real project is untouched.
         assert project.long_intro.enabled is True
+
+    def test_the_clean_pass_cannot_synthesize_long_intro_sound(self, tmp_path: Path) -> None:
+        clean = clean_master_project(make_project())
+        assert (
+            build_long_intro_sfx(
+                clean.resolved_long_intro(),
+                output_dir=tmp_path,
+            )
+            is None
+        )
 
     def test_opting_out_of_the_clean_master_still_opts_out(self) -> None:
         project = make_project()

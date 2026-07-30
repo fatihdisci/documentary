@@ -27,6 +27,7 @@ import logging
 
 from app.errors import ErrorCode, ValidationError
 from app.models.project import ShortHook
+from app.render.sfx import SFX_RENDERER_VERSION
 from app.shorts.captions import CAPTION_RENDERER_VERSION
 from app.shorts.encode import encoder_fingerprint
 from app.shorts.hooks import HOOK_RENDERER_VERSION
@@ -349,6 +350,7 @@ def cache_key(
     if hook is not None and hook.is_visible:
         payload["hook"] = {
             "renderer": HOOK_RENDERER_VERSION,
+            "sfxRenderer": SFX_RENDERER_VERSION,
             "lines": list(hook.lines),
             "start": round(hook.start_seconds, 3),
             "duration": round(hook.duration_seconds, 3),

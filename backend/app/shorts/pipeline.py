@@ -50,6 +50,7 @@ from pathlib import Path
 from app.config import Settings, get_settings
 from app.errors import ErrorCode, RenderError
 from app.render.ffmpeg import CancelledRender, FFmpegRunner, base_output_args, progress_args
+from app.render.sfx import build_short_hook_sfx
 from app.shorts.encode import (
     SEGMENT_VIDEO_ARGS,
     SHORT_AUDIO_ARGS,
@@ -196,6 +197,7 @@ class ShortsPipeline:
         #: It comes from the authored Shorts plan and is composed here, never
         #: burned into the source the cut came out of.
         self._hook: HookCard | None = None
+        self._hook_sfx: Path | None = None
 
     # --- plumbing ---------------------------------------------------------
 
@@ -575,6 +577,19 @@ class ShortsPipeline:
                 "eklenmedi. Görüntü ve ses bundan etkilenmedi."
             )
             return
+        try:
+            self._hook_sfx = build_short_hook_sfx(
+                self.request.hook,
+                impact_at=self._hook.impact_start_seconds,
+                total_duration_seconds=self.plan.total_duration_seconds,
+                output_dir=self.paths.shorts_cache / "hook-sfx",
+            )
+        except Exception as exc:  # noqa: BLE001 - decorative, never block a Short
+            logger.warning("could not synthesize Short hook sound: %s", exc)
+            self._record(f"[hook-sfx] failed: {exc}")
+            self.warnings.append(
+                "Hook ses efekti üretilemedi; açılış yazısı ve videonun ana sesi korundu."
+            )
         self._record(
             f"[hook] {len(self.request.hook.lines)} line(s) at "
             f"{self._hook.fitted_font_size}px, {self._hook.start_seconds:.2f}s -> "
@@ -717,9 +732,8 @@ class ShortsPipeline:
             )
             steps.extend(caption_steps)
 
-        # The hook goes on last, on the black band above the picture. Captions
-        # sit below the picture, so the two never meet whatever the source's
-        # aspect ratio turns out to be.
+        # The hook goes on last around the canvas eye line. Native captions stay
+        # in the lower safe area, so the two never meet.
         if self._hook is not None:
             hook_steps, current = hook_overlay_steps(
                 self._hook,
@@ -730,6 +744,22 @@ class ShortsPipeline:
             steps.extend(hook_steps)
 
         steps.append(f"[{current}]format=yuv420p[v]")
+
+        audio_map = "0:a:0"
+        if self._hook_sfx is not None:
+            sfx_index = next_index
+            next_index += 1
+            inputs += ["-i", str(self._hook_sfx)]
+            steps.append(
+                f"[{sfx_index}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+                "volume=-3dB[hooksfx]"
+            )
+            steps.append(
+                "[0:a:0][hooksfx]amix=inputs=2:normalize=0:duration=first,"
+                "alimiter=limit=0.95[shortaudio]"
+            )
+            audio_map = "[shortaudio]"
+            self._record(f"[hook-sfx] rise and impact mixed from {self._hook_sfx.name}")
 
         args = [
             self.settings.require_tool("ffmpeg"),
@@ -744,7 +774,7 @@ class ShortsPipeline:
             args += ["-t", f"{total:.6f}"]
         args += [
             "-filter_complex", ";".join(steps),
-            "-map", "[v]", "-map", "0:a:0",
+            "-map", "[v]", "-map", audio_map,
             *base_output_args(fps=self.fps),
             *short_video_args(),
             *SHORT_AUDIO_ARGS,

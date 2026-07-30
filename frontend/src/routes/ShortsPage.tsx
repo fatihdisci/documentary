@@ -512,8 +512,9 @@ export function ShortsPage() {
             <div>
               <h2>Açılış metni</h2>
               <p className="muted">
-                Kısa videonun ilk saniyesinde, görüntünün üstündeki siyah alanda görünür. En
-                fazla iki satır; kısa ve merak uyandırıcı olsun.
+                Kısa videonun ilk 2,2 saniyesinde göz hizasına yakın görünür. İlk satır
+                setup, ikinci satır daha büyük kırmızı impact olur. En fazla iki satır;
+                kısa ve merak uyandırıcı olsun.
               </p>
             </div>
           </div>
@@ -540,7 +541,7 @@ export function ShortsPage() {
           <p className="muted hook-note">
             Yazdığınız metin büyük harfe çevrilerek çizilir. Boş bırakırsanız açılış metni
             eklenmez. Uzun video bundan etkilenmez: bu metin yalnızca kısa videonun üstüne,
-            oluşturma sırasında eklenir.
+            oluşturma sırasında eklenir. Rise ve impact sesleri otomatik üretilir.
           </p>
 
           {preflight?.hook && preflight.hook.lines.length > 0 && (

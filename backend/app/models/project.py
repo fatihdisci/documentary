@@ -35,9 +35,10 @@ from app.models.enums import (
 #: an old project never silently doubles its next render.
 #:
 #: v3 added ``longIntro`` (the branded opening) and a ``hook`` on every planned
-#: Short. Both are pure additions with working defaults, so the v2 -> v3
-#: migration only has to write the block; see models/migrations.py.
-SCHEMA_VERSION = 3
+#: Short. v4 retimed both after the first production renders showed that the
+#: 2.6-second intro rushed its three beats and the 1.4-second hook read as a
+#: static title. See models/migrations.py.
+SCHEMA_VERSION = 4
 
 #: Zoom beyond this visibly softens even a 4K source once supersampled.
 MAX_SCALE = 3.0
@@ -100,15 +101,15 @@ class LongIntro(Base):
     secondary_title: str = Field(default="", max_length=120)
     stamp_text: str = Field(default="EXTINCT", max_length=24)
 
-    #: Total on-screen time. The house style is a beat under three seconds: long
-    #: enough to read, short enough that nobody skips the video over it.
-    duration: float = Field(default=2.6, ge=0.8, le=6.0)
+    #: Four beats: reveal, identify, stamp, then hold. Still an overlay, so this
+    #: does not add four seconds to the film or delay the narration.
+    duration: float = Field(default=4.2, ge=0.8, le=6.0)
     #: How long the name takes to type itself out, from the first character.
-    typewriter_duration: float = Field(default=1.3, ge=0.0, le=5.0)
+    typewriter_duration: float = Field(default=1.8, ge=0.0, le=5.0)
     #: When the stamp lands. Ignored by ``plain-title``.
-    stamp_at: float = Field(default=1.7, ge=0.0, le=6.0)
+    stamp_at: float = Field(default=2.65, ge=0.0, le=6.0)
     #: Dissolve at the end, so the card leaves the picture rather than cutting.
-    fade_out_seconds: float = Field(default=0.4, ge=0.0, le=2.0)
+    fade_out_seconds: float = Field(default=0.65, ge=0.0, le=2.0)
 
     #: Bounded design. Not surfaced as an editor — the point is that every video
     #: looks the same — but authorable from a content package if a species needs
@@ -184,10 +185,10 @@ class PlannedSocialMetadata(Base):
 
 
 class ShortHook(Base):
-    """The one-second promise a Short opens with.
+    """The two-beat promise a Short opens with.
 
-    Two short lines, drawn over the black band *above* the picture during the
-    first beat of a Short and nowhere else. It is composed onto the vertical
+    Two short lines, drawn near eye level during the cold open and nowhere else.
+    It is composed onto the vertical
     canvas at Shorts-compose time, exactly like a Shorts-native caption, so it is
     never burned into the long video or into the source the Short was cut from.
 
@@ -199,10 +200,10 @@ class ShortHook(Base):
     #: At most two lines. Uppercase is applied when drawing, so the author can
     #: write them naturally.
     lines: list[str] = Field(default_factory=list, max_length=2)
-    #: When it appears and how long it stays. The house style is "immediately,
-    #: for a beat and a half" — long enough to read, gone before the story moves.
+    #: When it appears and how long it stays. Two authored beats are revealed
+    #: separately; 2.2 seconds leaves time to process the turn in the second line.
     start_seconds: float = Field(default=0.0, ge=0.0, le=10.0)
-    duration_seconds: float = Field(default=1.4, ge=0.3, le=6.0)
+    duration_seconds: float = Field(default=2.2, ge=0.3, le=6.0)
 
     @field_validator("lines")
     @classmethod

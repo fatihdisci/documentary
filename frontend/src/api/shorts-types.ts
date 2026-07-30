@@ -108,8 +108,8 @@ export interface ShortRequest {
   captionMode?: ShortCaptionMode
   captionStyle?: ShortCaptionStyle
   /**
-   * The opening hook, drawn over the black band above the picture for the first
-   * beat. Omitted means no hook, which is what every Short built before this
+   * The opening hook, drawn near eye level as a two-beat cold open. Omitted
+   * means no hook, which is what every Short built before this
    * existed had — same pixels, same cache key.
    */
   hook?: ShortHook

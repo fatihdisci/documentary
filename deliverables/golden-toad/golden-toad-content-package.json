@@ -1,0 +1,452 @@
+{
+  "contentSchemaVersion": 2,
+  "commonName": "Golden toad",
+  "scientificName": "Incilius periglenes",
+  "videoTitle": "The Golden Toad: 1,500 to Zero in Two Years",
+  "description": "More than fifteen hundred golden toads gathered to breed in a Costa Rican cloud forest in nineteen eighty-seven. Two years later, only one was seen.\n\nThis documentary follows the golden toad through its tiny mountain home, its extraordinary colours, its brief breeding season, the failed pools of nineteen eighty-seven, the last confirmed sighting, and the difficult scientific search for a cause.\n\nSources and further reading:\nIUCN: https://nc.iucnredlist.org/redlist/amazing-species/incilius-periglenes/pdfs/original/incilius-periglenes.pdf\nAmerican Museum of Natural History: https://amphibiansoftheworld.amnh.org/Amphibia/Anura/Bufonidae/Incilius/Incilius-periglenes\nCrump et al. (1992): https://hero.epa.gov/reference/2475573/\nAnchukaitis and Evans (2010): https://pmc.ncbi.nlm.nih.gov/articles/PMC2841931/\nFisher et al. (2016): https://pmc.ncbi.nlm.nih.gov/articles/PMC5095542/\n\nDraft chapters — replace these times after the final render:\n00:00 A forest turned gold\n00:34 A world only kilometres wide\n01:06 Two colours, one species\n01:38 Hidden beneath the forest\n02:10 When the rain arrived\n02:43 Fifteen hundred, then failure\n03:17 The collapse\n03:49 The last golden toad\n04:21 A protected forest, an empty pool\n04:54 Drought, disease, and uncertainty\n05:28 A warning from the cloud forest\n06:03 Next: Rocky Mountain locust\n\n#GoldenToad #ExtinctAnimals #Amphibians #NaturalHistory #Conservation",
+  "tags": [
+    "golden toad",
+    "Incilius periglenes",
+    "extinct animals",
+    "extinct amphibians",
+    "Monteverde",
+    "Costa Rica wildlife",
+    "cloud forest",
+    "chytrid fungus",
+    "amphibian decline",
+    "wildlife documentary",
+    "natural history",
+    "species extinction",
+    "conservation",
+    "Vanished Earth"
+  ],
+  "thumbnailText": "1,500 TO ZERO",
+  "thumbnailPrompt": "Cinematic wildlife documentary thumbnail reconstruction of one small male golden toad in sharp three-quarter view on the right, a squat true toad only a few centimetres long with smooth glossy vivid orange skin, dark round eyes, a rounded snout and short sturdy limbs, standing on wet emerald moss beside a shallow cloud-forest pool, a second orange toad only as a soft distant shape, dark misty vegetation simplified into clear negative space on the left for three-word thumbnail text, powerful orange and deep green contrast, true-to-life anatomy, photorealistic, natural dramatic light, restrained natural color grading, subtle film grain, high detail, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition.",
+  "longIntro": {
+    "enabled": true,
+    "introStyle": "typewriter-stamp",
+    "primaryTitle": "Golden toad",
+    "secondaryTitle": "Incilius periglenes",
+    "stampText": "EXTINCT",
+    "duration": 4.2,
+    "typewriterDuration": 1.8,
+    "stampAt": 2.65
+  },
+  "pronunciation": {
+    "Monteverde": "mon-teh-VAIR-day",
+    "chytrid": "KIT-rid"
+  },
+  "tts": {
+    "provider": "kokoro",
+    "voice": "af_bella",
+    "speechRate": 0.9,
+    "speechPitch": 0,
+    "notes": "Plain English, no SSML. The scientific name stays in metadata. Use the pronunciation table for Monteverde and chytrid."
+  },
+  "shortsPlan": {
+    "version": 1,
+    "captionMode": "shorts-native",
+    "captionPreset": "large",
+    "recommendedReleaseOrder": [
+      "fifteen-hundred-to-one",
+      "two-colours-one-species",
+      "protected-but-gone"
+    ],
+    "shorts": [
+      {
+        "id": "fifteen-hundred-to-one",
+        "priority": 1,
+        "purpose": "The abrupt population collapse, anchored in the strongest documented counts.",
+        "sections": [
+          {
+            "kind": "scene",
+            "number": 5
+          },
+          {
+            "kind": "scene",
+            "number": 6
+          },
+          {
+            "kind": "scene",
+            "number": 7
+          }
+        ],
+        "estimatedDurationSeconds": 52,
+        "hook": {
+          "enabled": true,
+          "lines": [
+            "Fifteen hundred toads.",
+            "Two years later, one."
+          ],
+          "startSeconds": 0.0,
+          "durationSeconds": 2.2
+        },
+        "youtube": {
+          "title": "1,500 Golden Toads Became One",
+          "alternativeTitles": [
+            "The Golden Toad's Two-Year Collapse",
+            "From 1,500 Toads to a Final Male"
+          ],
+          "description": "More than fifteen hundred golden toads gathered in nineteen eighty-seven. In nineteen eighty-nine, researchers found a single male. He became the last confirmed sighting.\n\nWatch the full documentary:\nFULL_VIDEO_URL\n\n#GoldenToad #ExtinctAnimals #Shorts",
+          "tags": [
+            "golden toad",
+            "extinct animals",
+            "Monteverde",
+            "amphibian extinction",
+            "Costa Rica wildlife"
+          ],
+          "hashtags": [
+            "#GoldenToad",
+            "#ExtinctAnimals",
+            "#Shorts"
+          ],
+          "pinnedComment": "The nineteen eighty-nine male is the last confirmed record. Extensive later searches found no survivor."
+        },
+        "instagram": {
+          "caption": "More than fifteen hundred gathered in one breeding season. Two years later, researchers found only one.",
+          "hashtags": [
+            "#GoldenToad",
+            "#ExtinctAnimals",
+            "#Amphibians"
+          ],
+          "cta": "Watch the full documentary: FULL_VIDEO_URL"
+        },
+        "facebook": {
+          "caption": "The golden toad's documented fall was shockingly fast: more than fifteen hundred adults in nineteen eighty-seven, then a single male in nineteen eighty-nine.",
+          "hashtags": [
+            "#GoldenToad",
+            "#ExtinctAnimals"
+          ],
+          "cta": "Watch the full documentary: FULL_VIDEO_URL"
+        },
+        "tiktok": {
+          "caption": "Fifteen hundred toads became one in just two years.",
+          "hashtags": [
+            "#GoldenToad",
+            "#ExtinctAnimals",
+            "#WildlifeHistory"
+          ],
+          "cta": "Watch the full story."
+        }
+      },
+      {
+        "id": "two-colours-one-species",
+        "priority": 2,
+        "purpose": "Use the species' extreme colour difference to create a surprising biology story.",
+        "sections": [
+          {
+            "kind": "scene",
+            "number": 2
+          },
+          {
+            "kind": "scene",
+            "number": 3
+          }
+        ],
+        "estimatedDurationSeconds": 38,
+        "hook": {
+          "enabled": true,
+          "lines": [
+            "They looked different.",
+            "They were one species."
+          ],
+          "startSeconds": 0.0,
+          "durationSeconds": 2.2
+        },
+        "youtube": {
+          "title": "The Golden Toad Had Two Very Different Faces",
+          "alternativeTitles": [
+            "Why Only the Males Looked Golden",
+            "Two Colours, One Extinct Toad"
+          ],
+          "description": "Male golden toads were vivid orange. Females were larger and patterned in dark colours, yellow, and red. For most of the year, both stayed hidden in the cloud forest.\n\nWatch the full documentary:\nFULL_VIDEO_URL\n\n#GoldenToad #AnimalFacts #Shorts",
+          "tags": [
+            "golden toad",
+            "animal facts",
+            "sexual dimorphism",
+            "extinct amphibians",
+            "cloud forest"
+          ],
+          "hashtags": [
+            "#GoldenToad",
+            "#AnimalFacts",
+            "#Shorts"
+          ],
+          "pinnedComment": "The vivid golden-orange animals were males; females had dark skin marked with yellow and red."
+        },
+        "instagram": {
+          "caption": "The males shone orange. The larger females wore dark patterns with yellow and red.",
+          "hashtags": [
+            "#GoldenToad",
+            "#AnimalFacts",
+            "#NaturalHistory"
+          ],
+          "cta": "See the full story: FULL_VIDEO_URL"
+        },
+        "facebook": {
+          "caption": "Male and female golden toads looked so different that a breeding pool could seem filled with two species. The bright orange animals were males.",
+          "hashtags": [
+            "#GoldenToad",
+            "#NaturalHistory"
+          ],
+          "cta": "Watch the full documentary: FULL_VIDEO_URL"
+        },
+        "tiktok": {
+          "caption": "Only the males were truly golden.",
+          "hashtags": [
+            "#GoldenToad",
+            "#AnimalFacts",
+            "#ExtinctAnimals"
+          ],
+          "cta": "Watch the full story."
+        }
+      },
+      {
+        "id": "protected-but-gone",
+        "priority": 3,
+        "purpose": "Explain why protecting habitat alone could not answer or stop this extinction.",
+        "sections": [
+          {
+            "kind": "scene",
+            "number": 8
+          },
+          {
+            "kind": "scene",
+            "number": 9
+          },
+          {
+            "kind": "scene",
+            "number": 10
+          }
+        ],
+        "estimatedDurationSeconds": 51,
+        "hook": {
+          "enabled": true,
+          "lines": [
+            "Its forest survived.",
+            "The toad did not."
+          ],
+          "startSeconds": 0.0,
+          "durationSeconds": 2.2
+        },
+        "youtube": {
+          "title": "Its Forest Survived. The Golden Toad Did Not.",
+          "alternativeTitles": [
+            "Why a Protected Forest Was Not Enough",
+            "The Mystery Behind the Golden Toad"
+          ],
+          "description": "The golden toad vanished from protected cloud forest. An exceptional dry spell and the deadly chytrid fungus are leading explanations, but the exact balance remains uncertain.\n\nWatch the full documentary:\nFULL_VIDEO_URL\n\n#GoldenToad #Conservation #Shorts",
+          "tags": [
+            "golden toad",
+            "conservation",
+            "chytrid fungus",
+            "climate and wildlife",
+            "amphibian decline"
+          ],
+          "hashtags": [
+            "#GoldenToad",
+            "#Conservation",
+            "#Shorts"
+          ],
+          "pinnedComment": "Scientists continue to debate the exact balance of drought, disease, and other pressures. The video does not reduce the extinction to one proven cause."
+        },
+        "instagram": {
+          "caption": "A protected forest remained standing, yet one of its most famous animals disappeared.",
+          "hashtags": [
+            "#GoldenToad",
+            "#Conservation",
+            "#AmphibianCrisis"
+          ],
+          "cta": "Explore the evidence: FULL_VIDEO_URL"
+        },
+        "facebook": {
+          "caption": "Habitat protection mattered, but it was not enough. Drought and disease could still cross the boundary of a reserve.",
+          "hashtags": [
+            "#GoldenToad",
+            "#Conservation"
+          ],
+          "cta": "Watch the full documentary: FULL_VIDEO_URL"
+        },
+        "tiktok": {
+          "caption": "The reserve survived. Its golden toad vanished.",
+          "hashtags": [
+            "#GoldenToad",
+            "#Conservation",
+            "#ExtinctAnimals"
+          ],
+          "cta": "Watch the evidence."
+        }
+      }
+    ]
+  },
+  "intro": {
+    "title": "The Golden Toad",
+    "subtitle": "A two-year collapse",
+    "hookText": "Fifteen hundred became one.",
+    "narration": "In nineteen eighty-seven, a hidden cloud forest seemed to turn gold. More than fifteen hundred tiny toads gathered beside rain-filled pools. Two years later, researchers found just one. It was the last golden toad ever confirmed. An entire species had vanished while its forest still stood.",
+    "imagePrompt": "Cinematic wildlife documentary reconstruction of dozens of small male golden toads, each a squat true toad only a few centimetres long with smooth glossy vivid orange skin, dark round eyes, a rounded snout and short sturdy limbs, emerging across wet emerald moss around a shallow rain pool in a Costa Rican cloud forest, extreme wide cold-open shot with the nearest toads low along the bottom edges and the calm misty centre-upper area left open for the title card, orange shapes glowing through deep green vegetation, dawn fog, scientifically plausible extinct animals, realistic anatomy, historically accurate natural environment, photorealistic, natural lighting, subtle film grain, restrained natural color grading, high detail, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition.",
+    "imageFile": "00-intro.png",
+    "useFirstSceneImage": false
+  },
+  "scenes": [
+    {
+      "title": "A World Only Kilometres Wide",
+      "subtitle": "High in Costa Rica's cloud forest",
+      "narration": "The golden toad lived in one tiny part of Costa Rica. Its known home lay high in the cloud forest near Monteverde. Mist kept the leaves wet, while moss covered roots and fallen wood. The entire known range measured only a few square kilometres. A change in one small forest could touch the whole species.",
+      "imagePrompt": "Cinematic wildlife documentary reconstruction of three small male golden toads, each a squat true toad only a few centimetres long with smooth glossy vivid orange skin, dark round eyes, a rounded snout and short sturdy limbs, spaced across a steep mossy floor in the high cloud forest near Monteverde, Costa Rica, aerial wide view with the nearest toad on the lower-left third and two tiny orange points deeper among tree roots on the right, layered mist, ferns, bromeliads and wet leaf litter, scientifically plausible extinct animals, realistic anatomy, historically accurate natural environment, photorealistic, natural diffused lighting, subtle film grain, restrained natural color grading, high detail, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition.",
+      "factNote": "The species was known only from a small high-elevation area near Monteverde, Costa Rica.",
+      "suggestedAnimation": "slow-zoom-in",
+      "focusX": 0.31,
+      "focusY": 0.7,
+      "titleStartSeconds": 0.6,
+      "titleDurationSeconds": 4.8,
+      "subtitleStartSeconds": 1.0,
+      "subtitleDurationSeconds": 4.4,
+      "imageFile": "01-cloud-forest.png"
+    },
+    {
+      "title": "Two Colours, One Species",
+      "subtitle": "Only the males were golden",
+      "narration": "The name told only half the story. Adult males were a brilliant orange, almost too bright for the dark forest floor. Females were larger and wore dark skin marked with yellow and red. Both had the compact body and short legs of a true toad. Together, they formed one of nature's most striking pairs.",
+      "imagePrompt": "Cinematic wildlife documentary reconstruction of a breeding pair of golden toads in crisp side profile on wet moss, the male a small squat true toad only a few centimetres long with smooth glossy vivid orange skin, dark round eyes, rounded snout and short sturdy limbs, the slightly larger female beside him with dark olive-black skin patterned in irregular scarlet and yellow patches, medium close shoreline-level view with the pair on the right third and soft green negative space to the left, fine rain droplets, scientifically plausible extinct animals, realistic anatomy, historically accurate Costa Rican cloud-forest environment, photorealistic, natural soft lighting, subtle film grain, restrained natural color grading, high detail, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition.",
+      "factNote": "Males were vivid orange; larger females had dark colouring with yellow and red markings.",
+      "suggestedAnimation": "zoom-to-right",
+      "focusX": 0.69,
+      "focusY": 0.61,
+      "titleStartSeconds": 0.6,
+      "titleDurationSeconds": 4.8,
+      "subtitleStartSeconds": 1.0,
+      "subtitleDurationSeconds": 4.4,
+      "imageFile": "02-two-colours.png"
+    },
+    {
+      "title": "Hidden Beneath the Forest",
+      "subtitle": "Seen for only a few weeks",
+      "narration": "For most of the year, the golden toad was almost invisible. It stayed hidden in damp spaces beneath roots and leaf litter. Its food was likely the small insects and other tiny animals found on the forest floor. Then the dry season began to break. The first hard rains called the toads into the open.",
+      "imagePrompt": "Cinematic wildlife documentary reconstruction of one small male golden toad, a squat true toad only a few centimetres long with smooth glossy vivid orange skin, dark round eyes, a rounded snout and short sturdy limbs, partly sheltered beneath a twisted tree root and damp brown leaf litter, intimate ground-level close view with the toad on the left edge peering into a deep shadowed forest floor, tiny insects and beads of moisture nearby, late dry-season blue hour, scientifically plausible extinct animal, realistic anatomy, historically accurate Costa Rican cloud-forest environment, photorealistic, natural low light, subtle film grain, restrained natural color grading, high detail, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition.",
+      "factNote": "Golden toads were seen mainly during their brief breeding season after the rains began.",
+      "suggestedAnimation": "zoom-to-left",
+      "focusX": 0.24,
+      "focusY": 0.62,
+      "titleStartSeconds": 0.6,
+      "titleDurationSeconds": 4.8,
+      "subtitleStartSeconds": 1.0,
+      "subtitleDurationSeconds": 4.4,
+      "imageFile": "03-hidden.png"
+    },
+    {
+      "title": "When the Rain Arrived",
+      "subtitle": "A brief race to breed",
+      "narration": "Heavy rain created shallow pools between the tree roots. In a few days, males crowded around the water and waited for females. The gathering was loud, bright, and brief. Eggs and tadpoles had to develop before the pools disappeared. The species had built its future around a narrow window of rain.",
+      "imagePrompt": "Cinematic wildlife documentary reconstruction of a dense breeding gathering of small golden toads around a shallow temporary pool between cloud-forest tree roots, many males as squat true toads only a few centimetres long with smooth glossy vivid orange skin, dark round eyes, rounded snouts and short sturdy limbs, several larger females with dark olive-black skin patterned in scarlet and yellow, low shoreline-level wide shot with the pool curving from the foreground right to the distant left, warm orange bodies scattered rather than centred, heavy spring rain and rippling water, no mating pile, scientifically plausible extinct animals, realistic anatomy, historically accurate Costa Rican cloud forest, photorealistic, natural storm light, subtle film grain, restrained natural color grading, high detail, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition.",
+      "factNote": "The species bred explosively in temporary rain pools during a short annual season.",
+      "suggestedAnimation": "pan-right-to-left",
+      "focusX": 0.62,
+      "focusY": 0.69,
+      "titleStartSeconds": 0.6,
+      "titleDurationSeconds": 4.8,
+      "subtitleStartSeconds": 1.0,
+      "subtitleDurationSeconds": 4.4,
+      "imageFile": "04-breeding-rain.png"
+    },
+    {
+      "title": "Fifteen Hundred, Then Failure",
+      "subtitle": "The pools dried in nineteen eighty-seven",
+      "narration": "In the spring of nineteen eighty-seven, researchers counted more than fifteen hundred adult golden toads at five pools. It looked like abundance. But the rain stopped, and the shallow water shrank. Thousands of eggs and tadpoles were lost as the pools dried. At most, only twenty-nine young toads completed the change to life on land.",
+      "imagePrompt": "Cinematic wildlife documentary reconstruction of a temporary golden-toad breeding pool in the Costa Rican cloud forest during the dry turn of nineteen eighty-seven, numerous small male golden toads with squat bodies, smooth glossy vivid orange skin, dark round eyes, rounded snouts and short sturdy limbs gathered around receding muddy edges, a few larger dark patterned females farther back, overhead three-quarter wide view with cracked wet mud entering from the lower left and the remaining water on the upper right, eggs and tadpoles visible only as subtle natural details, no dead animals, harsh noon light breaking through cloud, scientifically plausible extinct animals, realistic anatomy, historically accurate environment, photorealistic, restrained natural color grading, subtle film grain, high detail, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition.",
+      "factNote": "More than 1,500 adults were recorded in 1987, but at most 29 tadpoles completed metamorphosis.",
+      "suggestedAnimation": "slow-zoom-out",
+      "focusX": 0.68,
+      "focusY": 0.55,
+      "titleStartSeconds": 0.6,
+      "titleDurationSeconds": 4.8,
+      "subtitleStartSeconds": 1.0,
+      "subtitleDurationSeconds": 4.4,
+      "imageFile": "05-dry-pools.png"
+    },
+    {
+      "title": "The Collapse",
+      "subtitle": "Almost nothing returned",
+      "narration": "Researchers came back when the next breeding season began. The forest was still there, and the pools filled again. The golden crowds did not return. Across repeated searches from nineteen eighty-eight through nineteen ninety, only eleven toads were found. A population once counted by the thousand had collapsed almost overnight.",
+      "imagePrompt": "Cinematic wildlife documentary reconstruction of an almost empty golden-toad breeding site in the Costa Rican cloud forest in nineteen eighty-eight, one small male golden toad with a squat body, smooth glossy vivid orange skin, dark round eyes, rounded snout and short sturdy limbs sitting alone on the far-right edge of a broad rain-filled pool, wide eye-level landscape with wet roots, dense ferns and deep empty moss dominating the frame, pale fog after rain, no other toads visible, scientifically plausible extinct animal, realistic anatomy, historically accurate environment, photorealistic, natural cool lighting, subtle film grain, restrained natural color grading, high detail, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition.",
+      "factNote": "Only 11 golden toads were found during breeding-habitat surveys from 1988 through 1990.",
+      "suggestedAnimation": "slow-zoom-in",
+      "focusX": 0.83,
+      "focusY": 0.69,
+      "titleStartSeconds": 0.6,
+      "titleDurationSeconds": 4.8,
+      "subtitleStartSeconds": 1.0,
+      "subtitleDurationSeconds": 4.4,
+      "imageFile": "06-collapse.png"
+    },
+    {
+      "title": "The Last Golden Toad",
+      "subtitle": "One male in nineteen eighty-nine",
+      "narration": "In May of nineteen eighty-nine, a single male appeared. He was small, bright orange, and alone. No one knew that this ordinary field record would become the final one. Later searches covered the known range, but no golden toad answered the rain. That male remains the last confirmed member of his species.",
+      "imagePrompt": "Cinematic wildlife documentary reconstruction of the last confirmed male golden toad in May of nineteen eighty-nine, a single small squat true toad only a few centimetres long with smooth glossy vivid orange skin, dark round eyes, a rounded snout and short sturdy limbs, resting on rain-darkened moss beside an empty shallow pool, respectful close portrait from slightly above with the toad on the lower-left third and misty negative space stretching right, one blurred field notebook and a researcher's hand far in the background without readable text, no handling, scientifically plausible extinct animal, realistic anatomy, historically accurate Costa Rican cloud forest, photorealistic, natural overcast light, subtle film grain, restrained natural color grading, high detail, no text, no watermark, no logo, 16:9 widescreen composition.",
+      "factNote": "A single male seen in May 1989 is the species' last confirmed record.",
+      "suggestedAnimation": "zoom-to-left",
+      "focusX": 0.31,
+      "focusY": 0.66,
+      "titleStartSeconds": 0.6,
+      "titleDurationSeconds": 4.8,
+      "subtitleStartSeconds": 1.0,
+      "subtitleDurationSeconds": 4.4,
+      "imageFile": "07-last-male.png"
+    },
+    {
+      "title": "A Forest Without Its Toad",
+      "subtitle": "Protection could not explain the silence",
+      "narration": "This was not a simple story of a forest being cut down. The golden toad lived inside protected cloud forest, and much of that habitat remained. Yet a reserve could not control the weather, stop a hidden disease, or protect a species beyond its boundary. The empty pools became a scientific mystery. The answer had to reach beyond habitat loss alone.",
+      "imagePrompt": "Cinematic wildlife documentary scene of the protected Costa Rican cloud forest after the golden toad's disappearance, a pristine shallow breeding pool among emerald moss, giant roots, ferns and bromeliads, no golden toads anywhere, very wide low-angle view from the water surface with a simple reserve trail barely visible in the distant upper-left background and unbroken forest filling the frame, soft morning mist and shafts of light, rich living habitat but a clear sense of absence, photorealistic, natural lighting, restrained natural color grading, subtle film grain, high detail, no text, no watermark, no logo, no people, no modern clutter, 16:9 widescreen composition.",
+      "factNote": "The species disappeared despite its known range lying within protected forest.",
+      "suggestedAnimation": "pan-left-to-right",
+      "focusX": 0.53,
+      "focusY": 0.58,
+      "titleStartSeconds": 0.6,
+      "titleDurationSeconds": 4.8,
+      "subtitleStartSeconds": 1.0,
+      "subtitleDurationSeconds": 4.4,
+      "imageFile": "08-empty-forest.png"
+    },
+    {
+      "title": "Drought, Disease, and Uncertainty",
+      "subtitle": "No single cause tells the whole story",
+      "narration": "The final collapse followed an exceptionally dry period linked to a powerful El Niño event. Dry pools explain the failed breeding season, but not every missing adult. Scientists also point to chytrid, a deadly fungus that swept through many American amphibians. Climate can change the conditions in which disease spreads and animals survive. The exact balance is still debated, so one cause should not carry the whole blame.",
+      "imagePrompt": "Cinematic wildlife documentary evidence scene in a Costa Rican cloud forest, a split-depth composition showing a shallow breeding pool reduced by unusual drought in the foreground and a field microscope with a neutral sample slide under a simple rain shelter in the distant right background, no readable labels and no people, a subtle translucent scientific inset-like view of fungal spores confined to a water droplet without text, storm clouds meeting dry broken light, no golden toad shown alive, photorealistic natural-history investigation, historically plausible field setting, restrained natural color grading, subtle film grain, high detail, no watermark, no logo, 16:9 widescreen composition.",
+      "factNote": "An exceptional dry interval and chytridiomycosis are leading explanations; their relative roles remain debated.",
+      "suggestedAnimation": "gentle-diagonal",
+      "focusX": 0.67,
+      "focusY": 0.55,
+      "titleStartSeconds": 0.6,
+      "titleDurationSeconds": 4.8,
+      "subtitleStartSeconds": 1.0,
+      "subtitleDurationSeconds": 4.4,
+      "imageFile": "09-causes.png"
+    },
+    {
+      "title": "A Warning From the Clouds",
+      "subtitle": "Small ranges leave little room",
+      "narration": "The golden toad became an early symbol of the worldwide amphibian crisis. Its tiny range made every bad season more dangerous. Its disappearance also showed that a protected map is only the beginning of protection. Conservation must watch disease, climate, water, and sudden changes before numbers crash. The warning from Monteverde still belongs to living species everywhere.",
+      "imagePrompt": "Cinematic wildlife documentary legacy scene in the Costa Rican cloud forest at sunrise, a respectful faint memory-like silhouette of one small male golden toad with squat body, smooth vivid orange skin, dark round eye, rounded snout and short sturdy limbs reflected only in a shallow pool on the lower-right third, while living native frogs and insects occupy wet moss on the left at different depths, wide hopeful landscape with bright mist through trees, the reflection clearly symbolic and not evidence that the extinct species survives, realistic anatomy, photorealistic, natural light, restrained natural color grading, subtle film grain, high detail, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition.",
+      "factNote": "The golden toad is an emblem of global amphibian decline and the risks faced by narrow-range species.",
+      "suggestedAnimation": "slow-zoom-out",
+      "focusX": 0.72,
+      "focusY": 0.73,
+      "titleStartSeconds": 0.6,
+      "titleDurationSeconds": 4.8,
+      "subtitleStartSeconds": 1.0,
+      "subtitleDurationSeconds": 4.4,
+      "imageFile": "10-legacy.png"
+    }
+  ],
+  "outro": {
+    "title": "Protection Must See the Invisible",
+    "subtitle": "A standing forest can still lose a species",
+    "hookText": "Its forest survived. The toad did not.",
+    "narration": "The golden toad left no final photograph of a rescue and no captive group to return. It left an empty pool and a lesson about threats we cannot always see. Living amphibians still need faster disease checks, stable wetlands, and careful climate planning. Next, we cross the grasslands that once darkened beneath swarms of Rocky Mountain locusts. Subscribe for the next story from a vanished world.",
+    "imagePrompt": "Cinematic wildlife documentary legacy scene in the Costa Rican cloud forest at sunrise, a respectful faint memory-like silhouette of one small male golden toad with squat body, smooth vivid orange skin, dark round eye, rounded snout and short sturdy limbs reflected only in a shallow pool on the lower-right third, while living native frogs and insects occupy wet moss on the left at different depths, wide hopeful landscape with bright mist through trees, the reflection clearly symbolic and not evidence that the extinct species survives, realistic anatomy, photorealistic, natural light, restrained natural color grading, subtle film grain, high detail, no text, no watermark, no logo, no modern objects, 16:9 widescreen composition.",
+    "imageFile": "10-legacy.png",
+    "useFirstSceneImage": false
+  }
+}

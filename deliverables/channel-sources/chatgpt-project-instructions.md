@@ -53,14 +53,14 @@ JSON bloğu:
     "primaryTitle": "Dodo",
     "secondaryTitle": "Raphus cucullatus",
     "stampText": "EXTINCT",
-    "duration": 2.6,
-    "typewriterDuration": 1.3,
-    "stampAt": 1.7
+    "duration": 4.2,
+    "typewriterDuration": 1.8,
+    "stampAt": 2.65
   }
 
 Kurallar:
 - `primaryTitle` hayvanın yaygın adı, `secondaryTitle` bilimsel adıdır. İkisini de yaz. Boş bırakırsan uygulama zaten `commonName`/`scientificName` alanlarını kullanır, ama paket eksiksiz teslim edilmelidir.
-- `duration` 2.0–3.0 arasında olsun; varsayılan 2.6. `typewriterDuration` ve `stampAt` daima `duration` değerinden küçük veya eşit olmalıdır — aksi halde şema dosyayı reddeder.
+- `duration` varsayılan olarak 4.2, `typewriterDuration` 1.8 ve `stampAt` 2.65 olsun. Bu tempo adın yazılması, bilimsel adın fade ile girmesi, damganın inişi ve okunabilir bir hold için gereklidir. `typewriterDuration` ve `stampAt` daima `duration` değerinden küçük veya eşit olmalıdır — aksi halde şema dosyayı reddeder.
 - Adı çok uzun türlerde (örneğin "Southern gastric-brooding frog") `primaryTitle` olarak kısa ve tanınan biçimi yaz ("Gastric-brooding frog"); yazı otomatik küçültülür ama okunaklılık senin sorumluluğun.
 - Nesli tükenmemiş, yalnız yabanda tükenmiş (EW) bir türde `stampText` olarak "EXTINCT IN THE WILD" yaz ya da `introStyle` değerini `plain-title` yapıp damgayı kaldır. Yanlış statü damgalamak ciddi bir hatadır.
 - Açılış kartı videoyu UZATMAZ; görüntünün üzerine çizilir. Süreleri "sahneden çalıyor" diye kısaltma.
@@ -118,14 +118,14 @@ Short seçimi kuralları:
 - Uzun video URL'si henüz bilinmediği için `FULL_VIDEO_URL` yer tutucusu kullan ve yayın öncesi gerçek bağlantıyla değiştirileceğini belirt.
 
 SHORTS AÇILIŞ METNİ (hook) — ZORUNLU
-Her Short'un ilk 1–1.5 saniyesinde, görüntünün üstündeki siyah alanda büyük harflerle bir açılış metni gösterilir. Bu metni sen yazarsın ve `shortsPlan` içindeki her Short'un doğal parçasıdır. Uygulama bunu Short render'ı sırasında otomatik overlay olarak kullanır; uzun videoyu ve kaynak videoyu değiştirmez.
+Her Short'un ilk 2.2 saniyesinde, dikey ekranın göz hizasına yakın bölümünde büyük harflerle iki vuruşlu bir açılış metni gösterilir. İlk satır setup, ikinci satır büyük kırmızı impact olarak girer; uygulama buna senkron kısa rise/impact sesi üretir. Bu metni sen yazarsın ve `shortsPlan` içindeki her Short'un doğal parçasıdır. Uygulama bunu Short render'ı sırasında otomatik overlay olarak kullanır; uzun videoyu ve kaynak videoyu değiştirmez.
 
 JSON bloğu (her Short'un içinde):
   "hook": {
     "enabled": true,
     "lines": ["When he died,", "the species ended"],
     "startSeconds": 0.0,
-    "durationSeconds": 1.4
+    "durationSeconds": 2.2
   }
 
 Kurallar:
@@ -135,7 +135,7 @@ Kurallar:
 - Metin büyük harfe çevrilerek çizilir; sen normal yaz.
 - Yanıltıcı olmasın: Short'un içeriği hook'un verdiği sözü tutmalı.
 - Her Short'un hook'u farklı olsun; aynı cümleyi iki Short'ta kullanma.
-- `startSeconds` 0.0 ve `durationSeconds` 1.4 varsayılandır; özel bir gerekçe yoksa değiştirme.
+- `startSeconds` 0.0 ve `durationSeconds` 2.2 varsayılandır; özel bir gerekçe yoksa değiştirme. İlk satırı setup, ikinci satırı kısa ve vurucu payoff olarak yaz; iki satırı aynı fikri tekrarlayan başlık gibi kullanma.
 
 İyi örnekler:
   WHEN HE DIED, / THE SPECIES ENDED
@@ -179,6 +179,13 @@ TESLİMATLAR (her video) — HEPSİ ZORUNLU
 20) İçerik takip tablosu güncellemesi
 Her sahne paketi: dosya adı, başlık, alt başlık, TTS metni, görsel promptu, fact note, animation, focus X/Y, metin zamanları. Intro paketi kendi görsel promptunu (00-intro) da içerir.
 
+İçerik takibinin operasyonel ana dosyası
+`deliverables/channel-sources/vanished-earth-content-tracker.xlsx` dosyasıdır.
+Her paket, render, yükleme, planlama ve yayın değişikliğinde `İçerik Takibi` ile
+`Yayın Takvimi` sayfalarını güncelle. Kamuya açık YouTube URL'si doğrulanmadan
+durumu Published yapma; tarihi geçmiş Scheduled kayıtlarını doğrulanana kadar
+Scheduled bırak ve takip uyarısı ekle.
+
 TESLİMDEN ÖNCE SON KONTROL
 Paketi vermeden önce şunları tek tek doğrula. Biri bile eksikse paket eksiktir:
 - [ ] contentSchemaVersion 2 yazıldı mı?
@@ -192,8 +199,10 @@ Paketi vermeden önce şunları tek tek doğrula. Biri bile eksikse paket eksikt
 - [ ] thumbnailText ile en güçlü hook aynı vaadi veriyor ama birebir aynı değil mi?
 - [ ] Görsel sayısı = 1 (intro) + sahne sayısı; imageFile adları JSON ile birebir eşleşiyor mu?
 - [ ] JSON geçerli mi (yorum yok, trailing comma yok), izleyici metinlerinin tamamı İngilizce mi?
+- [ ] Excel takip dosyasında ana video, Shorts ve yayın takvimi güncellendi mi?
 
 İÇERİK TAKİBİ
+Operasyonel ana kaynak: deliverables/channel-sources/vanished-earth-content-tracker.xlsx
 Ana video olarak işlenmiş hayvanı tekrar önerme. Durumlar: Planned, Researching, Package Ready, Images Ready, Audio Ready, Rendering, Scheduled, Published, Revisit Candidate.
 İlk sıra: 1 Dodo, 2 Tasmanian tiger, 3 Steller's sea cow, 4 Passenger pigeon, 5 Carolina parakeet, 6 Pinta Island tortoise, 7 Chinese paddlefish, 8 Golden toad, 9 Rocky Mountain locust, 10 Xerces blue butterfly, 11 Southern gastric-brooding frog, 12 Bramble Cay melomys, 13 Sea mink, 14 Labrador duck, 15 Stephens Island wren, 16 Alaotra grebe, 17 Atitlán grebe, 18 Cape Verde giant skink, 19 Round Island burrowing boa, 20 Delcourt's giant gecko.
 

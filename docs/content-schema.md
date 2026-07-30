@@ -66,7 +66,7 @@ it at `backend/fixtures/dodo-content.json`.
 
 Every long video opens the same way: the animal's name types itself out, the
 scientific name fades in small underneath, and a red `EXTINCT` stamp lands over
-both. Roughly two and a half seconds, then it dissolves into the film.
+both. The 4.2-second arc gives each beat time to register before it dissolves.
 
 ```json
 {
@@ -76,9 +76,9 @@ both. Roughly two and a half seconds, then it dissolves into the film.
     "primaryTitle": "Dodo",
     "secondaryTitle": "Raphus cucullatus",
     "stampText": "EXTINCT",
-    "duration": 2.6,
-    "typewriterDuration": 1.3,
-    "stampAt": 1.7
+    "duration": 4.2,
+    "typewriterDuration": 1.8,
+    "stampAt": 2.65
   }
 }
 ```
@@ -90,10 +90,10 @@ both. Roughly two and a half seconds, then it dissolves into the film.
 | `primaryTitle` | string | `""` | Blank resolves to `commonName` at render time. |
 | `secondaryTitle` | string | `""` | Blank resolves to `scientificName`. |
 | `stampText` | string | `"EXTINCT"` | Blank draws no stamp. Use `"EXTINCT IN THE WILD"` for an EW species — stamping the wrong status is a factual error. |
-| `duration` | 0.8–6.0 | `2.6` | Seconds on screen. The house style is 2–3. |
-| `typewriterDuration` | 0.0–5.0 | `1.3` | How long the name takes to type itself out. |
-| `stampAt` | 0.0–6.0 | `1.7` | When the stamp lands. |
-| `fadeOutSeconds` | 0.0–2.0 | `0.4` | Dissolve at the end. |
+| `duration` | 0.8–6.0 | `4.2` | Seconds on screen. Four beats: reveal, identify, stamp, hold. |
+| `typewriterDuration` | 0.0–5.0 | `1.8` | How long the name takes to type itself out. |
+| `stampAt` | 0.0–6.0 | `2.65` | When the stamp lands. |
+| `fadeOutSeconds` | 0.0–2.0 | `0.65` | Dissolve at the end. |
 | `primaryColor`, `secondaryColor`, `stampColor` | `#RRGGBB` | white / warm grey / red | Bounded design. Change only when a species genuinely needs it. |
 | `scrimOpacity` | 0.0–1.0 | `0.55` | Dark wash under the card, so the title reads over a bright first frame. |
 
@@ -168,7 +168,7 @@ It contains 3–5 vertical-cut recommendations and all viewer-facing copy.
           "enabled": true,
           "lines": ["When he died,", "the species ended"],
           "startSeconds": 0.0,
-          "durationSeconds": 1.4
+          "durationSeconds": 2.2
         },
         "youtube": {
           "title": "When One Death Ended a Species",
@@ -220,8 +220,8 @@ understands.
 
 ### The opening hook (`hook`)
 
-The first beat of a Short: at most two lines, drawn in upper case over the black
-band **above** the picture. It is what decides whether the Short is watched at
+A 2.2-second cold open: at most two lines, drawn in upper case near the vertical
+canvas's **eye line**. It is what decides whether the Short is watched at
 all, so it is authored with the section choice rather than left to the edit.
 
 | Field | Type | Default | Notes |
@@ -229,7 +229,7 @@ all, so it is authored with the section choice rather than left to the edit.
 | `enabled` | bool | `true` | |
 | `lines` | string[] | `[]` | At most two. Each under 42 characters, or the package is rejected. Empty means no hook. |
 | `startSeconds` | 0.0–10.0 | `0.0` | |
-| `durationSeconds` | 0.3–6.0 | `1.4` | |
+| `durationSeconds` | 0.3–6.0 | `2.2` | Long enough for setup and impact to register. |
 
 Rules that matter:
 
@@ -244,8 +244,10 @@ Rules that matter:
 Good: `WHEN HE DIED,` / `THE SPECIES ENDED` · `THIS GIANT` / `DISAPPEARED
 FOREVER` · `BILLIONS OF BIRDS.` / `THEN NONE.`
 
-The hook is composited onto the 1080×1920 canvas when the Short is built, above
-the letterboxed picture and clear of the captions below it. It never touches the
+The first line is a restrained setup; the second lands larger, red, and with a
+short upward punch. A locally synthesized rise and impact follow the same timing.
+The hook is composited onto the 1080×1920 canvas when the Short is built, around
+39–50% of its height and clear of the captions below it. It never touches the
 long video, and it is never burned into the file the Short was cut from. It is
 part of the Short's cache key, so changing the words produces a new Short rather
 than serving the old one.

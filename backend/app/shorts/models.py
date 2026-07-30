@@ -226,13 +226,12 @@ class ShortHookStyle(ShortCaptionStyle):
     author writes two lines, the app draws them the same way every time. The
     defaults are tuned for 1080x1920:
 
-    * heavy type, upper case, no box — it sits on the black band above the
-      letterboxed picture (which starts at y=656 for a 1920x1080 source), so
-      there is nothing to separate it from;
-    * ``safe_top_inset`` 200 px, clearing the Shorts player's own top chrome.
+    * a restrained setup followed by a larger red impact line;
+    * the renderer anchors both around 39% of canvas height: near eye level,
+      clear of the top chrome and the bottom caption/control area.
     """
 
-    font_size: int = Field(default=78, ge=20, le=160)
+    font_size: int = Field(default=92, ge=20, le=160)
     font_weight: int = Field(default=900, ge=100, le=900)
     max_lines: int = Field(default=2, ge=1, le=2)
     max_width_ratio: float = Field(default=0.88, ge=0.4, le=1.0)
@@ -244,7 +243,8 @@ class ShortHookStyle(ShortCaptionStyle):
     shadow: bool = True
     shadow_blur: int = Field(default=26, ge=0, le=64)
     fade_seconds: float = Field(default=0.16, ge=0.0, le=1.0)
-    #: Distance from the top of the canvas to the top of the hook block.
+    #: Minimum top clearance; the renderer normally places the hook lower at
+    #: its eye-line ratio.
     safe_top_inset: int = Field(default=200, ge=40, le=900)
 
 

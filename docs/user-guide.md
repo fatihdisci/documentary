@@ -47,12 +47,14 @@ description, thumbnail text/prompt, and the intro/outro narration.
 
 Every long video opens the same way, so the channel is recognisable from the
 first second: the animal's name types itself out, the scientific name fades in
-small underneath, and a red **EXTINCT** stamp lands over both. About two and a
-half seconds, then it dissolves into the film.
+small underneath, and a red **EXTINCT** stamp lands over both. The 4.2-second
+arc gives the reveal, identification, stamp and final hold their own beats.
 
 - **It does not make the video longer.** The card is drawn *over* the opening
   seconds of the picture, so nothing moves and no scene is shortened.
 - Leave the two titles blank and the animal's own names are used.
+- The app synthesizes dry typewriter clacks and a restrained stamp impact
+  automatically; no sound-effect file needs to be uploaded.
 - Set the stamp to `EXTINCT IN THE WILD`, or switch the style to a plain title,
   for a species that is not actually extinct.
 - Untick **Açılış kartı kullanılsın** and the video starts straight on scene one.
@@ -136,13 +138,16 @@ music and scene transitions come through exactly as they were mixed.
    video again and use the new export.
 2. **Choose your captions.** See [Captions in a Short](#captions-in-a-short)
    below.
-3. **Write the opening line.** Two short lines at most, shown over the black
-   band above the picture for the first second and a half — the promise that
-   makes someone stay. If you applied a planned Short it is already filled in
+3. **Write the opening line.** Two short lines at most, shown as a two-beat cold
+   open near the vertical canvas's eye line. The first sets up the thought;
+   the second lands larger and in red. This 2.2-second promise makes someone
+   stay. If you applied a planned Short it is already filled in
    from the content package. Leave it empty and no opening line is drawn.
    It is burned into the Short when it is built, so changing it later means
    building another Short (the app will, because a different line is a different
    Short).
+   The app also synthesizes a short rise and impact sound; no sound-effect asset
+   needs to be uploaded.
 4. **Choose sections.** Cards are numbered the way the video plays: `0 — Intro`,
    `1…N — Scene title`, `N+1 — Outro`. Tick them in the order you want them to
    appear; the badge on each card shows its position, and 6-then-2 really does

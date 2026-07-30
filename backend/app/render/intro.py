@@ -42,16 +42,20 @@ logger = logging.getLogger("evb.render.intro")
 
 #: Bumped when anything here changes the pixels an intro produces. Folded into
 #: the cache key so a cached track is never reused across renderer versions.
-INTRO_RENDERER_VERSION = 1
+INTRO_RENDERER_VERSION = 2
 
 #: Upper bound on typewriter cards. A longer name reveals more than one character
 #: per step rather than producing a card per letter — past this the animation
 #: reads identically and the cards are pure cost.
 MAX_TYPING_STEPS = 28
 
-#: How long the stamp takes to land, and the scales it passes through on the way.
-STAMP_LANDING_SECONDS = 0.18
-_STAMP_SCALES = (1.55, 1.18, 1.0)
+#: The first implementation used three hard scale changes in 180 ms, which read
+#: as a glitch rather than impact. These eased samples give the stamp a readable
+#: landing and a tiny physical settle without requiring a per-frame PNG.
+STAMP_LANDING_SECONDS = 0.42
+_STAMP_SCALES = (1.48, 1.34, 1.22, 1.12, 1.04, 0.98, 1.015, 1.0)
+SECONDARY_FADE_SECONDS = 0.45
+_SECONDARY_OPACITIES = (0.18, 0.38, 0.62, 0.82, 1.0)
 #: Degrees. A stamp that is perfectly level looks like a caption, not a stamp.
 STAMP_ROTATION_DEGREES = -8.0
 
@@ -206,8 +210,9 @@ def _card_digest(
     height: int,
     typed: str,
     show_cursor: bool,
-    show_secondary: bool,
+    secondary_opacity: float,
     stamp_scale: float | None,
+    stamp_opacity: float,
 ) -> str:
     payload = "\x1f".join(
         [
@@ -217,8 +222,9 @@ def _card_digest(
             f"{width}x{height}",
             typed,
             "cursor" if show_cursor else "-",
-            "sub" if show_secondary else "-",
+            f"sub:{secondary_opacity:.3f}",
             "-" if stamp_scale is None else f"{stamp_scale:.3f}",
+            f"stamp-alpha:{stamp_opacity:.3f}",
         ]
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:20]
@@ -232,7 +238,7 @@ def _render_card(
     height: int,
     typed: str,
     show_cursor: bool,
-    show_secondary: bool,
+    secondary_opacity: float,
     stamp_scale: float | None,
     stamp_opacity: float,
     output_dir: Path,
@@ -245,8 +251,9 @@ def _render_card(
         height=height,
         typed=typed,
         show_cursor=show_cursor,
-        show_secondary=show_secondary,
+        secondary_opacity=secondary_opacity,
         stamp_scale=stamp_scale,
+        stamp_opacity=stamp_opacity,
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     target = output_dir / f"intro-{digest}.png"
@@ -293,7 +300,7 @@ def _render_card(
 
     bottom = title_top + line_height
     secondary = intro.secondary_title.strip()
-    if show_secondary and secondary:
+    if secondary_opacity > 0 and secondary:
         sub_size = max(12, int(round(height * _SUBTITLE_SIZE)))
         sub_font = fonts.load(family, 500, sub_size)
         sub_tracking = sub_size * 0.22
@@ -304,15 +311,22 @@ def _render_card(
             ((width - sub_width) / 2, sub_top),
             secondary,
             sub_font,
-            (*_hex_to_rgb(intro.secondary_color), 235),
+            (
+                *_hex_to_rgb(intro.secondary_color),
+                int(round(235 * max(0.0, min(1.0, secondary_opacity)))),
+            ),
             sub_tracking,
         )
         sub_ascent, sub_descent = sub_font.getmetrics()
         bottom = sub_top + sub_ascent + sub_descent
 
-    # A soft drop shadow under the type, so the card reads over a bright frame
-    # even when the scrim has been turned down.
-    shadow = text_layer.filter(ImageFilter.GaussianBlur(int(round(height * 0.006))))
+    # Blur the alpha into black. Blurring the coloured layer itself (the v1
+    # behaviour) produced a pale halo and made each state appear to flash.
+    shadow_alpha = text_layer.getchannel("A").filter(
+        ImageFilter.GaussianBlur(int(round(height * 0.006)))
+    )
+    shadow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    shadow.putalpha(shadow_alpha.point(lambda alpha: int(alpha * 0.72)))
     image = Image.alpha_composite(image, shadow)
     image = Image.alpha_composite(image, text_layer)
 
@@ -369,7 +383,7 @@ def build_intro_track(
         *,
         typed: str,
         cursor: bool = False,
-        secondary: bool = True,
+        secondary_opacity: float = 1.0,
         stamp_scale: float | None = None,
         stamp_opacity: float = 1.0,
     ) -> IntroCard | None:
@@ -383,7 +397,7 @@ def build_intro_track(
                 height=height,
                 typed=typed,
                 show_cursor=cursor,
-                show_secondary=secondary,
+                secondary_opacity=secondary_opacity,
                 stamp_scale=stamp_scale,
                 stamp_opacity=stamp_opacity,
                 output_dir=output_dir,
@@ -401,15 +415,35 @@ def build_intro_track(
         for index, prefix in enumerate(steps):
             start = span * index / len(steps)
             end = span * (index + 1) / len(steps)
-            entry = card(start, end, typed=prefix, cursor=True, secondary=False)
+            entry = card(start, end, typed=prefix, cursor=True, secondary_opacity=0.0)
             if entry is not None:
                 cards.append(entry)
         typed_until = span
 
-    # The finished name, with the scientific name under it. This is the state the
-    # card holds in until the stamp lands, and the only state a plain title has.
+    # Reveal the scientific name over several states. The old renderer switched
+    # it on in one frame even though the UI and docs promised a fade.
     hold_end = min(intro.stamp_at, intro.duration) if stamped else intro.duration
-    entry = card(typed_until, max(typed_until, hold_end), typed=title, secondary=True)
+    secondary = bool(intro.secondary_title.strip())
+    fade_span = min(
+        SECONDARY_FADE_SECONDS,
+        max(0.0, hold_end - typed_until),
+    )
+    if secondary and fade_span > 0 and intro.intro_style is IntroStyle.TYPEWRITER_STAMP:
+        for index, opacity in enumerate(_SECONDARY_OPACITIES):
+            start = typed_until + fade_span * index / len(_SECONDARY_OPACITIES)
+            end = typed_until + fade_span * (index + 1) / len(_SECONDARY_OPACITIES)
+            entry = card(
+                start, end, typed=title, secondary_opacity=opacity
+            )
+            if entry is not None:
+                cards.append(entry)
+        typed_until += fade_span
+    entry = card(
+        typed_until,
+        max(typed_until, hold_end),
+        typed=title,
+        secondary_opacity=1.0,
+    )
     if entry is not None:
         cards.append(entry)
 
@@ -422,13 +456,18 @@ def build_intro_track(
                 start,
                 end,
                 typed=title,
+                secondary_opacity=1.0,
                 stamp_scale=scale,
-                stamp_opacity=0.45 + 0.55 * (index + 1) / len(_STAMP_SCALES),
+                stamp_opacity=0.35 + 0.65 * (index + 1) / len(_STAMP_SCALES),
             )
             if entry is not None:
                 cards.append(entry)
         entry = card(
-            intro.stamp_at + landing, intro.duration, typed=title, stamp_scale=1.0
+            intro.stamp_at + landing,
+            intro.duration,
+            typed=title,
+            secondary_opacity=1.0,
+            stamp_scale=1.0,
         )
         if entry is not None:
             cards.append(entry)

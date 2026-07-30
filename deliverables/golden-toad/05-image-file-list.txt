@@ -1,0 +1,17 @@
+Golden toad — exact image upload order
+
+00-intro.png
+01-cloud-forest.png
+02-two-colours.png
+03-hidden.png
+04-breeding-rain.png
+05-dry-pools.png
+06-collapse.png
+07-last-male.png
+08-empty-forest.png
+09-causes.png
+10-legacy.png
+
+Total: 11 images
+Mapping: 1 dedicated intro image + 10 scene images
+Outro reuses 10-legacy.png

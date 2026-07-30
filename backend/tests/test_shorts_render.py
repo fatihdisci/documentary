@@ -18,6 +18,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.models.enums import JobStatus
+from app.models.project import ShortHook
 from app.shorts.manifest import ManifestEntry
 from app.shorts.pipeline import ShortsPipeline
 from app.shorts.plan import build_plan
@@ -133,9 +134,10 @@ def source(settings):  # noqa: ANN001, ANN201
     return project.slug, paths, manifest
 
 
-async def build_short(source, settings, *units, trims=None):  # noqa: ANN001, ANN201
+async def build_short(source, settings, *units, trims=None, hook=None):  # noqa: ANN001, ANN201
     slug, paths, manifest = source
     request = request_for(*units, trims=trims)
+    request.hook = hook
     plan = build_plan(manifest, request)
     pipeline = ShortsPipeline(
         paths=paths, manifest=manifest, request=request, plan=plan,
@@ -167,6 +169,15 @@ class TestOutput:
         result = asyncio.run(build_short(source, settings, "scene-2"))
         mean_volume = measure_mean_volume(result.artifacts.video, settings=settings)
         assert mean_volume is not None and mean_volume > -60.0
+
+    def test_eye_level_hook_and_its_sound_render_together(self, source, settings) -> None:  # noqa: ANN001
+        hook = ShortHook(lines=["When he died,", "the species ended"])
+        result = asyncio.run(build_short(source, settings, "scene-2", hook=hook))
+        assert result.short_manifest.hook == hook
+        assert result.artifacts.log is not None
+        log = result.artifacts.log.read_text(encoding="utf-8")
+        assert "[hook-sfx] rise and impact mixed" in log
+        assert result.validation.passed
 
     def test_measured_frame_intervals_are_constant(self, source, settings) -> None:  # noqa: ANN001
         result = asyncio.run(build_short(source, settings, "scene-2"))

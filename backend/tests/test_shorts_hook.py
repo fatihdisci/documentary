@@ -15,7 +15,6 @@ import pytest
 from app.models.project import PlannedShort, ShortHook, ShortsPlan
 from app.shorts.hooks import build_hook_card, fit_hook_size, overlay_steps
 from app.shorts.models import DEFAULT_HOOK_STYLE, SHORT_HEIGHT, SHORT_WIDTH
-from app.shorts.validate import fit_geometry
 
 HOOK = ShortHook(lines=["When he died,", "the species ended"])
 
@@ -46,7 +45,7 @@ class TestAuthoring:
     def test_the_house_timing_is_the_first_beat(self) -> None:
         hook = ShortHook()
         assert hook.start_seconds == 0.0
-        assert 1.0 <= hook.duration_seconds <= 1.5
+        assert 2.0 <= hook.duration_seconds <= 2.5
 
     def test_a_plan_round_trips_through_json_with_its_hooks(self) -> None:
         plan = ShortsPlan(
@@ -63,23 +62,19 @@ class TestAuthoring:
 
 
 class TestDrawing:
-    def test_it_sits_above_the_picture_not_over_it(self, tmp_path: Path) -> None:
-        """A 16:9 source centred on 1080x1920 leaves a black band at the top.
-
-        The hook belongs in that band: over the picture it would cover the film,
-        and the captions already own the band below it.
-        """
-        geometry = fit_geometry(1920, 1080, SHORT_WIDTH, SHORT_HEIGHT)
+    def test_it_sits_near_eye_level_not_at_the_top(self, tmp_path: Path) -> None:
         card = build_hook_card(
             HOOK, DEFAULT_HOOK_STYLE,
             canvas_width=SHORT_WIDTH, canvas_height=SHORT_HEIGHT,
             total_duration_seconds=30.0, output_dir=tmp_path,
         )
         assert card is not None
-        assert card.card.box_y >= 0
-        assert card.card.box_bottom <= geometry.offset_y, (
-            "the hook must clear the top of the letterboxed picture"
-        )
+        assert card.lead_card is not None
+        combined_top = min(card.lead_card.box_y, card.card.box_y)
+        combined_bottom = max(card.lead_card.box_bottom, card.card.box_bottom)
+        combined_centre = (combined_top + combined_bottom) / 2
+        assert SHORT_HEIGHT * 0.38 <= combined_centre <= SHORT_HEIGHT * 0.55
+        assert combined_bottom < SHORT_HEIGHT * 0.62, "keep clear of lower captions and controls"
 
     def test_it_fits_inside_the_canvas(self, tmp_path: Path) -> None:
         card = build_hook_card(
@@ -98,7 +93,10 @@ class TestDrawing:
             total_duration_seconds=30.0, output_dir=tmp_path,
         )
         assert card is not None
-        assert card.card.text.splitlines() == ["WHEN HE DIED,", "THE SPECIES ENDED"]
+        assert card.lead_card is not None
+        assert card.lead_card.text == "WHEN HE DIED,"
+        assert card.card.text == "THE SPECIES ENDED"
+        assert card.impact_start_seconds > card.start_seconds
 
     def test_long_lines_shrink_rather_than_re_break(self) -> None:
         short = fit_hook_size(["GONE"], DEFAULT_HOOK_STYLE, canvas_width=SHORT_WIDTH)
@@ -157,7 +155,9 @@ class TestFiltergraph:
         graph = ";".join(steps)
         assert "SPECIES" not in graph.upper().replace("HOOKCARD", "")
         assert "drawtext" not in graph
-        assert "enable='between(t,0.000,1.400)'" in graph
+        assert "enable='between(t,0.000,2.200)'" in graph
+        assert "enable='between(t,0.420,2.200)'" in graph
+        assert "if(lt(t,0.620)" in graph
         assert final == "hooked"
 
 

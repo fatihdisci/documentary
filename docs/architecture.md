@@ -202,24 +202,30 @@ in the modes where captions change the output.
 
 ### Shorts hooks (`shorts/hooks.py`)
 
-A hook is the first beat of a Short: at most two lines, upper case, drawn over
-the black band **above** the picture. It is authored with the Short, in the
-content package's `shortsPlan`, because it is what decides whether the Short is
-watched at all.
+A hook is a 2.2-second two-beat cold open: at most two lines, upper case, drawn
+near the vertical canvas's eye line. The setup appears first; the larger red
+impact follows with a short upward punch. It is authored with the Short, in
+the content package's `shortsPlan`, because it is what decides whether the Short
+is watched at all.
 
-The module is deliberately thin — it is the caption machinery placed at the top
-of the canvas instead of the bottom, reusing `as_text_style` and `render_card`
-rather than starting a second text system. The one behavioural difference is
-fitting: a caption is re-wrapped freely, a hook **shrinks rather than re-breaks**,
-because its line break is a writing decision.
+The module reuses the caption fitter and `render_card`, but draws the two
+authored lines as separately timed cards. A caption is re-wrapped freely; each
+hook line **shrinks rather than re-breaks**, because its line break is a writing
+decision.
+
+`render/sfx.py` synthesizes the audio identity locally at 48 kHz. Long openings
+receive dry typewriter clacks and a low stamp impact; Short hooks receive a brief
+rise into their visual impact. Both WAVs are content-addressed and cached. The
+long-opening sound is mixed only when the branded overlay is present, so the
+Shorts clean master remains free of both the long intro picture and its sound.
 
 Three properties make it safe:
 
 * it is composed onto the vertical canvas during the compose pass, so it works
   in every caption mode and is never burned into the long video or into the file
   the cut came from;
-* it lands above the letterboxed picture while captions land below it, so the
-  two cannot collide whatever the source's aspect ratio;
+* it lands near eye level while captions stay in the lower safe area, so the two
+  cannot collide;
 * it joins the cache key only when there is one to draw, so a Short whose
   request carries no hook hashes to exactly the value it always did.
 
@@ -325,6 +331,12 @@ from an old plan is byte-for-byte the Short it was. The one behavioural change
 for an existing project is the clean master: an opening must never reach the file
 Shorts are cut from, so a project rendering without burned-in subtitles now pays
 a second assemble pass instead of publishing its export as its own clean master.
+
+**project v3 → v4** retimes only untouched house defaults. A 2.6/1.3/1.7 intro
+becomes 4.2/1.8/2.65, and an explicitly stored 1.4-second hook becomes 2.2
+seconds. User-edited timings are preserved. The renderer also makes the
+scientific-name fade and stamp landing real multi-state animations, while the
+Short renderer reveals setup and impact separately.
 
 **Content package v1 → v2** added `longIntro` and `tts` at the top level and a
 `hook` inside every planned Short. No migration exists or is needed: all three

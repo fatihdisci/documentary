@@ -228,9 +228,9 @@ export interface PlannedSocialMetadata {
 }
 
 /**
- * The one-second promise a Short opens with.
+ * The two-beat promise a Short opens with.
  *
- * Drawn over the black band above the picture during the Short's compose pass —
+ * Drawn near eye level during the Short's compose pass —
  * never burned into the long video, and never into the file the Short was cut
  * from. Empty `lines` means no hook, which is what every Short built before this
  * existed had.
@@ -247,7 +247,7 @@ export const EMPTY_HOOK: ShortHook = {
   enabled: true,
   lines: [],
   startSeconds: 0,
-  durationSeconds: 1.4,
+  durationSeconds: 2.2,
 }
 
 /** A backend predating hooks sends no `hook`; treat that as "nothing to draw". */
@@ -315,10 +315,10 @@ export const DEFAULT_LONG_INTRO: LongIntro = {
   primaryTitle: '',
   secondaryTitle: '',
   stampText: 'EXTINCT',
-  duration: 2.6,
-  typewriterDuration: 1.3,
-  stampAt: 1.7,
-  fadeOutSeconds: 0.4,
+  duration: 4.2,
+  typewriterDuration: 1.8,
+  stampAt: 2.65,
+  fadeOutSeconds: 0.65,
   primaryColor: '#FFFFFF',
   secondaryColor: '#D7D2C8',
   stampColor: '#C0271F',
