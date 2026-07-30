@@ -180,8 +180,16 @@ class TestOutput:
         )
         assert result.artifacts.log is not None
         log = result.artifacts.log.read_text(encoding="utf-8")
-        assert "[hook-sfx] rise and impact mixed" in log
+        assert "[hook-sfx] rise and impact prepended" in log
         assert "prepended as a separate" in log
+        content_volume = measure_mean_volume(
+            result.artifacts.video,
+            start_seconds=result.plan.opening_duration_seconds,
+            settings=settings,
+        )
+        assert content_volume is not None and content_volume > -60.0
+        named = {assertion.name: assertion for assertion in result.validation.assertions}
+        assert named["content audio after hook is not silent"].passed
         # During the hook, even a point inside the eventual 16:9 picture is
         # black: the selected scene has not begun underneath it.
         assert close_to(

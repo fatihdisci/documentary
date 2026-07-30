@@ -253,6 +253,21 @@ def validate_output(
                         f"{mean_volume:.1f} dB",
                     )
                 )
+            if narration_offset_seconds > 0:
+                content_volume = measure_mean_volume(
+                    path,
+                    start_seconds=narration_offset_seconds,
+                    settings=active,
+                )
+                if content_volume is not None:
+                    report.assertions.append(
+                        Assertion(
+                            "content audio after opening is not silent",
+                            content_volume > SILENCE_THRESHOLD_DB,
+                            f"> {SILENCE_THRESHOLD_DB} dB",
+                            f"{content_volume:.1f} dB",
+                        )
+                    )
 
     report.checksum = _sha256(path)
 

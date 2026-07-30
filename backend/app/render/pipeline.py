@@ -738,33 +738,46 @@ class RenderPipeline:
                 sfx_index = index + 1
                 args += ["-i", str(intro_sfx)]
                 steps.append(
-                    f"[{sfx_index}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
-                    "volume=-2.5dB[introsfx]"
+                    f"[{sfx_index}:a]volume=-2.5dB,"
+                    f"apad=whole_dur={opening_total:.4f},"
+                    f"atrim=duration={opening_total:.4f},asetpts=PTS-STARTPTS,"
+                    "aformat=sample_fmts=fltp:sample_rates=48000:"
+                    "channel_layouts=stereo[introaudio]"
                 )
                 if audio_output_label:
-                    delay_ms = max(0, int(round(opening_total * 1000)))
                     steps.append(
-                        f"[{audio_output_label}]adelay={delay_ms}:all=1[contentaudio]"
+                        f"[{audio_output_label}]atrim=duration={content_total:.4f},"
+                        "asetpts=PTS-STARTPTS,"
+                        "aformat=sample_fmts=fltp:sample_rates=48000:"
+                        "channel_layouts=stereo[contentaudio]"
                     )
                     steps.append(
-                        "[contentaudio][introsfx]"
-                        "amix=inputs=2:normalize=0:duration=longest,"
+                        "[introaudio][contentaudio]concat=n=2:v=0:a=1,"
                         f"atrim=duration={total:.4f},"
                         "alimiter=limit=0.95[aoutwithsfx]"
                     )
                 else:
                     steps.append(
-                        f"[introsfx]apad=whole_dur={total:.4f},"
+                        f"[introaudio]apad=whole_dur={total:.4f},"
                         f"atrim=duration={total:.4f}[aoutwithsfx]"
                     )
                 audio_output_label = "aoutwithsfx"
                 self._record(
-                    f"[intro-sfx] typewriter and stamp mixed from {intro_sfx.name}"
+                    f"[intro-sfx] typewriter and stamp prepended from {intro_sfx.name}"
                 )
             elif audio_output_label:
-                delay_ms = max(0, int(round(opening_total * 1000)))
                 steps.append(
-                    f"[{audio_output_label}]adelay={delay_ms}:all=1,"
+                    f"anullsrc=r=48000:cl=stereo,atrim=duration={opening_total:.4f},"
+                    "asetpts=PTS-STARTPTS[introsilence]"
+                )
+                steps.append(
+                    f"[{audio_output_label}]atrim=duration={content_total:.4f},"
+                    "asetpts=PTS-STARTPTS,"
+                    "aformat=sample_fmts=fltp:sample_rates=48000:"
+                    "channel_layouts=stereo[contentaudio]"
+                )
+                steps.append(
+                    "[introsilence][contentaudio]concat=n=2:v=0:a=1,"
                     f"atrim=duration={total:.4f}[aoutdelayed]"
                 )
                 audio_output_label = "aoutdelayed"

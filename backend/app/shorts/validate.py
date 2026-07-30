@@ -93,6 +93,7 @@ def validate_short(
     source_width: int,
     source_height: int,
     cut_count: int = 1,
+    opening_duration_seconds: float = 0.0,
     settings: Settings | None = None,
 ) -> ShortValidation:
     """Verify a finished Short against what the plan asked for."""
@@ -194,6 +195,21 @@ def validate_short(
                     f"{mean_volume:.1f} dB",
                 )
             )
+        if opening_duration_seconds > 0:
+            content_volume = measure_mean_volume(
+                path,
+                start_seconds=opening_duration_seconds,
+                settings=active,
+            )
+            if content_volume is not None:
+                report.assertions.append(
+                    Assertion(
+                        "content audio after hook is not silent",
+                        content_volume > SILENCE_THRESHOLD_DB,
+                        f"> {SILENCE_THRESHOLD_DB} dB",
+                        f"{content_volume:.1f} dB",
+                    )
+                )
 
     # The source keeps its own aspect ratio inside the canvas.
     geometry = fit_geometry(source_width, source_height, expected_width, expected_height)

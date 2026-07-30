@@ -134,6 +134,16 @@ class TestOutput:
         mean_volume = measure_mean_volume(rendered[0].artifacts.video)
         assert mean_volume is not None and mean_volume > -50.0
 
+    def test_narration_and_music_continue_after_the_intro(self, rendered) -> None:  # noqa: ANN001
+        result, project = rendered[:2]
+        mean_volume = measure_mean_volume(
+            result.artifacts.video,
+            start_seconds=project.long_intro.duration,
+        )
+        assert mean_volume is not None and mean_volume > -50.0
+        named = {assertion.name: assertion for assertion in result.validation.assertions}
+        assert named["content audio after opening is not silent"].passed
+
     def test_scene_durations_follow_their_own_audio(self, rendered) -> None:  # noqa: ANN001
         """Fixed-duration scenes would show up as identical values here."""
         timeline = rendered[0].timeline

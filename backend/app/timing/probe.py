@@ -268,16 +268,31 @@ def measure_speech_onset(
     return round(onset, 4)
 
 
-def measure_mean_volume(path: Path, *, settings: Settings | None = None) -> float | None:
+def measure_mean_volume(
+    path: Path,
+    *,
+    start_seconds: float = 0.0,
+    duration_seconds: float | None = None,
+    settings: Settings | None = None,
+) -> float | None:
     """Return the mean volume in dBFS, or None if it could not be measured.
 
-    Used to assert a rendered file's audio is not digital silence.
+    Used to assert a rendered file's audio is not digital silence. A time
+    window can exclude a decorative pre-roll so its sound effect cannot hide a
+    missing narration/music track.
     """
     active = settings or get_settings()
     runner = FFmpegRunner(active)
     ffmpeg = active.require_tool("ffmpeg")
+    args = [ffmpeg, "-hide_banner", "-nostats"]
+    if start_seconds > 0:
+        args += ["-ss", f"{start_seconds:.4f}"]
+    args += ["-i", str(path)]
+    if duration_seconds is not None:
+        args += ["-t", f"{max(0.0, duration_seconds):.4f}"]
+    args += ["-af", "volumedetect", "-f", "null", "-"]
     result = runner._run_sync(  # noqa: SLF001
-        [ffmpeg, "-hide_banner", "-nostats", "-i", str(path), "-af", "volumedetect", "-f", "null", "-"],
+        args,
         timeout=180.0,
     )
     for line in result.stderr.splitlines():

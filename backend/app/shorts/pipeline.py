@@ -302,6 +302,7 @@ class ShortsPipeline:
                 source_width=self.manifest.source.width,
                 source_height=self.manifest.source.height,
                 cut_count=len(self.plan.groups),
+                opening_duration_seconds=self.plan.opening_duration_seconds,
                 settings=self.settings,
             )
             if not validation.passed:
@@ -764,29 +765,36 @@ class ShortsPipeline:
 
         audio_map = "0:a:0"
         if self._hook is not None:
-            delay_ms = max(0, int(round(opening_total * 1000)))
             steps.append(
                 f"[0:a:0]atrim=duration={content_total:.4f},asetpts=PTS-STARTPTS,"
-                f"adelay={delay_ms}:all=1[contentaudio]"
+                "aformat=sample_fmts=fltp:sample_rates=48000:"
+                "channel_layouts=stereo[contentaudio]"
             )
-            audio_map = "[contentaudio]"
             if self._hook_sfx is not None:
                 sfx_index = next_index
                 next_index += 1
                 inputs += ["-i", str(self._hook_sfx)]
                 steps.append(
-                    f"[{sfx_index}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
-                    "volume=-3dB[hooksfx]"
+                    f"[{sfx_index}:a]volume=-3dB,"
+                    f"apad=whole_dur={opening_total:.4f},"
+                    f"atrim=duration={opening_total:.4f},asetpts=PTS-STARTPTS,"
+                    "aformat=sample_fmts=fltp:sample_rates=48000:"
+                    "channel_layouts=stereo[hookaudio]"
                 )
-                steps.append(
-                    "[contentaudio][hooksfx]amix=inputs=2:normalize=0:duration=longest,"
-                    f"atrim=duration={total:.4f},"
-                    "alimiter=limit=0.95[shortaudio]"
-                )
-                audio_map = "[shortaudio]"
                 self._record(
-                    f"[hook-sfx] rise and impact mixed from {self._hook_sfx.name}"
+                    f"[hook-sfx] rise and impact prepended from {self._hook_sfx.name}"
                 )
+            else:
+                steps.append(
+                    f"anullsrc=r=48000:cl=stereo,atrim=duration={opening_total:.4f},"
+                    "asetpts=PTS-STARTPTS[hookaudio]"
+                )
+            steps.append(
+                "[hookaudio][contentaudio]concat=n=2:v=0:a=1,"
+                f"atrim=duration={total:.4f},"
+                "alimiter=limit=0.95[shortaudio]"
+            )
+            audio_map = "[shortaudio]"
 
         args = [
             self.settings.require_tool("ffmpeg"),
