@@ -1,10 +1,10 @@
 /**
  * Small, platform-agnostic form pieces for the Publish panel.
  *
- * Deliberately shared: the YouTube card and the three cards that are still UI
- * only use the same tag editor, the same counters and the same schedule picker,
- * so adding a real Instagram integration later is a matter of giving its card a
- * backend, not rebuilding its form.
+ * Deliberately shared: the YouTube card and the TikTok card use the same tag
+ * editor, the same counters and the same schedule picker, so adding another
+ * platform later is a matter of giving its card a backend, not rebuilding its
+ * form.
  */
 
 import { useState, type ReactNode } from 'react'

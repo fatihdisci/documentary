@@ -170,7 +170,7 @@ Every new content-package JSON for this channel must also carry a `shortsPlan`.
 It is the hand-off for 3–5 planned Shorts: ordered references to the source
 sections (`intro`, one-based `scene` numbers, or `outro`), a clear editorial
 angle, estimated duration, the Short's opening `hook`, and publication-ready
-English copy for YouTube, Instagram, Facebook and TikTok. The plan uses
+English copy for YouTube and TikTok. The plan uses
 `shorts-native` / `large` captions, prefers two to four adjacent scenes, and
 uses `FULL_VIDEO_URL` until the long video has a public link.
 

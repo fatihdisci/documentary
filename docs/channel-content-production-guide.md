@@ -60,8 +60,8 @@ must identify its source with ordered section references, for example
 `[{"kind":"scene","number":2},{"kind":"scene","number":3}]`, rather
 than vague scene titles. Include: a stable `id`, priority, editorial purpose,
 estimated duration, YouTube title/alternatives/description/tags/hashtags/pinned
-comment, and distinct Instagram, Facebook and TikTok captions, hashtags and
-calls to action. Use `shorts-native` captions with the `large` preset.
+comment, and a TikTok caption, hashtags and call to action. Use `shorts-native`
+captions with the `large` preset.
 Keep social hashtags out of `caption`; the publishing layer appends the
 `hashtags` array automatically. Keep YouTube hashtags in its description.
 

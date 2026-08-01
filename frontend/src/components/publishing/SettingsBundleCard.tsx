@@ -125,7 +125,7 @@ export function SettingsBundleCard() {
           onChange={(event) => setIncludeCredentials(event.target.checked)}
         />
         OAuth yetkilerini de dahil et
-        <span className="hint">Kapatılırsa YouTube, Meta ve TikTok hesaplarını diğer bilgisayarda yeniden bağlamanız gerekir.</span>
+        <span className="hint">Kapatılırsa YouTube ve TikTok hesaplarını diğer bilgisayarda yeniden bağlamanız gerekir.</span>
       </label>
       <div className="row">
         <button type="button" className="primary" disabled={exportBusy || !exportReady} onClick={() => void exportBundle()}>

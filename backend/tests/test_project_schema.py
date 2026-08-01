@@ -16,7 +16,7 @@ from app.models.enums import (
     TTSProviderName,
 )
 from app.models.migrations import MIGRATIONS, migrate
-from app.models.project import SCHEMA_VERSION, Project, Scene
+from app.models.project import SCHEMA_VERSION, Project, Scene, ShortsPlan
 
 
 def make_project(**kwargs: object) -> Project:
@@ -243,3 +243,87 @@ class TestCleanMasterMigration:
         }
         project = Project.model_validate(migrate(raw))
         assert project.export.prepare_clean_master_for_shorts is True
+
+
+class TestRetiredSocialPlatformsMigration:
+    """v4 -> v5: the Instagram and Facebook copy on every planned Short.
+
+    The app publishes to YouTube and TikTok only. The two retired blocks have to
+    disappear without taking anything else with them — a Short is defined by its
+    sections, and re-cutting one from a migrated plan must produce the same file.
+    """
+
+    def test_a_v4_plan_opens_without_its_retired_copy(self) -> None:
+        raw = {
+            "schemaVersion": 4,
+            "name": "old",
+            "slug": "old",
+            "shortsPlan": {
+                "shorts": [
+                    {
+                        "id": "scenes-two-three",
+                        "sections": [
+                            {"kind": "scene", "number": 2},
+                            {"kind": "scene", "number": 3},
+                        ],
+                        "instagram": {"caption": "A bird without fear."},
+                        "facebook": {"caption": "No land predators."},
+                        "tiktok": {"caption": "Why did the dodo have no fear?"},
+                    }
+                ]
+            },
+        }
+
+        project = Project.model_validate(migrate(raw))
+
+        planned = project.shorts_plan.shorts[0]
+        assert planned.tiktok.caption == "Why did the dodo have no fear?"
+        assert not hasattr(planned, "instagram")
+        assert not hasattr(planned, "facebook")
+
+    def test_the_sections_a_short_is_cut_from_are_untouched(self) -> None:
+        raw = {
+            "schemaVersion": 4,
+            "name": "old",
+            "shortsPlan": {
+                "shorts": [
+                    {
+                        "id": "scenes-two-three",
+                        "sections": [
+                            {"kind": "scene", "number": 2},
+                            {"kind": "scene", "number": 3},
+                        ],
+                        "hook": {"lines": ["It had no fear", "of anything"]},
+                        "youtube": {"title": "Why the Dodo Had No Fear"},
+                        "instagram": {"caption": "gone"},
+                    }
+                ]
+            },
+        }
+
+        planned = Project.model_validate(migrate(raw)).shorts_plan.shorts[0]
+
+        assert [(s.kind, s.number) for s in planned.sections] == [("scene", 2), ("scene", 3)]
+        assert planned.hook.lines == ["It had no fear", "of anything"]
+        assert planned.youtube.title == "Why the Dodo Had No Fear"
+
+    def test_a_content_package_written_for_meta_still_imports(self) -> None:
+        """Packages are authored files, not stored projects — nothing migrates them."""
+        plan = ShortsPlan.model_validate(
+            {
+                "shorts": [
+                    {
+                        "id": "scenes-two-three",
+                        "sections": [
+                            {"kind": "scene", "number": 2},
+                            {"kind": "scene", "number": 3},
+                        ],
+                        "instagram": {"caption": "A bird without fear.", "hashtags": ["Dodo"]},
+                        "facebook": {"caption": "No land predators."},
+                        "tiktok": {"caption": "Why did the dodo have no fear?"},
+                    }
+                ]
+            }
+        )
+
+        assert plan.shorts[0].tiktok.caption == "Why did the dodo have no fear?"

@@ -32,17 +32,12 @@ from app.publishing.models import (
     LOCAL_TIMEZONE,
     MAX_CAPTION_BYTES,
     MAX_DESCRIPTION_BYTES,
-    MAX_FACEBOOK_DESCRIPTION_CHARS,
-    MAX_INSTAGRAM_CAPTION_CHARS,
-    MAX_INSTAGRAM_HASHTAGS,
     MAX_TAGS_LENGTH,
     MAX_THUMBNAIL_BYTES,
     MAX_TIKTOK_TITLE_CHARS,
     MAX_TITLE_CHARS,
     CommonDraft,
     DraftResponse,
-    FacebookDraft,
-    InstagramDraft,
     MediaItem,
     MediaKind,
     PublishDraft,
@@ -202,16 +197,15 @@ def validate_youtube_metadata(draft: YouTubeDraft) -> list[str]:
     return warnings
 
 
-# --- the other three platforms ----------------------------------------------
+# --- TikTok -----------------------------------------------------------------
 
 
 def compose_caption(social: SocialDraft) -> str:
     """The text one post actually carries: the caption plus its hashtags.
 
     Hashtags are kept as a separate field in the editor because they are a list
-    with their own rules, and joined here because every one of these platforms
-    takes a single string. A tag the user already wrote with a ``#`` is not
-    given a second one.
+    with their own rules, and joined here because TikTok takes a single string.
+    A tag the user already wrote with a ``#`` is not given a second one.
     """
     caption = social.caption.strip()
     tags = [
@@ -221,68 +215,6 @@ def compose_caption(social: SocialDraft) -> str:
     if not tags:
         return caption
     return f"{caption}\n\n{' '.join(tags)}".strip()
-
-
-def validate_instagram_metadata(draft: InstagramDraft, media: MediaItem) -> list[str]:
-    """Meta's Reels limits, checked before anything is uploaded anywhere.
-
-    A Reel that is too long or too short is refused by Meta *after* the file has
-    been hosted, downloaded and transcoded — several minutes later. Checking the
-    numbers the app already knows turns that into an instant, fixable message.
-    """
-    problems: list[str] = []
-    caption = compose_caption(draft)
-    if len(caption) > MAX_INSTAGRAM_CAPTION_CHARS:
-        problems.append(
-            f"Açıklama {len(caption)} karakter; Instagram en fazla "
-            f"{MAX_INSTAGRAM_CAPTION_CHARS} karakter kabul eder."
-        )
-    if len(draft.hashtags) > MAX_INSTAGRAM_HASHTAGS:
-        problems.append(
-            f"{len(draft.hashtags)} hashtag var; Instagram en fazla "
-            f"{MAX_INSTAGRAM_HASHTAGS} tanesini kabul eder."
-        )
-    problems.extend(_reel_duration_problems(media, minimum=3.0, maximum=15 * 60))
-
-    if problems:
-        raise ValidationError(
-            ErrorCode.PUBLISHING_ASSET_INVALID,
-            problems[0] if len(problems) == 1 else "Instagram bilgileri sınırları aşıyor.",
-            details="\n".join(problems),
-        )
-
-    warnings: list[str] = []
-    if media.width and media.height and media.width > media.height:
-        warnings.append(
-            "Video yatay. Instagram Reels dikey (9:16) videolar için tasarlanmıştır; yatay bir "
-            "video kırpılarak gösterilebilir."
-        )
-    return warnings
-
-
-def validate_facebook_metadata(draft: SocialDraft, media: MediaItem) -> list[str]:
-    problems: list[str] = []
-    description = compose_caption(draft)
-    if len(description) > MAX_FACEBOOK_DESCRIPTION_CHARS:
-        problems.append(
-            f"Açıklama {len(description)} karakter; Facebook en fazla "
-            f"{MAX_FACEBOOK_DESCRIPTION_CHARS} karakter kabul eder."
-        )
-    problems.extend(_reel_duration_problems(media, minimum=3.0, maximum=90 * 60))
-
-    if problems:
-        raise ValidationError(
-            ErrorCode.PUBLISHING_ASSET_INVALID,
-            problems[0] if len(problems) == 1 else "Facebook bilgileri sınırları aşıyor.",
-            details="\n".join(problems),
-        )
-
-    warnings: list[str] = []
-    if media.width and media.height and media.width > media.height:
-        warnings.append(
-            "Video yatay. Facebook Reels dikey videolar içindir; yatay bir video kırpılabilir."
-        )
-    return warnings
 
 
 def validate_tiktok_metadata(
@@ -337,19 +269,6 @@ def _long_intro_summary(project: Project) -> str:
     if intro.draws_stamp:
         parts.append(f"“{intro.stamp_text.strip().upper()}” damgası")
     return f"{' · '.join(parts)} ({intro.duration:.1f} sn)"
-
-
-def _reel_duration_problems(media: MediaItem, *, minimum: float, maximum: float) -> list[str]:
-    duration = media.duration_seconds or 0.0
-    if not duration:
-        return []
-    if duration < minimum:
-        return [f"Video {duration:.1f} saniye; en az {minimum:.0f} saniye olmalı."]
-    if duration > maximum:
-        return [
-            f"Video {duration / 60:.0f} dakika; en fazla {maximum / 60:.0f} dakika olabilir."
-        ]
-    return []
 
 
 class PublishingService:
@@ -719,22 +638,6 @@ class PublishingService:
                 source_fingerprint=media.fingerprint,
                 common=common,
                 youtube=youtube,
-                instagram=InstagramDraft(
-                    caption=social_text(
-                        planned.instagram.caption,
-                        planned.instagram.cta,
-                        MAX_INSTAGRAM_CAPTION_CHARS,
-                    ),
-                    hashtags=clean_tags(list(planned.instagram.hashtags)),
-                ),
-                facebook=FacebookDraft(
-                    caption=social_text(
-                        planned.facebook.caption,
-                        planned.facebook.cta,
-                        MAX_FACEBOOK_DESCRIPTION_CHARS,
-                    ),
-                    hashtags=clean_tags(list(planned.facebook.hashtags)),
-                ),
                 tiktok=TikTokDraft(
                     caption=social_text(
                         planned.tiktok.caption,
@@ -768,14 +671,8 @@ class PublishingService:
             youtube.caption_source = "export"
             youtube.upload_captions = True
 
-        # The social platforms take one block of text, so the description is a
-        # better starting point than the title alone. The tags become hashtags
-        # because that is what they are on those platforms.
-        social_caption = f"{title}\n\n{metadata.description}".strip()
-        instagram = InstagramDraft(caption=social_caption[:MAX_INSTAGRAM_CAPTION_CHARS], hashtags=tags)
-        facebook = FacebookDraft(
-            caption=social_caption[:MAX_FACEBOOK_DESCRIPTION_CHARS], hashtags=tags
-        )
+        # TikTok takes one block of text, and the tags become hashtags because
+        # that is what they are on that platform.
         tiktok = TikTokDraft(caption=title[:MAX_TIKTOK_TITLE_CHARS], hashtags=tags)
 
         return PublishDraft(
@@ -784,8 +681,6 @@ class PublishingService:
             source_fingerprint=media.fingerprint,
             common=common,
             youtube=youtube,
-            instagram=instagram,
-            facebook=facebook,
             tiktok=tiktok,
         )
 
@@ -798,8 +693,6 @@ class PublishingService:
         draft.project_slug = slug
         draft.common.tags = clean_tags(draft.common.tags)
         draft.youtube.tags = clean_tags(draft.youtube.tags)
-        draft.instagram.hashtags = clean_tags(draft.instagram.hashtags)
-        draft.facebook.hashtags = clean_tags(draft.facebook.hashtags)
         draft.tiktok.hashtags = clean_tags(draft.tiktok.hashtags)
 
         # A draft is saved constantly while typing, so only structural mistakes
@@ -950,8 +843,8 @@ class PublishingService:
         request rather than as a job that fails a second later.
 
         Every check that follows is scoped to *one* platform. That is the whole
-        point: a file already on YouTube must still be publishable to Instagram,
-        and a Reel that Meta rejected must not make the YouTube upload look
+        point: a file already on YouTube must still be publishable to TikTok,
+        and a post TikTok rejected must not make the YouTube upload look
         suspect.
         """
         media = self.get_media(slug, media_id)
@@ -967,10 +860,6 @@ class PublishingService:
 
         if platform is PublishingPlatform.YOUTUBE:
             warnings = self._prepare_youtube(slug, repository, stored)
-        elif platform is PublishingPlatform.INSTAGRAM:
-            warnings = validate_instagram_metadata(stored.instagram, media)
-        elif platform is PublishingPlatform.FACEBOOK:
-            warnings = validate_facebook_metadata(stored.facebook, media)
         else:
             warnings = validate_tiktok_metadata(
                 stored.tiktok, media, allowed_privacy=allowed_privacy or []

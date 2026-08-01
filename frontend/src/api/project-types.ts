@@ -264,8 +264,6 @@ export interface PlannedShort {
   /** Absent on plans authored before hooks existed. */
   hook?: ShortHook
   youtube: PlannedYouTubeMetadata
-  instagram: PlannedSocialMetadata
-  facebook: PlannedSocialMetadata
   tiktok: PlannedSocialMetadata
 }
 

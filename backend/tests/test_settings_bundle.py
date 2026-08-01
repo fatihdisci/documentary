@@ -38,10 +38,8 @@ PASSPHRASE = "iki-bilgisayar-arasi"
 #: Distinctive enough that finding one in a byte stream is unambiguous.
 FAKE_SECRETS = {
     "elevenlabs_api_key": "FAKE-ELEVENLABS-KEY-aaaaaaaaaaaa",
-    "meta_app_secret": "FAKE-META-SECRET-bbbbbbbbbbbb",
-    "meta_app_id": "1234567890123456",
+    "tiktok_client_key": "FAKE-TIKTOK-KEY-bbbbbbbbbbbb",
     "tiktok_client_secret": "FAKE-TIKTOK-SECRET-cccccccccccc",
-    "object_storage_secret_access_key": "FAKE-R2-SECRET-dddddddddddd",
 }
 
 FAKE_TOKEN_FILE = json.dumps(
@@ -56,8 +54,7 @@ def seed_installation(settings: Settings) -> None:
             update={
                 "default_voice": "af_heart",
                 "default_fps": 30,
-                "media_host_provider": "s3",
-                "object_storage_bucket": "evb-temp",
+                "youtube_client_secret_file": "oauth-client-pc1.json",
                 "projects_dir": "/Volumes/PC1/projects",
             }
         )
@@ -68,7 +65,7 @@ def seed_installation(settings: Settings) -> None:
     directory = settings.oauth_secrets_dir
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "youtube-upload-token.json").write_text(FAKE_TOKEN_FILE, "utf-8")
-    (directory / "meta-token.json").write_text(FAKE_TOKEN_FILE, "utf-8")
+    (directory / "tiktok-token.json").write_text(FAKE_TOKEN_FILE, "utf-8")
     (directory / "client_secret_000000-test.apps.googleusercontent.com.json").write_text(
         json.dumps({"installed": {"client_id": "x", "client_secret": "FAKE-CLIENT-gggggg"}}),
         "utf-8",
@@ -166,10 +163,10 @@ class TestRoundTrip:
             assert second.get_secret(name) == value
         assert sorted(result.credential_files_imported) == [
             "client_secret_000000-test.apps.googleusercontent.com.json",
-            "meta-token.json",
+            "tiktok-token.json",
             "youtube-upload-token.json",
         ]
-        assert (second.oauth_secrets_dir / "meta-token.json").read_text("utf-8") == (
+        assert (second.oauth_secrets_dir / "tiktok-token.json").read_text("utf-8") == (
             FAKE_TOKEN_FILE
         )
 
@@ -194,7 +191,7 @@ class TestRoundTrip:
 
         assert result.settings_applied is True
         assert second.mutable.default_voice == "af_heart"
-        assert second.mutable.object_storage_bucket == "evb-temp"
+        assert second.mutable.youtube_client_secret_file == "oauth-client-pc1.json"
         # The other machine's project folder does not exist here, so it is not
         # adopted — and the result says so rather than staying quiet.
         assert second.mutable.projects_dir == ""
@@ -226,7 +223,7 @@ class TestRoundTrip:
 
         assert second.get_secret("elevenlabs_api_key") == "KEEP-THIS-ONE"
         assert "elevenlabs_api_key" in result.secrets_skipped
-        assert "meta_app_secret" in result.secrets_imported
+        assert "tiktok_client_secret" in result.secrets_imported
 
     def test_the_result_names_what_moved_and_never_its_value(
         self, settings, tmp_path
@@ -238,7 +235,7 @@ class TestRoundTrip:
         result = import_bundle(data, PASSPHRASE, settings=second)
 
         payload = result.model_dump_json()
-        assert "meta_app_secret" in payload
+        assert "tiktok_client_secret" in payload
         for value in FAKE_SECRETS.values():
             if value.startswith("FAKE-"):
                 assert value not in payload
@@ -316,7 +313,7 @@ class TestRefusals:
             lambda s: {
                 **original(s),
                 "../../evil.json": "owned",
-                "meta-token.json.sh": "owned",
+                "tiktok-token.json.sh": "owned",
                 ".bashrc": "owned",
             },
         )
@@ -326,7 +323,7 @@ class TestRefusals:
         result = import_bundle(data, PASSPHRASE, settings=second)
 
         assert "../../evil.json" in result.credential_files_skipped
-        assert "meta-token.json.sh" in result.credential_files_skipped
+        assert "tiktok-token.json.sh" in result.credential_files_skipped
         assert ".bashrc" in result.credential_files_skipped
         assert not (second.data_dir.parent / "evil.json").exists()
         assert not (second.oauth_secrets_dir / ".bashrc").exists()
@@ -395,8 +392,8 @@ class TestEndpoints:
 
         assert response.status_code == 200
         body = response.json()
-        assert "meta_app_secret" in body["secretsImported"]
-        assert settings.get_secret("meta_app_secret") == FAKE_SECRETS["meta_app_secret"]
+        assert "tiktok_client_secret" in body["secretsImported"]
+        assert settings.get_secret("tiktok_client_secret") == FAKE_SECRETS["tiktok_client_secret"]
         # Names, never values.
         for value in FAKE_SECRETS.values():
             if value.startswith("FAKE-"):

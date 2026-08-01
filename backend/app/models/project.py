@@ -37,8 +37,12 @@ from app.models.enums import (
 #: v3 added ``longIntro`` (the branded opening) and a ``hook`` on every planned
 #: Short. v4 retimed both after the first production renders showed that the
 #: 2.6-second intro rushed its three beats and the 1.4-second hook read as a
-#: static title. See models/migrations.py.
-SCHEMA_VERSION = 4
+#: static title.
+#:
+#: v5 dropped the ``instagram`` and ``facebook`` copy from every planned Short:
+#: the app no longer publishes to either, so the fields were work with nowhere
+#: to go. See models/migrations.py.
+SCHEMA_VERSION = 5
 
 #: Zoom beyond this visibly softens even a 4K source once supersampled.
 MAX_SCALE = 3.0
@@ -179,6 +183,8 @@ class PlannedYouTubeMetadata(Base):
 
 
 class PlannedSocialMetadata(Base):
+    """Authored copy for a non-YouTube destination. Only TikTok has one."""
+
     caption: str = Field(default="", max_length=5_000)
     hashtags: list[str] = Field(default_factory=list)
     cta: str = Field(default="", max_length=500)
@@ -238,9 +244,26 @@ class PlannedShort(Base):
     #: watched at all, so it is authored with the section choice.
     hook: ShortHook = Field(default_factory=ShortHook)
     youtube: PlannedYouTubeMetadata = Field(default_factory=PlannedYouTubeMetadata)
-    instagram: PlannedSocialMetadata = Field(default_factory=PlannedSocialMetadata)
-    facebook: PlannedSocialMetadata = Field(default_factory=PlannedSocialMetadata)
     tiktok: PlannedSocialMetadata = Field(default_factory=PlannedSocialMetadata)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_retired_platforms(cls, value: object) -> object:
+        """Ignore ``instagram`` and ``facebook`` copy from an earlier build.
+
+        Stored projects are migrated (see models/migrations.py), but a *content
+        package* is authored by hand and delivered as a file — every package
+        written while the app still published to Meta carries these blocks, and
+        ``Base`` forbids unknown fields. Dropping them here is what keeps those
+        packages importable instead of failing validation outright.
+        """
+        if isinstance(value, dict) and ("instagram" in value or "facebook" in value):
+            return {
+                key: item
+                for key, item in value.items()
+                if key not in {"instagram", "facebook"}
+            }
+        return value
 
 
 class ShortsPlan(Base):

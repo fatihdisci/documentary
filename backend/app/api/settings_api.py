@@ -43,12 +43,8 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 KNOWN_SECRETS = {"elevenlabs_api_key"}
 
 READ_ONLY_SECRETS = {
-    "meta_app_id",
-    "meta_app_secret",
     "tiktok_client_key",
     "tiktok_client_secret",
-    "object_storage_access_key_id",
-    "object_storage_secret_access_key",
 }
 
 

@@ -396,10 +396,6 @@ export function ShortsPage() {
                     <dd>{item.youtube.tags.join(', ') || '—'}</dd>
                     <dt>YouTube hashtag’leri</dt>
                     <dd>{item.youtube.hashtags.join(' ') || '—'}</dd>
-                    <dt>Instagram</dt>
-                    <dd className="preline">{plannedSocialCopy(item.instagram) || '—'}</dd>
-                    <dt>Facebook</dt>
-                    <dd className="preline">{plannedSocialCopy(item.facebook) || '—'}</dd>
                     <dt>TikTok</dt>
                     <dd className="preline">{plannedSocialCopy(item.tiktok) || '—'}</dd>
                     <dt>Sabit yorum</dt>

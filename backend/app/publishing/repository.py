@@ -209,9 +209,9 @@ class PublishingRepository:
     ) -> PublishHistoryEntry | None:
         """One recorded post, by its platform id.
 
-        Scoped by platform because the id spaces are unrelated: nothing stops an
-        Instagram media id and a Facebook video id from being the same string,
-        and updating the wrong row would silently rewrite someone's history.
+        Scoped by platform because the id spaces are unrelated: nothing stops a
+        YouTube video id and a TikTok post id from being the same string, and
+        updating the wrong row would silently rewrite someone's history.
         """
         return next(
             (

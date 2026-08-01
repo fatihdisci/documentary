@@ -12,7 +12,8 @@ Three separate concerns live here, and they are deliberately not merged:
   as interrupted rather than sitting in "running" forever.
 
 Nothing in this module can carry a credential. Tokens live in the app's secrets
-directory and are read only by ``publishing/youtube.py``.
+directory and are read only by ``publishing/youtube.py`` and
+``publishing/tiktok.py``.
 """
 
 from __future__ import annotations
@@ -40,10 +41,7 @@ DEFAULT_LANGUAGE = "en"
 #: this zone and converted to an offset-aware RFC 3339 value for the API.
 LOCAL_TIMEZONE = "Europe/Istanbul"
 
-#: Meta's and TikTok's own limits, validated before anything is sent.
-MAX_INSTAGRAM_CAPTION_CHARS = 2_200
-MAX_INSTAGRAM_HASHTAGS = 30
-MAX_FACEBOOK_DESCRIPTION_CHARS = 5_000
+#: TikTok's own limit, validated before anything is sent.
 MAX_TIKTOK_TITLE_CHARS = 2_200
 
 #: Thumbnails: YouTube's own limit is 2 MB.
@@ -59,14 +57,15 @@ def _now() -> datetime:
 class PublishingPlatform(str, Enum):
     """Platforms the panel can publish to.
 
-    All four have an implementation. What differs is the *connection* each one
+    Both have an implementation. What differs is the *connection* each one
     needs, and that is the only thing that makes a platform unavailable at a
     given moment — never the code being missing.
+
+    Both also accept the video bytes directly, so nothing here ever has to park
+    a copy of a render somewhere public for a platform to fetch.
     """
 
     YOUTUBE = "youtube"
-    INSTAGRAM = "instagram"
-    FACEBOOK = "facebook"
     TIKTOK = "tiktok"
 
     @property
@@ -77,20 +76,8 @@ class PublishingPlatform(str, Enum):
     def label(self) -> str:
         return {
             PublishingPlatform.YOUTUBE: "YouTube",
-            PublishingPlatform.INSTAGRAM: "Instagram",
-            PublishingPlatform.FACEBOOK: "Facebook",
             PublishingPlatform.TIKTOK: "TikTok",
         }[self]
-
-    @property
-    def needs_hosted_media(self) -> bool:
-        """True when the platform fetches the video from a URL we must provide.
-
-        Meta's publishing APIs never take an uploaded file for Reels; they take
-        a link and download it themselves. YouTube and TikTok both accept the
-        bytes directly, so they never need the hosting layer.
-        """
-        return self in {PublishingPlatform.INSTAGRAM, PublishingPlatform.FACEBOOK}
 
 
 class MediaKind(str, Enum):
@@ -112,10 +99,10 @@ class PublishMode(str, Enum):
 class PublishPhase(str, Enum):
     """Ordered phases. Progress weighting and the UI's step list both use these.
 
-    The first three and the last two are shared by every platform. The middle is
+    The first three and the last two are shared by both platforms. The middle is
     where they differ: YouTube streams the file and then decorates the video,
-    while Meta is handed a URL and then waits for a container to finish
-    processing before anything is visible.
+    while TikTok opens a publish session first and then waits for its own
+    transcoder before the post exists.
     """
 
     VALIDATE = "validate"
@@ -123,22 +110,17 @@ class PublishPhase(str, Enum):
     HASH_SOURCE = "hash-source"
 
     # YouTube
-    UPLOAD_VIDEO = "upload-video"
     SET_THUMBNAIL = "set-thumbnail"
     UPLOAD_CAPTIONS = "upload-captions"
 
-    # Instagram / Facebook / TikTok
-    #: Put the bytes somewhere the platform can fetch them from.
-    HOST_MEDIA = "host-media"
-    #: Ask the platform to start ingesting: an IG container, an FB Reel session,
-    #: or a TikTok publish init.
+    # TikTok
+    #: Ask the platform to start ingesting — a TikTok publish init.
     CREATE_CONTAINER = "create-container"
     #: The platform is transcoding. Nothing exists publicly yet.
     AWAIT_PROCESSING = "await-processing"
-    #: The one irreversible call: the post becomes real.
-    PUBLISH_POST = "publish-post"
-    #: Remove the temporary copy once the platform no longer needs it.
-    CLEANUP = "cleanup"
+
+    #: Sending the bytes. Both platforms take the file directly.
+    UPLOAD_VIDEO = "upload-video"
 
     FETCH_STATUS = "fetch-status"
     COMPLETE = "complete"
@@ -239,7 +221,7 @@ class YouTubeDraft(CamelModel):
 
 
 class SocialDraft(CamelModel):
-    """Shared shape for the three non-YouTube platforms.
+    """The caption/hashtags shape used by the non-YouTube platforms.
 
     ``account`` is a note the user keeps for themselves. The account actually
     posted to comes from the stored connection, never from a name typed here —
@@ -251,17 +233,6 @@ class SocialDraft(CamelModel):
     account: str = ""
     publish_mode: PublishMode = PublishMode.NOW
     publish_at_local: str | None = None
-
-
-class InstagramDraft(SocialDraft):
-    """Instagram Reels. Meta's own limits are validated before publishing."""
-
-    #: Reels can also appear on the main profile grid. Meta's default is on.
-    share_to_feed: bool = True
-
-
-class FacebookDraft(SocialDraft):
-    """A Reel on the connected Facebook Page."""
 
 
 class TikTokDraft(SocialDraft):
@@ -301,16 +272,12 @@ class PublishDraft(CamelModel):
     source_fingerprint: SourceFingerprint
     common: CommonDraft = Field(default_factory=CommonDraft)
     youtube: YouTubeDraft = Field(default_factory=YouTubeDraft)
-    instagram: InstagramDraft = Field(default_factory=InstagramDraft)
-    facebook: FacebookDraft = Field(default_factory=FacebookDraft)
     tiktok: TikTokDraft = Field(default_factory=TikTokDraft)
     updated_at: datetime = Field(default_factory=_now)
 
     def social(self, platform: PublishingPlatform) -> SocialDraft:
         """The block belonging to one platform. Raises for YouTube by design."""
         block = {
-            PublishingPlatform.INSTAGRAM: self.instagram,
-            PublishingPlatform.FACEBOOK: self.facebook,
             PublishingPlatform.TIKTOK: self.tiktok,
         }.get(platform)
         if block is None:
@@ -349,19 +316,15 @@ class PublishJob(CamelModel):
 
     #: Written the instant the platform accepts the video, before anything else
     #: runs. This is what makes a retry safe: a job with a video id never
-    #: re-uploads. For Instagram it is the published media id, for Facebook the
-    #: Reel's video id, for TikTok the publish id's resulting post.
+    #: re-uploads. For YouTube it is the video id, for TikTok the publish id's
+    #: resulting post.
     video_id: str | None = None
     video_url: str | None = None
 
-    #: An ingestion handle that exists *before* anything is public: an Instagram
-    #: container id, a Facebook Reel video id awaiting ``finish``, or a TikTok
+    #: An ingestion handle that exists *before* anything is public — a TikTok
     #: publish id. Persisted so a retry can resume rather than re-upload, and
-    #: deliberately separate from ``video_id`` — a container is not a post.
+    #: deliberately separate from ``video_id`` — a session is not a post.
     container_id: str | None = None
-    #: The temporary URL the platform was given, kept only so the object can be
-    #: deleted afterwards. Never shown to the user and never logged.
-    hosted_object_key: str | None = None
 
     title: str = ""
     requested_privacy_status: PrivacyStatus = PrivacyStatus.PRIVATE
@@ -476,8 +439,8 @@ class DraftResponse(CamelModel):
     #: editor reads from it directly.
     duplicate_of: PublishHistoryEntry | None = None
     #: The same check per platform, keyed by ``PublishingPlatform`` value. Each
-    #: platform is independent: a Reel already on Instagram says nothing about
-    #: whether the file has been to Facebook.
+    #: platform is independent: a post already on TikTok says nothing about
+    #: whether the file has been to YouTube.
     duplicates: dict[str, PublishHistoryEntry] = Field(default_factory=dict)
 
 
@@ -532,67 +495,7 @@ class RefreshStatusResponse(CamelModel):
     entry: PublishHistoryEntry
 
 
-# --- Meta -------------------------------------------------------------------
-
-
-class MetaPageSummary(CamelModel):
-    """One Facebook Page the connected user administers.
-
-    Ids and names only. The Page access token that comes back with each of these
-    from ``/me/accounts`` stays in the token file and never enters this model.
-    """
-
-    page_id: str
-    name: str
-    #: The linked Instagram professional account, when there is one.
-    instagram_id: str | None = None
-    instagram_username: str | None = None
-
-
-class MetaConnection(CamelModel):
-    """What the Settings page shows about the Meta connection.
-
-    Contains no App ID, no App Secret and no access token — only whether they
-    exist, whether the grant still works, and which Page and Instagram account
-    it resolved to. The App ID is deliberately absent too: the panel never needs
-    it, and an id plus a leaked secret is a usable credential pair.
-    """
-
-    app_configured: bool = False
-    token_present: bool = False
-    connected: bool = False
-    needs_reconnect: bool = False
-    expired: bool = False
-    #: When the long-lived user token stops working. Meta's is ~60 days.
-    expires_at: datetime | None = None
-    scopes_sufficient: bool = False
-    missing_scopes: list[str] = Field(default_factory=list)
-
-    pages: list[MetaPageSummary] = Field(default_factory=list)
-    selected_page_id: str | None = None
-    page_name: str | None = None
-    instagram_id: str | None = None
-    instagram_username: str | None = None
-
-    #: The exact address to paste into "Valid OAuth Redirect URIs".
-    redirect_uri: str = ""
-    checked_at: datetime | None = None
-    status_message: str = ""
-    problem: str | None = None
-    suggestion: str | None = None
-
-
-class MetaAppCredentials(CamelModel):
-    """Write-only. The values are stored and never read back by any endpoint."""
-
-    app_id: str
-    app_secret: str
-    #: Refuse to overwrite an existing pair unless the user meant to.
-    replace: bool = False
-
-
-class MetaPageSelection(CamelModel):
-    page_id: str
+# --- OAuth -----------------------------------------------------------------
 
 
 class OAuthStart(CamelModel):
@@ -658,46 +561,3 @@ class TikTokAppCredentials(CamelModel):
     client_key: str
     client_secret: str
     replace: bool = False
-
-
-# --- temporary media hosting ------------------------------------------------
-
-
-class MediaHostStatus(CamelModel):
-    """Whether the app can hand Meta a URL it can actually fetch.
-
-    Bucket and endpoint are configuration, not credentials, so they are shown.
-    The two keys are never included — only whether they are present.
-    """
-
-    provider: str = "none"
-    configured: bool = False
-    endpoint: str = ""
-    bucket: str = ""
-    region: str = ""
-    prefix: str = ""
-    keys_present: bool = False
-    ttl_seconds: int = 0
-    delete_after_publish: bool = True
-    status_message: str = ""
-    problem: str | None = None
-    suggestion: str | None = None
-
-
-class ObjectStorageSettings(CamelModel):
-    """Bucket coordinates plus, optionally, a new key pair to store.
-
-    The keys are write-only: they go straight into the secrets file and are
-    never returned by any endpoint. Sending them empty leaves the stored pair
-    alone, so saving the bucket name does not wipe the credentials.
-    """
-
-    provider: str = "none"
-    endpoint: str = ""
-    bucket: str = ""
-    region: str = "auto"
-    prefix: str = "evb-temp"
-    ttl_seconds: int = 3600
-    delete_after_publish: bool = True
-    access_key_id: str | None = None
-    secret_access_key: str | None = None

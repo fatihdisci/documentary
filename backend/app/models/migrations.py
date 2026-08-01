@@ -123,11 +123,40 @@ def _v3_to_v4(raw: RawProject) -> RawProject:
     return working
 
 
+def _v4_to_v5(raw: RawProject) -> RawProject:
+    """v5 removed the Instagram and Facebook copy from every planned Short.
+
+    The app publishes to YouTube and TikTok only, so those two blocks were text
+    the author had to write with nowhere for it to go. Dropping them is purely
+    subtractive: the sections, hook, YouTube metadata and TikTok copy that decide
+    what a Short *is* are untouched, so every Short re-cuts exactly as before.
+    """
+    working = dict(raw)
+    plan = working.get("shortsPlan")
+    if isinstance(plan, dict):
+        plan = dict(plan)
+        shorts = plan.get("shorts")
+        if isinstance(shorts, list):
+            plan["shorts"] = [
+                {
+                    key: value
+                    for key, value in item.items()
+                    if key not in {"instagram", "facebook"}
+                }
+                if isinstance(item, dict)
+                else item
+                for item in shorts
+            ]
+        working["shortsPlan"] = plan
+    return working
+
+
 #: Maps "from version" -> function producing the next version's dict.
 MIGRATIONS: dict[int, Callable[[RawProject], RawProject]] = {
     1: _v1_to_v2,
     2: _v2_to_v3,
     3: _v3_to_v4,
+    4: _v4_to_v5,
 }
 
 

@@ -339,107 +339,12 @@ def install_fake_youtube(
     return client
 
 
-# --- Meta, TikTok and the hosting layer -------------------------------------
+# --- TikTok -----------------------------------------------------------------
 #
-# Same rule as the YouTube fakes above: no test in this suite contacts Meta or
-# TikTok, and none of the values here is or resembles a real credential. The
-# fakes record what they were asked to do so a test can assert that a video was
-# sent *once*, to *one* platform.
-
-
-class FakeMediaHost:
-    """Stands in for the S3/R2 layer. Records what was parked and removed."""
-
-    def __init__(self, *, put_error: Exception | None = None) -> None:
-        self.put_error = put_error
-        self.put_calls: list[Path] = []
-        self.deleted: list[str] = []
-
-    def put(self, path: Path, *, key_hint: str) -> Any:
-        from app.publishing.hosting import HostedMedia
-
-        if self.put_error is not None:
-            raise self.put_error
-        self.put_calls.append(path)
-        key = f"evb-test/{key_hint}"
-        return HostedMedia(
-            url=f"https://example-bucket.test/{key}?signature=fake",
-            object_key=key,
-            expires_at=datetime.now(timezone.utc),
-        )
-
-    def delete(self, object_key: str) -> None:
-        self.deleted.append(object_key)
-
-
-class FakeMetaClient:
-    """The Instagram and Facebook calls the job worker makes, and nothing else."""
-
-    def __init__(
-        self,
-        *,
-        container_states: list[str] | None = None,
-        publish_error: Exception | None = None,
-        container_error: Exception | None = None,
-        facebook_states: list[str] | None = None,
-        finish_error: Exception | None = None,
-    ) -> None:
-        self._container_states = container_states or ["FINISHED"]
-        self._facebook_states = facebook_states or ["ready"]
-        self.publish_error = publish_error
-        self.container_error = container_error
-        self.finish_error = finish_error
-        self.container_calls: list[dict[str, Any]] = []
-        self.publish_calls: list[str] = []
-        self.fb_start_calls = 0
-        self.fb_upload_calls: list[str] = []
-        self.fb_finish_calls: list[tuple[str, str]] = []
-
-    # Instagram
-    def create_reel_container(self, *, video_url: str, caption: str, share_to_feed: bool) -> str:
-        if self.container_error is not None:
-            raise self.container_error
-        self.container_calls.append(
-            {"videoUrl": video_url, "caption": caption, "shareToFeed": share_to_feed}
-        )
-        return "ig_container_0001"
-
-    def container_status(self, container_id: str) -> tuple[str, str | None]:
-        state = self._container_states[0]
-        if len(self._container_states) > 1:
-            self._container_states = self._container_states[1:]
-        return state, None
-
-    def publish_container(self, container_id: str) -> str:
-        if self.publish_error is not None:
-            raise self.publish_error
-        self.publish_calls.append(container_id)
-        return "ig_media_0001"
-
-    def media_permalink(self, media_id: str) -> str:
-        return f"https://www.instagram.com/reel/{media_id}/"
-
-    # Facebook
-    def start_page_reel(self) -> tuple[str, str]:
-        self.fb_start_calls += 1
-        return "fb_video_0001", "https://rupload.test/fb_video_0001"
-
-    def upload_page_reel(self, upload_url: str, *, video_url: str) -> None:
-        self.fb_upload_calls.append(video_url)
-
-    def page_reel_status(self, video_id: str) -> tuple[str, str | None]:
-        state = self._facebook_states[0]
-        if len(self._facebook_states) > 1:
-            self._facebook_states = self._facebook_states[1:]
-        return state, None
-
-    def finish_page_reel(self, video_id: str, *, description: str) -> None:
-        if self.finish_error is not None:
-            raise self.finish_error
-        self.fb_finish_calls.append((video_id, description))
-
-    def page_reel_permalink(self, video_id: str) -> str:
-        return f"https://www.facebook.com/reel/{video_id}"
+# Same rule as the YouTube fakes above: no test in this suite contacts TikTok,
+# and none of the values here is or resembles a real credential. The fake
+# records what it was asked to do so a test can assert that a video was sent
+# *once*, to *one* platform.
 
 
 class FakeTikTokClient:
@@ -510,45 +415,6 @@ class FakeTikTokClient:
         return {"status": state, "failReason": self.fail_reason, "postIds": list(self.post_ids)}
 
 
-def meta_target(
-    *,
-    page_id: str = "111222333",
-    page_name: str = "Vanished Earth Docs",
-    instagram_id: str | None = "444555666",
-    instagram_username: str | None = "vanishedearthdocs",
-) -> Any:
-    from app.publishing.meta import MetaTarget
-
-    return MetaTarget(
-        page_id=page_id,
-        page_name=page_name,
-        page_token="fake-page-token-for-tests",
-        instagram_id=instagram_id,
-        instagram_username=instagram_username,
-    )
-
-
-def install_fake_meta(
-    monkeypatch: Any,
-    client: FakeMetaClient,
-    host: FakeMediaHost,
-    *,
-    target: Any = None,
-) -> tuple[FakeMetaClient, FakeMediaHost]:
-    """Point the job manager at a fake Graph client and a fake bucket."""
-    import app.publishing.jobs as jobs_module
-
-    resolved = target if target is not None else meta_target()
-    monkeypatch.setattr(jobs_module.MetaCredentials, "target", lambda self: resolved)
-    monkeypatch.setattr(
-        jobs_module.PublishJobManager, "_meta_client", lambda self, _target: client
-    )
-    monkeypatch.setattr(jobs_module, "resolve_media_host", lambda _settings=None: host)
-    # Polling is real code with a real sleep; tests must not wait on it.
-    monkeypatch.setattr(jobs_module.time, "sleep", lambda _seconds: None)
-    return client, host
-
-
 def install_fake_tiktok(monkeypatch: Any, client: FakeTikTokClient) -> FakeTikTokClient:
     """Point the job manager at a fake TikTok client and a usable grant."""
     import app.publishing.jobs as jobs_module
@@ -561,43 +427,6 @@ def install_fake_tiktok(monkeypatch: Any, client: FakeTikTokClient) -> FakeTikTo
     )
     monkeypatch.setattr(jobs_module.time, "sleep", lambda _seconds: None)
     return client
-
-
-def write_meta_token(
-    settings: Settings,
-    *,
-    pages: list[dict[str, Any]] | None = None,
-    selected: str | None = "111222333",
-    scopes: list[str] | None = None,
-    expires_at: str | None = None,
-) -> Path:
-    """A Meta grant file with the right shape and obviously fake values."""
-    from app.publishing.meta import SCOPES, TOKEN_FILENAME
-
-    directory = settings.oauth_secrets_dir
-    directory.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "userToken": "fake-user-token-for-tests",
-        "expiresAt": expires_at,
-        "scopes": scopes if scopes is not None else list(SCOPES),
-        "pages": pages
-        if pages is not None
-        else [
-            {
-                "id": "111222333",
-                "name": "Vanished Earth Docs",
-                "accessToken": "fake-page-token-for-tests",
-                "instagramId": "444555666",
-                "instagramUsername": "vanishedearthdocs",
-            }
-        ],
-        "selectedPageId": selected,
-        "connectedAt": datetime.now(timezone.utc).isoformat(),
-    }
-    target = directory / TOKEN_FILENAME
-    target.write_text(json.dumps(payload), "utf-8")
-    target.chmod(0o600)
-    return target
 
 
 def write_tiktok_token(
@@ -628,12 +457,6 @@ def write_tiktok_token(
     return target
 
 
-def store_meta_app(settings: Settings) -> None:
-    """Obviously-fake application credentials with the right *shape*."""
-    settings.set_secret("meta_app_id", "1234567890123456")
-    settings.set_secret("meta_app_secret", "fakemetaappsecretfortests0000")
-
-
 def store_tiktok_app(settings: Settings) -> None:
     settings.set_secret("tiktok_client_key", "awfaketiktokkey123")
     settings.set_secret("tiktok_client_secret", "fakeTikTokClientSecretForTests")
@@ -662,8 +485,6 @@ def draft_for(settings: Settings, slug: str, media_id: str) -> PublishDraft:
 
 __all__ = [
     "FakeCredentials",
-    "FakeMediaHost",
-    "FakeMetaClient",
     "FakeTikTokClient",
     "FakeYouTubeClient",
     "JPEG_BYTES",
@@ -675,17 +496,13 @@ __all__ = [
     "add_short",
     "draft_for",
     "future_local",
-    "install_fake_meta",
     "install_fake_tiktok",
     "install_fake_youtube",
     "make_project",
-    "meta_target",
     "past_local",
     "seed_draft",
-    "store_meta_app",
     "store_tiktok_app",
     "write_client_file",
-    "write_meta_token",
     "write_tiktok_token",
     "write_token_file",
 ]

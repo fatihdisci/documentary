@@ -18,7 +18,7 @@ Final video Canvas'tan değil FFmpeg ile üretilir. FFmpeg'de drawtext ve libass
 Sistem artık yalnızca video oluşturan bir uygulama değil; içerik üreten, render eden, Shorts hazırlayan, thumbnail'i planlayan ve yayınlayan uçtan uca bir documentary production pipeline'dır. İçerik paketi bu pipeline'ın giriş dosyasıdır.
 
 TEMEL İŞ AKIŞI
-Kullanıcı: 1) JSON'u aktarır, 2) promptlarla görselleri üretir, 3) görselleri belirlenen adlarla yükler, 4) TTS ve müzik seçer, 5) sesleri oluşturur, 6) hızlı Preview ile kontrol eder, 7) final render alır, 8) Kısa Videolar sekmesinde planlanan Short'ları tek tıkla uygular, 9) Yayınla sekmesinden YouTube/Instagram/Facebook/TikTok'a gönderir.
+Kullanıcı: 1) JSON'u aktarır, 2) promptlarla görselleri üretir, 3) görselleri belirlenen adlarla yükler, 4) TTS ve müzik seçer, 5) sesleri oluşturur, 6) hızlı Preview ile kontrol eder, 7) final render alır, 8) Kısa Videolar sekmesinde planlanan Short'ları tek tıkla uygular, 9) Yayınla sekmesinden YouTube ve TikTok'a gönderir.
 JSON importu şu alanların hepsini gerçekten projeye yazar: animal, video metadata, thumbnail, pronunciation, tts, longIntro, intro/scenes/outro ve shortsPlan (hook'lar dahil). Bu alanlar artık "ileride kullanılacak not" değildir; uygulama bunları doğrudan kullanır.
 
 ARAŞTIRMA
@@ -103,18 +103,18 @@ Her içerik paketi aynı JSON içinde `shortsPlan` üretir. Shorts sonradan "han
 `shortsPlan` yapısı:
 - `version`: `1`; `captionMode`: `"shorts-native"`; `captionPreset`: `"large"`.
 - `recommendedReleaseOrder`: Short `id` listesinin yayın sırası.
-- `shorts`: Her öğede `id`, `priority`, `purpose`, `sections`, `estimatedDurationSeconds`, `hook`, `youtube`, `instagram`, `facebook`, `tiktok` bulunur.
+- `shorts`: Her öğede `id`, `priority`, `purpose`, `sections`, `estimatedDurationSeconds`, `hook`, `youtube`, `tiktok` bulunur.
 - `sections`: Kesin sahne referansı; `[{"kind":"scene","number":5},{"kind":"scene","number":6}]` biçiminde yaz. Intro gerekirse `{"kind":"intro"}`, outro gerekirse `{"kind":"outro"}` kullan. Sahne numarası `scenes` dizisindeki 1 tabanlı numaradır; başlıkla yetinme.
 - `estimatedDurationSeconds`: Anlatım metninden yalnızca tahmini süredir. Render sonrası uygulamadaki gerçek timeline ile doğrulanır; önceden saniye bazlı trim uydurma.
 - `youtube`: `title`, `alternativeTitles`, `description`, `tags`, `hashtags`, `pinnedComment`.
-- `instagram`, `facebook`, `tiktok`: Her biri için platforma uygun `caption`, `hashtags`, `cta`. `caption` içine hashtag yazma; uygulama `hashtags` dizisini gönderi metninin sonuna otomatik ekler. Aynı metni körlemesine kopyalama; Instagram/TikTok kısa ve doğal, Facebook biraz daha açıklayıcı olabilir.
+- `tiktok`: Platforma uygun `caption`, `hashtags`, `cta`. `caption` içine hashtag yazma; uygulama `hashtags` dizisini gönderi metninin sonuna otomatik ekler. YouTube metnini körlemesine kopyalama; TikTok metni kısa ve doğal olsun.
 
 Short seçimi kuralları:
 - Her Short tek bir net vaat, güçlü ilk cümle ve tek bir sonuç taşısın. Uzun videonun özeti olmasın.
 - Normalde 2–4 bitişik sahne kullan; sahne geçişi korunacaksa bölümleri kaynak sırasıyla ve trimsiz yaz. Bitişik olmayan kesitleri yalnızca anlatısal gerekçe varsa kullan.
 - Hedef yaklaşık 20–55 saniyedir; gerçek süre final render sonrasında kontrol edilir. Üç dakikaya yaklaşacak seçimler yapma.
 - Aynı olayı veya aynı hook'u farklı Short'larda tekrar etme. En güçlü ölüm/son birey hikâyesi, şaşırtıcı biyoloji ve insan etkisi gibi farklı açılar seç.
-- Tüm izleyici metinleri İngilizce olmalı. YouTube hashtag'leri `description` içinde de yer almalı; Instagram/Facebook/TikTok hashtag'leri ise yalnız `hashtags` dizisinde olmalı.
+- Tüm izleyici metinleri İngilizce olmalı. YouTube hashtag'leri `description` içinde de yer almalı; TikTok hashtag'leri ise yalnız `hashtags` dizisinde olmalı.
 - Uzun video URL'si henüz bilinmediği için `FULL_VIDEO_URL` yer tutucusu kullan ve yayın öncesi gerçek bağlantıyla değiştirileceğini belirt.
 
 SHORTS AÇILIŞ METNİ (hook) — ZORUNLU

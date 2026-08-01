@@ -179,16 +179,6 @@ It contains 3–5 vertical-cut recommendations and all viewer-facing copy.
           "hashtags": ["#LonesomeGeorge", "#ExtinctAnimals", "#Shorts"],
           "pinnedComment": "George was the last known pure Pinta tortoise, not the last Galápagos giant tortoise."
         },
-        "instagram": {
-          "caption": "One animal became the final symbol of an entire lost lineage. Full documentary: FULL_VIDEO_URL",
-          "hashtags": ["#LonesomeGeorge", "#ExtinctAnimals"],
-          "cta": "Watch the full documentary."
-        },
-        "facebook": {
-          "caption": "Lonesome George was the last known pure Pinta tortoise. Full documentary: FULL_VIDEO_URL",
-          "hashtags": ["#LonesomeGeorge", "#ExtinctAnimals"],
-          "cta": "Watch the full documentary."
-        },
         "tiktok": {
           "caption": "One death ended a species.",
           "hashtags": ["#LonesomeGeorge", "#ExtinctAnimals"],
@@ -208,9 +198,13 @@ narration; choose exact safe ranges only after the final render measures audio.
 Use `FULL_VIDEO_URL` until the long video is live. Do not put a final filename,
 render ID or guessed timecodes in the package.
 
-For Instagram, Facebook and TikTok, keep hashtags out of `caption`; the Publish
-screen appends the `hashtags` array automatically. YouTube hashtags should
-remain in its `description`.
+For TikTok, keep hashtags out of `caption`; the Publish screen appends the
+`hashtags` array automatically. YouTube hashtags should remain in its
+`description`.
+
+A package written when the app still published to Instagram and Facebook may
+carry an `instagram` or `facebook` block on a planned Short. Both are ignored on
+import — the package still loads, and nothing else in it is affected.
 
 The application keeps the original uploaded JSON beside the project and imports
 the plan itself: the Shorts tab lists each planned Short and applies its

@@ -19,14 +19,13 @@ Three things are specific to uploading, and all three shape the design:
   never re-upload the file.
 
 * **Every platform is independent.** One job per platform, one history entry per
-  platform, one duplicate check per platform. Instagram failing says nothing
-  about Facebook and must never cause a re-upload anywhere else — which is why
-  the duplicate checks below are all scoped by ``platform`` and never by file
-  alone.
+  platform, one duplicate check per platform. TikTok failing says nothing about
+  YouTube and must never cause a re-upload anywhere else — which is why the
+  duplicate checks below are all scoped by ``platform`` and never by file alone.
 
 The platforms differ in the middle of the run and nowhere else. Validate,
 authenticate, fingerprint and the duplicate guard are shared; then
-``_execute_youtube``, ``_execute_meta`` and ``_execute_tiktok`` take over.
+``_execute_youtube`` and ``_execute_tiktok`` take over.
 """
 
 from __future__ import annotations
@@ -50,8 +49,6 @@ import anyio.to_thread
 from app.config import Settings, get_settings
 from app.errors import AppError, ConflictError, ErrorCode, NotFoundError
 from app.models.enums import JobStatus
-from app.publishing.hosting import MediaHost, resolve_media_host
-from app.publishing.meta import MetaClient, MetaCredentials
 from app.publishing.models import (
     AssetStatus,
     MediaItem,
@@ -88,9 +85,8 @@ HISTORY_RETENTION_DAYS = 60
 MAX_HISTORY_ENTRIES = 200
 
 #: Where each phase sits on the overall progress bar, per platform. The part
-#: whose duration depends on the file owns most of the bar: for YouTube and
-#: TikTok that is sending the bytes, for Meta it is parking them somewhere Meta
-#: can fetch from and then waiting on Meta's own transcoder.
+#: whose duration depends on the file owns most of the bar: for both platforms
+#: that is sending the bytes.
 _YOUTUBE_PHASES = {
     PublishPhase.VALIDATE: 0.0,
     PublishPhase.AUTHENTICATE: 0.03,
@@ -99,18 +95,6 @@ _YOUTUBE_PHASES = {
     PublishPhase.SET_THUMBNAIL: 0.84,
     PublishPhase.UPLOAD_CAPTIONS: 0.90,
     PublishPhase.FETCH_STATUS: 0.96,
-    PublishPhase.COMPLETE: 1.0,
-}
-_META_PHASES = {
-    PublishPhase.VALIDATE: 0.0,
-    PublishPhase.AUTHENTICATE: 0.03,
-    PublishPhase.HASH_SOURCE: 0.06,
-    PublishPhase.HOST_MEDIA: 0.10,
-    PublishPhase.CREATE_CONTAINER: 0.55,
-    PublishPhase.AWAIT_PROCESSING: 0.62,
-    PublishPhase.PUBLISH_POST: 0.90,
-    PublishPhase.CLEANUP: 0.95,
-    PublishPhase.FETCH_STATUS: 0.97,
     PublishPhase.COMPLETE: 1.0,
 }
 _TIKTOK_PHASES = {
@@ -125,8 +109,6 @@ _TIKTOK_PHASES = {
 }
 _PLATFORM_PHASES = {
     PublishingPlatform.YOUTUBE: _YOUTUBE_PHASES,
-    PublishingPlatform.INSTAGRAM: _META_PHASES,
-    PublishingPlatform.FACEBOOK: _META_PHASES,
     PublishingPlatform.TIKTOK: _TIKTOK_PHASES,
 }
 
@@ -346,8 +328,8 @@ class PublishJobManager:
         """Queue one upload to one platform. Everything fixable is checked first.
 
         The whole method is scoped to ``platform``: the same file may be queued
-        for Instagram while it is uploading to YouTube, and neither guard below
-        can see the other's job.
+        for TikTok while it is uploading to YouTube, and neither guard below can
+        see the other's job.
         """
         self._bind_loop()
         self.ensure_history()
@@ -420,9 +402,9 @@ class PublishJobManager:
                 warnings=list(warnings),
                 pid=os.getpid(),
             )
-            # Only YouTube can be scheduled. Meta's Reels APIs and TikTok's
-            # Direct Post both publish immediately, so recording a requested
-            # time for them would put a promise on the job that nothing keeps.
+            # Only YouTube can be scheduled. TikTok's Direct Post publishes
+            # immediately, so recording a requested time for it would put a
+            # promise on the job that nothing keeps.
             if (
                 platform is PublishingPlatform.YOUTUBE
                 and draft.youtube.publish_mode is PublishMode.SCHEDULE
@@ -534,9 +516,6 @@ class PublishJobManager:
                 video_id=previous.video_id,
                 video_url=previous.video_url,
                 container_id=previous.container_id,
-                # Carried so the temporary copy of a Meta upload is still
-                # cleaned up even though this run will not create a new one.
-                hosted_object_key=previous.hosted_object_key,
                 thumbnail_status=previous.thumbnail_status,
                 caption_status=previous.caption_status,
                 caption_track_id=previous.caption_track_id,
@@ -752,10 +731,8 @@ class PublishJobManager:
 
         if job.platform is PublishingPlatform.YOUTUBE:
             self._execute_youtube(repository, job, plan, cancel_event, advance, report)
-        elif job.platform is PublishingPlatform.TIKTOK:
-            self._execute_tiktok(repository, job, plan, cancel_event, advance, report)
         else:
-            self._execute_meta(repository, job, plan, cancel_event, advance, report)
+            self._execute_tiktok(repository, job, plan, cancel_event, advance, report)
 
         job.phase = PublishPhase.COMPLETE
         job.progress = 1.0
@@ -773,8 +750,8 @@ class PublishJobManager:
 
         Two things it deliberately does not do: stop a job that already owns a
         post id (that job is resuming, not repeating), and look at other
-        platforms (a Reel on Instagram is not a reason to refuse a YouTube
-        upload, and vice versa).
+        platforms (a post on TikTok is not a reason to refuse a YouTube upload,
+        and vice versa).
         """
         if job.allow_duplicate or job.video_id:
             return
@@ -823,224 +800,6 @@ class PublishJobManager:
         self._upload_captions(job, plan, client, advance, report)
         self._fetch_status(job, client, advance)
 
-    # --- Instagram and Facebook -------------------------------------------
-
-    def _execute_meta(
-        self,
-        repository: PublishingRepository,
-        job: PublishJob,
-        plan: _JobPlan,
-        cancel_event: threading.Event,
-        advance: Callable[[PublishPhase, str], None],
-        report: Callable[[], None],
-    ) -> None:
-        """Host the file, hand Meta the link, wait, then publish.
-
-        Meta never receives a path or a file: it is given a temporary URL and
-        downloads the video itself. The object is removed again afterwards, and
-        it is removed whether the publish succeeded or not — a failed job must
-        not leave a video sitting on the internet.
-        """
-        instagram = job.platform is PublishingPlatform.INSTAGRAM
-        assert plan.social is not None
-        caption = compose_caption(plan.social)
-
-        advance(PublishPhase.AUTHENTICATE, "Meta bağlantısı doğrulanıyor")
-        target = MetaCredentials(self.settings).target()
-        if instagram:
-            target.require_instagram()
-        client = self._meta_client(target)
-        job.warnings.extend(
-            _meta_destination_note(job.platform, target, plan.social)
-        )
-        if cancel_event.is_set():
-            raise UploadCancelled()
-
-        host: MediaHost | None = None
-        try:
-            if not job.video_id:
-                advance(PublishPhase.HOST_MEDIA, "Video geçici adrese yükleniyor")
-                host = resolve_media_host(self.settings)
-                hosted = host.put(plan.video, key_hint=plan.media.filename)
-                job.hosted_object_key = hosted.object_key
-                job.uploaded_bytes = job.total_bytes
-                self._persist(job)
-                report()
-                if cancel_event.is_set():
-                    raise UploadCancelled()
-
-                if instagram:
-                    self._publish_instagram(
-                        job,
-                        client,
-                        hosted.url,
-                        caption,
-                        share_to_feed=plan.draft.instagram.share_to_feed,
-                        advance=advance,
-                        report=report,
-                    )
-                else:
-                    self._publish_facebook(job, client, hosted.url, caption, advance, report)
-                # The post exists now. Record it before anything else runs.
-                self._record_history(repository, job, plan)
-        finally:
-            if host is not None and job.hosted_object_key:
-                self._cleanup_hosted(host, job, advance, report)
-
-        advance(PublishPhase.FETCH_STATUS, "Gönderi bağlantısı okunuyor")
-        if not job.video_url and job.video_id:
-            permalink = (
-                client.media_permalink(job.video_id)
-                if instagram
-                else client.page_reel_permalink(job.video_id)
-            )
-            if permalink:
-                job.video_url = permalink
-        job.upload_status = "published"
-        job.processing_status = "published"
-
-    def _meta_client(self, target: Any) -> Any:
-        """Overridable seam so tests never construct a real Graph client."""
-        return MetaClient(target, self.settings)
-
-    def _publish_instagram(
-        self,
-        job: PublishJob,
-        client: Any,
-        video_url: str,
-        caption: str,
-        *,
-        share_to_feed: bool,
-        advance: Callable[[PublishPhase, str], None],
-        report: Callable[[], None],
-    ) -> None:
-        from app.publishing.meta import (
-            CONTAINER_POLL_SECONDS,
-            CONTAINER_TIMEOUT_SECONDS,
-        )
-
-        advance(PublishPhase.CREATE_CONTAINER, "Instagram videoyu alıyor")
-        if not job.container_id:
-            job.container_id = client.create_reel_container(
-                video_url=video_url, caption=caption, share_to_feed=share_to_feed
-            )
-            self._persist(job)
-        report()
-
-        advance(PublishPhase.AWAIT_PROCESSING, "Instagram videoyu işliyor")
-        deadline = time.monotonic() + CONTAINER_TIMEOUT_SECONDS
-        while True:
-            code, detail = client.container_status(job.container_id)
-            if code == "FINISHED":
-                break
-            if code in {"ERROR", "EXPIRED"}:
-                raise AppError(
-                    ErrorCode.META_MEDIA_REJECTED,
-                    "Instagram videoyu işleyemedi.",
-                    details=f"durum: {code}" + (f"\n{detail}" if detail else ""),
-                    http_status=422,
-                )
-            if time.monotonic() > deadline:
-                raise AppError(
-                    ErrorCode.META_MEDIA_REJECTED,
-                    "Instagram videoyu işlemeyi zamanında bitirmedi.",
-                    details=f"son durum: {code or 'bilinmiyor'}",
-                    suggestion=(
-                        "Instagram bazen geç işler. Bir süre sonra “Tekrar dene” diyebilirsiniz; "
-                        "gönderi oluştuysa ikinci kez yüklenmez."
-                    ),
-                    http_status=504,
-                )
-            job.message = f"Instagram videoyu işliyor ({code.lower() or 'bekleniyor'})"
-            report()
-            time.sleep(CONTAINER_POLL_SECONDS)
-
-        advance(PublishPhase.PUBLISH_POST, "Instagram'da yayınlanıyor")
-        job.video_id = client.publish_container(job.container_id)
-        job.video_url = client.media_permalink(job.video_id)
-        self._persist(job)
-        report()
-
-    def _publish_facebook(
-        self,
-        job: PublishJob,
-        client: Any,
-        video_url: str,
-        description: str,
-        advance: Callable[[PublishPhase, str], None],
-        report: Callable[[], None],
-    ) -> None:
-        from app.publishing.meta import (
-            CONTAINER_POLL_SECONDS,
-            CONTAINER_TIMEOUT_SECONDS,
-        )
-
-        advance(PublishPhase.CREATE_CONTAINER, "Facebook videoyu alıyor")
-        if not job.container_id:
-            container_id, upload_url = client.start_page_reel()
-            job.container_id = container_id
-            self._persist(job)
-            client.upload_page_reel(upload_url, video_url=video_url)
-        report()
-
-        advance(PublishPhase.AWAIT_PROCESSING, "Facebook videoyu işliyor")
-        deadline = time.monotonic() + CONTAINER_TIMEOUT_SECONDS
-        while True:
-            status, error = client.page_reel_status(job.container_id)
-            if status in {"ready", "processing_complete", "upload_complete"}:
-                break
-            if status in {"error", "expired"}:
-                raise AppError(
-                    ErrorCode.META_MEDIA_REJECTED,
-                    "Facebook videoyu işleyemedi.",
-                    details=f"durum: {status}" + (f"\n{error}" if error else ""),
-                    http_status=422,
-                )
-            if time.monotonic() > deadline:
-                raise AppError(
-                    ErrorCode.META_MEDIA_REJECTED,
-                    "Facebook videoyu işlemeyi zamanında bitirmedi.",
-                    details=f"son durum: {status or 'bilinmiyor'}",
-                    http_status=504,
-                )
-            job.message = f"Facebook videoyu işliyor ({status or 'bekleniyor'})"
-            report()
-            time.sleep(CONTAINER_POLL_SECONDS)
-
-        advance(PublishPhase.PUBLISH_POST, "Facebook'ta yayınlanıyor")
-        client.finish_page_reel(job.container_id, description=description)
-        # Facebook's Reel keeps the id it was given at the start; publishing is
-        # what turns it from a pending upload into a post, so this is the first
-        # moment the id may be recorded as one.
-        job.video_id = job.container_id
-        job.video_url = client.page_reel_permalink(job.video_id)
-        self._persist(job)
-        report()
-
-    def _cleanup_hosted(
-        self,
-        host: MediaHost,
-        job: PublishJob,
-        advance: Callable[[PublishPhase, str], None],
-        report: Callable[[], None],
-    ) -> None:
-        """Delete the temporary copy. Never fatal, and never skipped on failure."""
-        if not self.settings.mutable.media_host_delete_after_publish:
-            return
-        advance(PublishPhase.CLEANUP, "Geçici kopya siliniyor")
-        try:
-            host.delete(job.hosted_object_key or "")
-        except Exception:  # noqa: BLE001 - the post already exists; this is tidying
-            logger.warning("temporary copy for %s could not be removed", job.id)
-            job.warnings.append(
-                "Geçici kopya silinemedi. Bağlantı kendiliğinden geçersiz olacak, ama "
-                "kovadaki dosyayı elle de silebilirsiniz."
-            )
-        else:
-            job.hosted_object_key = None
-        self._persist(job)
-        report()
-
     # --- TikTok -----------------------------------------------------------
 
     def _execute_tiktok(
@@ -1054,8 +813,8 @@ class PublishJobManager:
     ) -> None:
         """Init a Direct Post, send the bytes, then wait for TikTok to finish.
 
-        No hosting layer: the file goes straight to TikTok's upload URL, so the
-        video is never placed anywhere public.
+        The file goes straight to TikTok's upload URL, so the video is never
+        placed anywhere public on its way there.
         """
         from app.publishing.tiktok import (
             PUBLISH_POLL_SECONDS,
@@ -1474,31 +1233,6 @@ def _title_for(
         return draft.youtube.title
     lines = draft.social(platform).caption.strip().splitlines()
     return (lines[0] if lines else media.filename)[:200]
-
-
-def _meta_destination_note(
-    platform: PublishingPlatform, target: Any, social: SocialDraft
-) -> list[str]:
-    """Warn when the draft's account note disagrees with where this will land.
-
-    The ``account`` field is the user's own reminder and authorizes nothing, so
-    it cannot redirect the post — but a mismatch usually means they think it is
-    going somewhere else, and that is worth saying before it does not.
-    """
-    expected = social.account.strip().lstrip("@").casefold()
-    if not expected:
-        return []
-    actual = (
-        (target.instagram_username or "")
-        if platform is PublishingPlatform.INSTAGRAM
-        else target.page_name
-    )
-    if expected and expected != actual.strip().lstrip("@").casefold():
-        return [
-            f"Taslakta “{social.account}” yazıyor ama bağlı hesap “{actual}”. Gönderi bağlı "
-            "hesaba gider; hesabı değiştirmek için Ayarlar'dan yeniden bağlanın."
-        ]
-    return []
 
 
 def _event_for(job: PublishJob) -> PublishJobEvent:

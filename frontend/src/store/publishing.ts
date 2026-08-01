@@ -25,9 +25,7 @@ import { api, describeError } from '@/api/client'
 import type { ApiErrorPayload } from '@/api/types'
 import type {
   DraftResponse,
-  MediaHostStatus,
   MediaItem,
-  MetaConnection,
   PublishDraft,
   PublishHistoryEntry,
   PublishJob,
@@ -57,9 +55,7 @@ interface PublishingState {
   duplicates: Partial<Record<PublishingPlatform, PublishHistoryEntry>>
 
   connection: YouTubeConnection | null
-  meta: MetaConnection | null
   tiktok: TikTokConnection | null
-  mediaHost: MediaHostStatus | null
   history: PublishHistoryEntry[]
   job: PublishJob | null
   event: PublishJobEvent | null
@@ -71,7 +67,7 @@ interface PublishingState {
 
   loadConnection: (refresh?: boolean) => Promise<void>
   connectYoutube: () => Promise<void>
-  /** Read the Meta, TikTok and hosting state the platform cards render from. */
+  /** Read the TikTok state the platform card renders from. */
   loadPlatformConnections: () => Promise<void>
   publishToPlatform: (
     slug: string,
@@ -147,7 +143,7 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
   /**
    * Queue one upload and follow it.
    *
-   * Shared by all four platforms because everything around the request is the
+   * Shared by both platforms because everything around the request is the
    * same: flush the draft first, refuse to start on an unsaved edit, then
    * attach to the job's progress stream. Only the call differs.
    */
@@ -188,9 +184,7 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
     duplicateOf: null,
     duplicates: {},
     connection: null,
-    meta: null,
     tiktok: null,
-    mediaHost: null,
     history: [],
     job: null,
     event: null,
@@ -226,23 +220,18 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
     },
 
     /**
-     * The three platform cards' state, read together.
+     * The TikTok card's state.
      *
-     * `Promise.allSettled`, not `all`: an unreachable Meta status must not stop
-     * the TikTok card from rendering, and none of these is required for the
-     * page to be useful.
+     * An unreachable status leaves the card saying it is not connected rather
+     * than failing the page: none of this is required for the panel to be
+     * useful, and the YouTube half must keep working regardless.
      */
     loadPlatformConnections: async () => {
-      const [meta, tiktok, mediaHost] = await Promise.allSettled([
-        api.metaStatus(),
-        api.tiktokStatus(false),
-        api.mediaHostStatus(),
-      ])
-      set({
-        meta: meta.status === 'fulfilled' ? meta.value : null,
-        tiktok: tiktok.status === 'fulfilled' ? tiktok.value : null,
-        mediaHost: mediaHost.status === 'fulfilled' ? mediaHost.value : null,
-      })
+      try {
+        set({ tiktok: await api.tiktokStatus(false) })
+      } catch {
+        set({ tiktok: null })
+      }
     },
 
     loadMedia: async (slug) => {
@@ -357,13 +346,6 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
             draft.youtube.title = title.slice(0, 100)
             draft.youtube.description = expand(planned.youtube.description)
             draft.youtube.tags = [...planned.youtube.tags]
-            draft.instagram.caption = socialText(
-              planned.instagram.caption,
-              planned.instagram.cta,
-            )
-            draft.instagram.hashtags = [...planned.instagram.hashtags]
-            draft.facebook.caption = socialText(planned.facebook.caption, planned.facebook.cta)
-            draft.facebook.hashtags = [...planned.facebook.hashtags]
             draft.tiktok.caption = socialText(planned.tiktok.caption, planned.tiktok.cta)
             draft.tiktok.hashtags = [...planned.tiktok.hashtags]
             // The hook is part of the plan, so refilling from the plan restores
@@ -431,11 +413,10 @@ export const usePublishingStore = create<PublishingState>((set, get) => {
     },
 
     /**
-     * One post to one of the other three platforms.
+     * One post to TikTok.
      *
-     * Each is its own backend job with its own duplicate protection, so a
-     * failure here neither retries nor affects anything already published
-     * elsewhere.
+     * Its own backend job with its own duplicate protection, so a failure here
+     * neither retries nor affects anything already published elsewhere.
      */
     publishToPlatform: async (slug, platform, allowDuplicate) => {
       const { selectedMediaId } = get()

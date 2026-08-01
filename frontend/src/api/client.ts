@@ -32,12 +32,8 @@ import type {
   AssetUploadResponse,
   ClientSecretUploadResponse,
   DraftResponse,
-  MediaHostStatus,
   MediaItem,
-  MetaAppCredentials,
-  MetaConnection,
   OAuthStart,
-  ObjectStorageSettings,
   PublishDraft,
   PublishHistoryEntry,
   PublishJob,
@@ -478,33 +474,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  /** Queue one upload to Instagram, Facebook or TikTok. Its own job each time. */
+  /** Queue one upload to TikTok. Its own job, independent of YouTube's. */
   publishToPlatform: (slug: string, platform: SocialPlatform, body: PublishRequest) =>
     request<PublishJob>(`/api/projects/${slug}/publishing/${platform}`, {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-
-  // --- Meta (Instagram + Facebook), one connection for both ---
-  metaStatus: () => request<MetaConnection>('/api/publishing/meta/status'),
-  /** Write-only: no endpoint returns the App ID or the App Secret. */
-  saveMetaAppCredentials: (body: MetaAppCredentials) =>
-    request<MetaConnection>('/api/publishing/meta/app-credentials', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-  clearMetaAppCredentials: () =>
-    request<MetaConnection>('/api/publishing/meta/app-credentials', { method: 'DELETE' }),
-  /** Returns the URL to open; Meta redirects back to the backend's callback. */
-  startMetaConnect: () =>
-    request<OAuthStart>('/api/publishing/meta/connect', { method: 'POST' }),
-  selectMetaPage: (pageId: string) =>
-    request<MetaConnection>('/api/publishing/meta/page', {
-      method: 'POST',
-      body: JSON.stringify({ pageId }),
-    }),
-  disconnectMeta: () =>
-    request<MetaConnection>('/api/publishing/meta/disconnect', { method: 'DELETE' }),
 
   // --- TikTok ---
   tiktokStatus: (refresh = false) =>
@@ -521,15 +496,6 @@ export const api = {
   disconnectTiktok: () =>
     request<TikTokConnection>('/api/publishing/tiktok/disconnect', { method: 'DELETE' }),
 
-  // --- temporary media hosting (only Instagram and Facebook need it) ---
-  mediaHostStatus: () => request<MediaHostStatus>('/api/publishing/media-host/status'),
-  saveMediaHostSettings: (body: ObjectStorageSettings) =>
-    request<MediaHostStatus>('/api/publishing/media-host/settings', {
-      method: 'PUT',
-      body: JSON.stringify(body),
-    }),
-  clearMediaHostKeys: () =>
-    request<MediaHostStatus>('/api/publishing/media-host/keys', { method: 'DELETE' }),
   publishHistory: (slug: string) =>
     request<PublishHistoryEntry[]>(`/api/projects/${slug}/publishing/history`),
   refreshPublishHistoryEntry: (slug: string, entryId: string) =>

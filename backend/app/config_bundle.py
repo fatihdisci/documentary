@@ -6,9 +6,8 @@ Everything this app knows that is *not* a project lives in three places::
     ~/ExtinctVideoBuilder/secrets.json    API keys and app secrets    (0600)
     ~/ExtinctVideoBuilder/secrets/        OAuth client files, tokens  (0600)
 
-Setting all of that up a second time means another trip through Google Cloud,
-the Meta Developer panel and TikTok's console. This module packs it into one
-file instead.
+Setting all of that up a second time means another trip through Google Cloud and
+TikTok's console. This module packs it into one file instead.
 
 **The file is always encrypted, and the passphrase is never optional.** That is
 not caution for its own sake: the bundle contains every API key and every OAuth
@@ -86,7 +85,6 @@ CREDENTIAL_PATTERNS = (
     "client_secret_*.json",
     "oauth-client-*.json",
     "youtube-upload-token.json",
-    "meta-token.json",
     "tiktok-token.json",
 )
 

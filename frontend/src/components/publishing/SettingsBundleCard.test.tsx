@@ -23,7 +23,7 @@ function importResult(overrides: Partial<BundleImportResult> = {}): BundleImport
   return {
     settingsApplied: true,
     skippedSettings: [],
-    secretsImported: ['meta_app_secret'],
+    secretsImported: ['tiktok_client_secret'],
     secretsSkipped: [],
     credentialFilesImported: ['youtube-upload-token.json'],
     credentialFilesSkipped: [],
@@ -111,7 +111,7 @@ describe('SettingsBundleCard', () => {
     await user.click(screen.getByRole('button', { name: 'İçe aktar' }))
 
     await waitFor(() => expect(importBundle).toHaveBeenCalledWith(file, PASSPHRASE, { overwrite: true, includePaths: false }))
-    expect(await screen.findByText('meta_app_secret')).toBeInTheDocument()
+    expect(await screen.findByText('tiktok_client_secret')).toBeInTheDocument()
     expect(container.textContent).not.toContain('FAKE-secret-value')
   })
 

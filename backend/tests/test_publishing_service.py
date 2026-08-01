@@ -153,13 +153,11 @@ def test_planned_short_seeds_every_platform_draft(settings) -> None:
                         "tags": ["dodo short"],
                         "pinnedComment": "The dodo was not foolish.",
                     },
-                    "instagram": {
-                        "caption": "A bird without fear.",
+                    "tiktok": {
+                        "caption": "Why did the dodo have no fear?",
                         "hashtags": ["Dodo"],
                         "cta": "Watch the full documentary.",
                     },
-                    "facebook": {"caption": "The dodo evolved without land predators."},
-                    "tiktok": {"caption": "Why did the dodo have no fear?"},
                 }
             ]
         }
@@ -172,12 +170,10 @@ def test_planned_short_seeds_every_platform_draft(settings) -> None:
     assert response.media.content_plan_id == "scenes-two-three"
     assert response.draft.youtube.title == "Why the Dodo Had No Fear"
     assert response.draft.youtube.description == "The full story: FULL_VIDEO_URL"
-    assert response.draft.instagram.caption == (
-        "A bird without fear.\n\nWatch the full documentary."
+    assert response.draft.tiktok.caption == (
+        "Why did the dodo have no fear?\n\nWatch the full documentary."
     )
-    assert response.draft.instagram.hashtags == ["Dodo"]
-    assert response.draft.facebook.caption == "The dodo evolved without land predators."
-    assert response.draft.tiktok.caption == "Why did the dodo have no fear?"
+    assert response.draft.tiktok.hashtags == ["Dodo"]
 
 
 def test_editing_a_draft_never_changes_the_project_metadata(settings) -> None:

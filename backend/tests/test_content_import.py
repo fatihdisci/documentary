@@ -98,6 +98,9 @@ class TestParsing:
                         {"kind": "scene", "number": 3},
                     ],
                     "youtube": {"title": "Why the Dodo Had No Fear"},
+                    # Retired platforms. A package written for an older build
+                    # still has to import, so these are ignored rather than
+                    # rejected.
                     "instagram": {"caption": "A bird without fear."},
                     "facebook": {"caption": "The dodo evolved without land predators."},
                     "tiktok": {"caption": "Why did the dodo have no fear?"},
@@ -109,6 +112,9 @@ class TestParsing:
 
         assert package.shorts_plan.shorts[0].sections[1].number == 3
         assert package.shorts_plan.shorts[0].youtube.title == "Why the Dodo Had No Fear"
+        assert package.shorts_plan.shorts[0].tiktok.caption == (
+            "Why did the dodo have no fear?"
+        )
 
 
 class TestApplyContent:

@@ -1,40 +1,33 @@
 /**
- * The Instagram, Facebook and TikTok cards.
+ * The TikTok card.
  *
- * These publish for real. Each one is its own backend job with its own
- * duplicate protection, so a failure on one platform neither retries nor
- * touches anything already posted on another.
+ * It publishes for real, as its own backend job with its own duplicate
+ * protection, so a failure here neither retries nor touches anything already
+ * posted on YouTube.
  *
- * Three things the cards are deliberate about:
+ * Three things the card is deliberate about:
  *
- * * **The account shown is the connected one.** The "hesap" field in the form is
- *   the user's own note and authorizes nothing; what the card displays as the
- *   destination comes from the stored connection.
- * * **Nothing is offered that cannot happen.** Instagram and Facebook need the
- *   temporary hosting layer, so without it the button is disabled and says why.
- *   TikTok's privacy options come from TikTok's own answer for this account, so
- *   an unaudited app shows only "Yalnızca ben" and says why.
- * * **Scheduling is absent, not broken.** Neither Meta's Reels APIs nor TikTok's
- *   Direct Post can schedule, so the card says so rather than showing a picker
- *   that would publish immediately.
+ * * **The account shown is the connected one.** Nothing typed on this page can
+ *   redirect a post; the destination the card displays comes from the stored
+ *   connection.
+ * * **Nothing is offered that cannot happen.** The privacy options come from
+ *   TikTok's own answer for this account, so an unaudited app shows only
+ *   "Yalnızca ben" and says why.
+ * * **Scheduling is absent, not broken.** TikTok's Direct Post cannot schedule,
+ *   so the card says so rather than showing a picker that would publish
+ *   immediately.
  */
 
 import type {
-  MediaHostStatus,
-  MetaConnection,
   PublishDraft,
   PublishHistoryEntry,
   PublishJob,
   PublishJobEvent,
-  SocialDraft,
   SocialPlatform,
   TikTokConnection,
   TikTokDraft,
 } from '@/api/publishing-types'
 import {
-  MAX_FACEBOOK_DESCRIPTION_CHARS,
-  MAX_INSTAGRAM_CAPTION_CHARS,
-  MAX_INSTAGRAM_HASHTAGS,
   MAX_TIKTOK_TITLE_CHARS,
   composeCaption,
 } from '@/api/publishing-types'
@@ -66,11 +59,8 @@ const PHASE_LABEL: Record<PublishJobEvent['phase'], string> = {
   'upload-video': 'Video yükleniyor',
   'set-thumbnail': 'Kapak görseli konuluyor',
   'upload-captions': 'Altyazı gönderiliyor',
-  'host-media': 'Video geçici adrese yükleniyor',
   'create-container': 'Platform videoyu alıyor',
   'await-processing': 'Platform videoyu işliyor',
-  'publish-post': 'Gönderi yayınlanıyor',
-  cleanup: 'Geçici kopya siliniyor',
   'fetch-status': 'Durum okunuyor',
   complete: 'Tamamlandı',
 }
@@ -238,183 +228,6 @@ function PlatformShell({
         />
       )}
     </section>
-  )
-}
-
-/** Caption + hashtags + the user's own account note, shared by all three. */
-function SocialFields({
-  idPrefix,
-  value,
-  captionLabel,
-  captionLimit,
-  accountLabel,
-  accountPlaceholder,
-  busy,
-  onChange,
-}: {
-  idPrefix: string
-  value: SocialDraft
-  captionLabel: string
-  captionLimit: number
-  accountLabel: string
-  accountPlaceholder: string
-  busy: boolean
-  onChange: (mutate: (draft: SocialDraft) => void) => void
-}) {
-  // The counter measures what is actually sent — caption *and* hashtags —
-  // because that is the string the platform's limit applies to.
-  const composed = composeCaption(value.caption, value.hashtags)
-  return (
-    <>
-      <CountedTextarea
-        id={`${idPrefix}-caption`}
-        label={captionLabel}
-        rows={5}
-        value={value.caption}
-        used={composed.length}
-        limit={captionLimit}
-        unit="karakter"
-        disabled={busy}
-        hint="Sayaç hashtagler dahil gönderilecek metni ölçer."
-        onChange={(next) => onChange((draft) => void (draft.caption = next))}
-      />
-
-      <TagEditor
-        id={`${idPrefix}-hashtags`}
-        label="Hashtagler"
-        tags={value.hashtags}
-        disabled={busy}
-        onChange={(hashtags) => onChange((draft) => void (draft.hashtags = hashtags))}
-      />
-
-      <label className="publish-field" htmlFor={`${idPrefix}-account`}>
-        <span className="publish-field-head">{accountLabel}</span>
-        <input
-          id={`${idPrefix}-account`}
-          value={value.account}
-          placeholder={accountPlaceholder}
-          disabled={busy}
-          onChange={(event) => onChange((draft) => void (draft.account = event.target.value))}
-        />
-        <span className="hint">
-          Yalnızca kendi notunuz. Gönderi her zaman bağlı hesaba gider.
-        </span>
-      </label>
-    </>
-  )
-}
-
-/** Why Instagram or Facebook cannot publish right now, or `null`. */
-function metaBlockedReason(
-  meta: MetaConnection | null,
-  host: MediaHostStatus | null,
-  platform: 'instagram' | 'facebook',
-): string | null {
-  if (!meta || !meta.appConfigured) return 'Meta uygulama bilgileri girilmedi.'
-  if (!meta.tokenPresent) return 'Meta hesabı bağlı değil.'
-  if (!meta.scopesSufficient) return 'Meta izinleri yetersiz; yeniden bağlanın.'
-  if (meta.expired) return 'Meta bağlantısının süresi dolmuş.'
-  if (!meta.selectedPageId) return 'Yayın yapılacak Facebook Sayfası seçilmedi.'
-  if (platform === 'instagram' && !meta.instagramId) {
-    return 'Bu sayfaya bağlı bir Instagram profesyonel hesabı yok.'
-  }
-  if (!host?.configured) {
-    return 'Geçici medya barındırma tanımlı değil; Meta videoyu bir adresten indirir.'
-  }
-  return null
-}
-
-export function InstagramPanel({
-  meta,
-  mediaHost,
-  ...props
-}: PlatformCardProps & { meta: MetaConnection | null; mediaHost: MediaHostStatus | null }) {
-  const blocked = metaBlockedReason(meta, mediaHost, 'instagram')
-  const destination = meta?.instagramUsername ? `@${meta.instagramUsername}` : null
-
-  return (
-    <PlatformShell
-      platform="instagram"
-      title="Instagram"
-      destination={destination}
-      connectionProblem={blocked}
-      connectionSuggestion={meta?.suggestion ?? mediaHost?.suggestion ?? null}
-      blockedReason={blocked}
-      buttonLabel="Instagram Reels olarak yayınla"
-      props={props}
-    >
-      <SocialFields
-        idPrefix="instagram"
-        value={props.draft.instagram}
-        captionLabel="Reels açıklaması"
-        captionLimit={MAX_INSTAGRAM_CAPTION_CHARS}
-        accountLabel="Instagram hesabı (not)"
-        accountPlaceholder="@hesap"
-        busy={props.busy}
-        onChange={(mutate) => props.onEdit((next) => mutate(next.instagram))}
-      />
-
-      {props.draft.instagram.hashtags.length > MAX_INSTAGRAM_HASHTAGS && (
-        <p className="hint">
-          ⚠ {props.draft.instagram.hashtags.length} hashtag var; Instagram en fazla{' '}
-          {MAX_INSTAGRAM_HASHTAGS} tanesini kabul eder.
-        </p>
-      )}
-
-      <label className="checkbox">
-        <input
-          type="checkbox"
-          checked={props.draft.instagram.shareToFeed}
-          disabled={props.busy}
-          onChange={(event) =>
-            props.onEdit((next) => void (next.instagram.shareToFeed = event.target.checked))
-          }
-        />
-        Profil akışında da göster
-      </label>
-
-      <p className="hint">
-        Instagram API'si ileri tarihe planlamayı desteklemez; gönderi onayladığınız anda
-        yayınlanır. Video, Meta'nın indirebilmesi için geçici ve süreli bir adrese konur, sonra
-        oradan silinir.
-      </p>
-    </PlatformShell>
-  )
-}
-
-export function FacebookPanel({
-  meta,
-  mediaHost,
-  ...props
-}: PlatformCardProps & { meta: MetaConnection | null; mediaHost: MediaHostStatus | null }) {
-  const blocked = metaBlockedReason(meta, mediaHost, 'facebook')
-
-  return (
-    <PlatformShell
-      platform="facebook"
-      title="Facebook"
-      destination={meta?.pageName ?? null}
-      connectionProblem={blocked}
-      connectionSuggestion={meta?.suggestion ?? mediaHost?.suggestion ?? null}
-      blockedReason={blocked}
-      buttonLabel="Facebook Reels olarak yayınla"
-      props={props}
-    >
-      <SocialFields
-        idPrefix="facebook"
-        value={props.draft.facebook}
-        captionLabel="Reels açıklaması"
-        captionLimit={MAX_FACEBOOK_DESCRIPTION_CHARS}
-        accountLabel="Facebook Sayfası (not)"
-        accountPlaceholder="Sayfa adı"
-        busy={props.busy}
-        onChange={(mutate) => props.onEdit((next) => mutate(next.facebook))}
-      />
-      <p className="hint">
-        Gönderi bağlı Sayfaya Reel olarak eklenir. Planlama API üzerinden yapılamaz; onay
-        verdiğinizde yayınlanır.
-      </p>
-    </PlatformShell>
   )
 }
 

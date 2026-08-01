@@ -2,8 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, describeError } from '@/api/client'
 import type { ApiErrorPayload, AppSettings, SettingsResponse } from '@/api/types'
 import { ErrorBox } from '@/components/ErrorBox'
-import { MediaHostCard } from '@/components/publishing/MediaHostCard'
-import { MetaConnectionCard } from '@/components/publishing/MetaConnectionCard'
 import { SettingsBundleCard } from '@/components/publishing/SettingsBundleCard'
 import { TikTokConnectionCard } from '@/components/publishing/TikTokConnectionCard'
 import { YouTubeConnectionCard } from '@/components/publishing/YouTubeConnectionCard'
@@ -283,10 +281,6 @@ export function SettingsPage() {
         <SettingsBundleCard />
 
         <YouTubeConnectionCard />
-
-        <MetaConnectionCard />
-
-        <MediaHostCard />
 
         <TikTokConnectionCard />
 

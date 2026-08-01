@@ -98,37 +98,38 @@ class MutableSettings(BaseModel):
     #: path, and never the file's contents.
     youtube_client_secret_file: str = ""
 
-    # --- temporary media hosting -----------------------------------------
-    # Instagram and Facebook do not accept an uploaded file: they are given a
-    # URL and fetch the video themselves. Nothing on this computer is reachable
-    # from the internet, so the bytes have to be parked somewhere for a few
-    # minutes. Bucket coordinates are not secrets; the two keys are, and live in
-    # ``secrets.json`` under ``object_storage_access_key_id`` /
-    # ``object_storage_secret_access_key``.
-    #: ``s3`` (any S3-compatible endpoint, including Cloudflare R2) or ``none``.
-    media_host_provider: str = "none"
-    #: e.g. ``https://<accountid>.r2.cloudflarestorage.com``
-    object_storage_endpoint: str = ""
-    object_storage_bucket: str = ""
-    #: R2 ignores the region but still signs with one; ``auto`` is what it uses.
-    object_storage_region: str = "auto"
-    #: Key prefix inside the bucket, so the app's objects stay in one place.
-    object_storage_prefix: str = "evb-temp"
-    #: How long a presigned link stays valid. Long enough for Meta to fetch a
-    #: large Reel, short enough that a leaked link is worthless tomorrow.
-    media_host_ttl_seconds: int = 3600
-    #: Delete the object again once the platform has taken it.
-    media_host_delete_after_publish: bool = True
-
-    # --- Meta / TikTok, non-secret parts ---------------------------------
-    #: Graph API version the app pins itself to, so Meta deprecating a version
-    #: is a setting change rather than a code change.
-    meta_graph_version: str = "v21.0"
-    #: Where Meta sends the user back. Must match a Valid OAuth Redirect URI in
-    #: the Meta app exactly, including the scheme and port.
-    meta_redirect_uri: str = ""
+    # --- TikTok, non-secret parts ----------------------------------------
     #: TikTok requires an HTTPS redirect, so this one is often not localhost.
     tiktok_redirect_uri: str = ""
+
+
+#: Settings that existed in an earlier build and no longer do. ``MutableSettings``
+#: forbids unknown fields, and a settings.json written before Instagram and
+#: Facebook publishing was removed still carries these — without this the whole
+#: file would fail validation and every *other* setting the user configured would
+#: silently revert to its default.
+_RETIRED_SETTINGS = frozenset(
+    {
+        "mediaHostProvider",
+        "objectStorageEndpoint",
+        "objectStorageBucket",
+        "objectStorageRegion",
+        "objectStoragePrefix",
+        "mediaHostTtlSeconds",
+        "mediaHostDeleteAfterPublish",
+        "metaGraphVersion",
+        "metaRedirectUri",
+    }
+)
+
+
+def _without_retired_keys(raw: dict[str, object]) -> dict[str, object]:
+    """Drop settings this build no longer knows, keeping the ones it does."""
+    return {
+        key: value
+        for key, value in raw.items()
+        if key not in _RETIRED_SETTINGS and _to_camel(key) not in _RETIRED_SETTINGS
+    }
 
 
 class Settings(BaseSettings):
@@ -232,6 +233,8 @@ class Settings(BaseSettings):
             return MutableSettings()
         try:
             raw = json.loads(self.settings_file.read_text("utf-8"))
+            if isinstance(raw, dict):
+                raw = _without_retired_keys(raw)
             return MutableSettings.model_validate(raw)
         except (json.JSONDecodeError, ValueError) as exc:
             # A corrupt settings file must not brick the app; fall back loudly.

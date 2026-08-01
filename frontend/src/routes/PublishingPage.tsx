@@ -13,11 +13,7 @@ import { ErrorBox } from '@/components/ErrorBox'
 import { MediaPicker } from '@/components/publishing/MediaPicker'
 import { MetadataEditor } from '@/components/publishing/MetadataEditor'
 import { PublishHistory } from '@/components/publishing/PublishHistory'
-import {
-  FacebookPanel,
-  InstagramPanel,
-  TikTokPanel,
-} from '@/components/publishing/SocialPanels'
+import { TikTokPanel } from '@/components/publishing/TikTokPanel'
 import { YouTubePanel } from '@/components/publishing/YouTubePanel'
 import { MAX_TITLE_CHARS, composeCaption } from '@/api/publishing-types'
 import type { SocialPlatform } from '@/api/publishing-types'
@@ -34,14 +30,14 @@ const SAVE_LABEL: Record<string, string> = {
   error: 'Kaydedilemedi — tekrar denenecek',
 }
 
-/** Per-platform "publish anyway" ticks. One file, four independent decisions. */
+/** Per-platform "publish anyway" ticks. One file, independent decisions. */
 type OverrideMap = Partial<Record<SocialPlatform, boolean>>
 
 export function PublishingPage() {
   const { project } = useProjectStore()
   const {
     media, selectedMediaId, draft, selectedMedia, sourceChanged, sourceChangedReason,
-    duplicateOf, duplicates, connection, meta, tiktok, mediaHost, history, job, event,
+    duplicateOf, duplicates, connection, tiktok, history, job, event,
     loading, busy, saveStatus, error,
     loadConnection, loadPlatformConnections, connectYoutube, loadMedia, selectMedia,
     editDraft, refillFromProject, attachThumbnail, attachCaption, publish,
@@ -135,8 +131,6 @@ export function PublishingPage() {
     }
   }
 
-  const instagramProps = platformProps('instagram')
-  const facebookProps = platformProps('facebook')
   const tiktokProps = platformProps('tiktok')
 
   return (
@@ -266,12 +260,6 @@ export function PublishingPage() {
           onRetry={(jobId) => void retry(jobId)}
         />
 
-        {instagramProps && (
-          <InstagramPanel {...instagramProps} meta={meta} mediaHost={mediaHost} />
-        )}
-        {facebookProps && (
-          <FacebookPanel {...facebookProps} meta={meta} mediaHost={mediaHost} />
-        )}
         {tiktokProps && <TikTokPanel {...tiktokProps} tiktok={tiktok} />}
       </section>
 
@@ -351,26 +339,10 @@ export function PublishingPage() {
                     draft[confirmingPlatform].hashtags,
                   ) || '(boş)'}
                 </dd>
-                {confirmingPlatform === 'instagram' && (
-                  <>
-                    <dt>Profil akışı</dt>
-                    <dd>{draft.instagram.shareToFeed ? 'Gösterilecek' : 'Gösterilmeyecek'}</dd>
-                  </>
-                )}
-                {confirmingPlatform === 'tiktok' && (
-                  <>
-                    <dt>Gizlilik</dt>
-                    <dd>{draft.tiktok.privacy}</dd>
-                  </>
-                )}
+                <dt>Gizlilik</dt>
+                <dd>{draft.tiktok.privacy}</dd>
               </dl>
-              {confirmingPlatform !== 'tiktok' && (
-                <p className="hint">
-                  Video, Meta'nın indirebilmesi için geçici ve süreli bir adrese konur ve
-                  yayın bittiğinde oradan silinir.
-                </p>
-              )}
-              {confirmingPlatform === 'tiktok' && tiktok?.auditRequired && (
+              {tiktok?.auditRequired && (
                 <p className="confirm-warning">
                   ⚠ Uygulama TikTok denetiminden geçmediği için gönderiyi yalnızca siz
                   görebileceksiniz.
@@ -395,17 +367,11 @@ export function PublishingPage() {
     </div>
   )
 
-  function platformDestination(platform: SocialPlatform): string {
-    if (platform === 'instagram') {
-      return meta?.instagramUsername ? `@${meta.instagramUsername}` : 'bağlı Instagram hesabı'
-    }
-    if (platform === 'facebook') return meta?.pageName ?? 'bağlı Facebook Sayfası'
+  function platformDestination(_platform: SocialPlatform): string {
     return tiktok?.displayName ?? 'bağlı TikTok hesabı'
   }
 }
 
 const PLATFORM_LABEL: Record<SocialPlatform, string> = {
-  instagram: 'Instagram',
-  facebook: 'Facebook',
   tiktok: 'TikTok',
 }
